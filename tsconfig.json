@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES6",                      // 编译目标 JavaScript 版本
+    "module": "ESNext",                   // 模块系统
+    "strict": true,                       // 开启严格类型检查
+    "esModuleInterop": true,              // 支持 ES 模块导入
+    "skipLibCheck": true,                 // 跳过库文件类型检查
+    "outDir": "./dist",                   // 输出目录
+    "rootDir": "./src",                   // 源代码目录
+    "moduleResolution": "node",           // 模块解析方式
+    "sourceMap": true                     // 生成 Source Map
+  },
+  "include": ["src/**/*"]                // 包含的文件路径
+}
