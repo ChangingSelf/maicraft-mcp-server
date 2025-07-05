@@ -1,24 +1,24 @@
-import mineflayer from 'mineflayer'
-import { mineflayer as mineflayerViewer } from 'prismarine-viewer'
-import { pathfinder, Movements } from 'mineflayer-pathfinder'
-import pathfinderPkg from 'mineflayer-pathfinder'
-const { goals } = pathfinderPkg
-import minecraftData from 'minecraft-data'
+/**
+ * Maicraft - Minecraft × MaiBot 适配器
+ * 
+ * 主入口文件，导出核心功能模块
+ */
 
+// 核心模块
+export { WebSocketClient } from './messaging/WebSocketClient.js';
+export { Router } from './messaging/Router.js';
 
-const bot = mineflayer.createBot({
-  host: '127.0.0.1',
-  port: 11451,
-  username: 'Mai'
-})
+// 类型定义
+export * from './messaging/MaimMessage.js';
 
-bot.loadPlugin(pathfinder)
+// 工具类
+export { Logger, LogLevel } from './utils/Logger.js';
 
-bot.once('spawn', () => {
-  mineflayerViewer(bot, { firstPerson: true, port: 3000 })
+// 版本信息
+export const VERSION = '0.1.0';
 
-  // const mcData = minecraftData(bot.version)
-  const defaultMove = new Movements(bot)
-  bot.pathfinder.setMovements(defaultMove)
-  bot.pathfinder.setGoal(new goals.GoalXZ(1000, 0))
-})
+console.log(`
+🎮 Maicraft v${VERSION}
+📦 Minecraft × MaiBot 适配器
+🔗 基于 maim_message 协议的双向适配器
+`);
