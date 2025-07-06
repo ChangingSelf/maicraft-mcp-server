@@ -30,6 +30,13 @@ export declare interface Router {
   ): boolean;
 }
 
+// 连接状态接口
+interface ConnectionState {
+  connected: boolean;
+  reconnecting: boolean;
+  reconnectAttempts: number;
+}
+
 /**
  * 路由器类
  * 管理到多个 MaiBot 实例的 WebSocket 连接
@@ -192,12 +199,8 @@ export class Router extends EventEmitter {
   /**
    * 获取所有客户端的连接状态
    */
-  getConnectionStates(): Record<string, {
-    connected: boolean;
-    reconnecting: boolean;
-    reconnectAttempts: number;
-  }> {
-    const states: Record<string, any> = {};
+  getConnectionStates(): Record<string, ConnectionState> {
+    const states: Record<string, ConnectionState> = {};
     
     for (const [platform, client] of this.clients) {
       states[platform] = client.getConnectionState();
@@ -307,5 +310,12 @@ export class Router extends EventEmitter {
       this.logger.error(`连接 ${platform} 失败:`, error);
       throw error;
     }
+  }
+
+  /**
+   * 兼容旧代码的别名：shutdown -> stop
+   */
+  async shutdown(): Promise<void> {
+    return this.stop();
   }
 } 

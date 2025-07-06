@@ -38,7 +38,7 @@ export class Logger {
   /**
    * 调试日志
    */
-  debug(...args: any[]): void {
+  debug(...args: unknown[]): void {
     if (this.level <= LogLevel.DEBUG) {
       this.log('DEBUG', ...args);
     }
@@ -47,7 +47,7 @@ export class Logger {
   /**
    * 信息日志
    */
-  info(...args: any[]): void {
+  info(...args: unknown[]): void {
     if (this.level <= LogLevel.INFO) {
       this.log('INFO', ...args);
     }
@@ -56,7 +56,7 @@ export class Logger {
   /**
    * 警告日志
    */
-  warn(...args: any[]): void {
+  warn(...args: unknown[]): void {
     if (this.level <= LogLevel.WARN) {
       this.log('WARN', ...args);
     }
@@ -65,7 +65,7 @@ export class Logger {
   /**
    * 错误日志
    */
-  error(...args: any[]): void {
+  error(...args: unknown[]): void {
     if (this.level <= LogLevel.ERROR) {
       this.log('ERROR', ...args);
     }
@@ -74,24 +74,33 @@ export class Logger {
   /**
    * 内部日志方法
    */
-  private log(level: string, ...args: any[]): void {
-    const parts: string[] = [];
+  private log(level: string, ...args: unknown[]): void {
+    const rawParts: string[] = [];
+    const coloredParts: string[] = [];
 
     // 时间戳
     if (this.timestamp) {
-      parts.push(`[${new Date().toISOString()}]`);
+      const ts = `[${this.formatTimestamp(new Date())}]`;
+      rawParts.push(ts);
+      coloredParts.push(this.colors ? `\x1b[90m${ts}\x1b[0m` : ts); // 灰色
     }
 
     // 日志级别
-    parts.push(`[${level}]`);
+    const levelPart = `[${level}]`;
+    rawParts.push(levelPart);
+    coloredParts.push(
+      this.colors ? `${this.getColor(level)}${levelPart}\x1b[0m` : levelPart
+    );
 
-    // 前缀
+    // 模块前缀
     if (this.prefix) {
-      parts.push(`[${this.prefix}]`);
+      const modulePart = `[${this.prefix}]`;
+      rawParts.push(modulePart);
+      coloredParts.push(this.colors ? `\x1b[34m${modulePart}\x1b[0m` : modulePart); // 蓝色
     }
 
     // 构建完整消息
-    const prefix = parts.join(' ');
+    const prefix = (this.colors ? coloredParts : rawParts).join(' ');
     const message = args.length > 0 ? args.join(' ') : '';
 
     // 根据级别选择输出方法
@@ -111,6 +120,33 @@ export class Logger {
       default:
         console.log(prefix, message);
     }
+  }
+
+  /**
+   * 根据日志级别获取 ANSI 颜色代码
+   */
+  private getColor(level: string): string {
+    switch (level) {
+      case 'DEBUG':
+        return '\x1b[90m'; // 灰色
+      case 'INFO':
+        return '\x1b[32m'; // 绿色
+      case 'WARN':
+        return '\x1b[33m'; // 黄色
+      case 'ERROR':
+        return '\x1b[31m'; // 红色
+      default:
+        return '';
+    }
+  }
+
+  /**
+   * 将日期格式化为 "YYYY-MM-DD HH:mm:ss" 字符串
+   */
+  private formatTimestamp(date: Date): string {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+           `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
   }
 
   /**

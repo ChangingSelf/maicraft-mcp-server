@@ -1,0 +1,33 @@
+# Maicraft 客户端配置模板
+# 将此文件复制为 config.yaml 并根据需要修改。
+
+minecraft:
+  host: 127.0.0.1        # Minecraft 服务器地址
+  port: 25565            # 端口
+  username: MaiBot       # 机器人用户名（离线模式）
+  password:              # 在线模式密码（offline 留空）
+  auth: offline          # offline | microsoft | mojang
+  version: "1.19.0"      # 可选，留空自动检测
+
+router:
+  route_config:
+    amaidesu:            # 自定义平台名
+      url: ws://127.0.0.1:8080/ws
+      token:             # 可选鉴权 token
+      reconnect_interval: 5000    # 断线重连间隔 (ms)
+      max_reconnect_attempts: 10  # 最大重连次数
+
+enabledEvents:
+  - chat
+  - playerJoin
+  - playerLeave
+  - mobSpawn
+  - blockBreak
+  - blockPlace
+  - healthUpdate
+  - experienceUpdate
+  - weatherChange
+  - timeUpdate
+
+stateUpdateInterval: 3000  # 状态推送间隔 (ms)
+maxMessageHistory: 100     # 本地最大事件缓存条数 

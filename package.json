@@ -1,21 +1,22 @@
 {
   "name": "maicraft",
   "version": "0.1.0",
-  "description": "Minecraft × MaiBot 适配器 - 通过 WebSocket 双向同步游戏状态与高级动作指令",
-  "main": "dist/index.js",
+  "private": true,
+  "description": "Minecraft × MaiBot 客户端 - 通过 WebSocket 双向同步游戏状态与高级动作指令",
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "dev:client": "tsx src/examples/basic-client.ts",
-    "dev": "tsx src/index.ts",
+    "dev": "tsx src/main.ts",
+    "start": "node dist/main.js",
     "test": "jest",
     "lint": "eslint src/**/*.ts",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "dev:mock": "tsx src/MockAmaidesu.ts"
   },
   "keywords": [
     "minecraft",
-    "maibot", 
-    "adapter",
+    "maibot",
+    "client",
     "websocket",
     "mineflayer",
     "maim-message"
@@ -24,12 +25,18 @@
   "license": "MIT",
   "dependencies": {
     "canvas": "^3.1.2",
+    "js-yaml": "^4.1.0",
     "minecraft-data": "^3.92.0",
+    "minecrafthawkeye": "^1.3.9",
     "mineflayer": "^4.30.0",
+    "mineflayer-collectblock": "^1.6.0",
     "mineflayer-pathfinder": "^2.4.5",
+    "mineflayer-pvp": "^1.3.2",
+    "mineflayer-tool": "^1.2.0",
     "ws": "^8.16.0"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^24.0.10",
     "@types/ws": "^8.5.10",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
@@ -44,5 +51,8 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "packageManager": "pnpm@10.6.5"
+  "packageManager": "pnpm@10.6.5",
+  "bin": {
+    "maicraft": "dist/main.js"
+  }
 }

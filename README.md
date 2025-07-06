@@ -1,276 +1,290 @@
 # Maicraft
 
-> 📦 **Minecraft × MaiBot 适配器**
-> 
-> 将 *Minecraft* 游戏世界与 [MaiBot](https://github.com/MaiM-with-u/MaiBot) 智能体无缝连接，通过 WebSocket 双向同步游戏状态 & 高级动作指令。
+一个 Minecraft 客户端适配器，旨在作为连接 Minecraft 游戏世界与外部智能决策系统（例如 AI 代理）的桥梁。
+
+Maicraft 基于 [Mineflayer](https://github.com/PrismarineJS/mineflayer) 构建，它能够实时捕获游戏内发生的事件，将完整的游戏状态同步给外部系统，并接收指令以在游戏中执行各种高级动作。
+
+部分高级动作参考[mineland](https://github.com/cocacola-lab/MineLand/)项目的实现。
 
 ***
 
-## 🧐 项目简介
+## 核心特性
 
-`Maicraft` 是一个**纯粹的双向适配器**，在 Minecraft 游戏与任何支持 `maim_message` 协议的客户端之间建立桥梁：
-
-### 核心职责
-
-1. **游戏事件 → maim_message**：
-
-   - 监听 Minecraft 游戏事件（玩家加入、怪物出现、方块变化等）
-   - 将当前游戏状态转换为`maim_message`的**提示词**
-   - 将事件内容转换为 `maim_message` 的**消息体**
-   - 通过 WebSocket 发送给对方
-
-2. **maim_message → 游戏动作**：
-
-   - 接收对方发送的 `maim_message` 格式动作指令
-   - 解析消息内容为具体的游戏操作
-   - 通过 [mineflayer](https://github.com/PrismarineJS/mineflayer) 控制游戏内机器人执行
-
-
-### 设计理念
-
-- **协议无关**：本项目不关心对方是 MaiBot、Amaidesu 还是其他客户端
-- **纯粹适配**：只负责 Minecraft ↔ maim_message 的双向转换
-- **统一接口**：所有客户端都通过相同的 `maim_message` 协议交互
-
-> ⚠️ **注意**：本项目仅提供适配器功能，不包含 MaiBot 核心、Minecraft 服务器或决策逻辑。
+- **事件驱动的状态同步**：不再定时轮询，而是在游戏内发生真实事件（如方块破坏、玩家聊天等）时，立即将最新的游戏状态快照发送给下游系统，确保了信息的及时性和高效性。
+- **远程动作执行**：支持外部系统通过 WebSocket 发送指令，执行如移动、合成、挖掘、放置方块等多种预设动作。
+- **标准化的消息协议**：所有通信都严格遵循 `maim_message` 协议，将具体业务数据封装在 JSON 格式的文本段中，保证了跨系统通信的规范性和可扩展性。
+- **灵活的消息路由**：能够同时连接到多个下游 WebSocket 服务，将游戏状态分发给所有已连接的客户端。
+- **高度可扩展的动作系统**：内置一套基础动作，并提供简洁的接口，允许开发者轻松注册自定义的游戏内动作。
+- **详细的游戏状态管理**：通过 `StateManager` 维护一个全面的游戏状态视图，包括玩家信息、库存、世界状况和最近的事件历史。
 
 ***
 
-## 🔧 架构概览
+## 架构概览
+
+Maicraft 的核心组件之间的交互关系如下所示：
 
 ```mermaid
-flowchart TD
-    subgraph Game["Minecraft 服务器"]
-        MCServer["MC 服务器"]
+graph TD
+    subgraph "Minecraft World"
+        MSrv["Minecraft Server"]
     end
 
-    subgraph Maicraft["Maicraft 适配器"]
-        MF["mineflayer<br/>游戏客户端"]
-        EventListener["事件监听器"]
-        StateManager["状态管理器"]
-        MessageEncoder["maim_message<br/>编码/解码器"]
-        WSClient["WebSocket 客户端"]
-        ActionExecutor["动作执行器"]
+    subgraph "Maicraft"
+        MCli["MinecraftClient"]
+        MClient["MaicraftClient"]
+        SManager["StateManager"]
+        MEncoder["MessageEncoder"]
+        Router["Router"]
+        AExecutor["ActionExecutor"]
     end
 
-    subgraph Client["任意客户端<br/>(MaiBot/Amaidesu/其他)"]
-        ClientWS["WebSocket 服务"]
-        ClientLogic["决策逻辑"]
+    subgraph "External System"
+        Ext["WebSocket Client"]
     end
 
-    %% 游戏事件流
-    MCServer -- "游戏事件" --> MF
-    MF -- "原始事件" --> EventListener
-    EventListener -- "结构化事件" --> StateManager
-    StateManager -- "游戏状态 + 事件" --> MessageEncoder
-    MessageEncoder -- "maim_message" --> WSClient
-    WSClient -- "WebSocket" --> ClientWS
-
-    %% 动作指令流
-    ClientWS -- "maim_message" --> WSClient
-    WSClient -- "动作消息" --> MessageEncoder
-    MessageEncoder -- "解析后指令" --> ActionExecutor
-    ActionExecutor -- "游戏操作" --> MF
-    MF -- "执行动作" --> MCServer
-
-    %% 客户端内部
-    ClientWS -- "接收状态" --> ClientLogic
-    ClientLogic -- "发送动作" --> ClientWS
+    MSrv -- "events" --> MCli
+    MCli -- "raw events" --> MClient
+    MClient -- "update" --> SManager
+    MClient -- "encode state" --> MEncoder
+    MEncoder -- "game_state" --> Router
+    Router -- "WebSocket" --> Ext
+    Ext -- "commands" --> Router
+    Router -- "forward" --> MClient
+    MClient -- "execute" --> AExecutor
+    AExecutor -- "bot actions" --> MCli
 ```
 
-***
-
-## ✨ 功能特性
-
-- ✅ **统一协议**：完全基于 `maim_message` 协议，无需关心客户端类型
-- ✅ **双向适配**：游戏事件 → 消息 | 消息 → 游戏动作
-- ✅ **智能状态管理**：将游戏状态转换为自然语言提示词
-- ✅ **事件驱动**：实时响应游戏内各种事件变化
-- ✅ **动作执行**：将抽象指令转换为具体的游戏操作
-- ✅ **类型安全**：TypeScript + maim_message 类型定义
-- ✅ **模块化设计**：清晰的事件处理与动作执行分离
+- **`MinecraftClient`**：与 Minecraft 服务器建立底层连接，接收游戏事件并执行机器人动作。
+- **`MaicraftClient`**：核心协调器，处理来自游戏和外部系统的所有事件与消息。
+- **`StateManager`**：维护机器人当前状态，包括玩家信息、世界信息、库存以及最近事件。
+- **`MessageEncoder`**：负责 `maim_message` 协议的编码与解析。
+- **`Router`**：管理多个下游 WebSocket 连接，收发并路由所有消息。
+- **`ActionExecutor`**：管理并执行全部已注册的游戏动作。
 
 ***
 
-## 📋 依赖
-
-| 组件         | 版本建议 | 说明                 |
-| ------------ | -------- | -------------------- |
-| Node.js      | >= 18    | 运行时               |
-| TypeScript   | >= 5     | 开发依赖             |
-| mineflayer   | latest   | Minecraft 机器人框架 |
-| ws           | ^8       | WebSocket 客户端     |
-| maim_message | latest   | 统一消息协议定义     |
-
-***
-
-## 🚀 快速开始
+## 安装与配置
 
 ### 1. 安装依赖
 
+本项目使用 `pnpm` 作为包管理器。
+
 ```bash
+git clone https://github.com/your-repo/maicraft.git
+cd maicraft
 pnpm install
 ```
 
-### 2. 配置文件
+### 2. 创建配置文件
 
-复制示例配置文件并根据需要修改：
+从模板文件 `config-template.yaml` 复制一份配置，并命名为 `config.yaml`。
 
 ```bash
-cp config.example.json config.json
+cp config-template.yaml config.yaml
 ```
 
-### 3. 运行基础客户端示例
+然后，根据你的需求修改 `config.yaml`：
+
+```yaml
+# Minecraft 服务器配置
+minecraft:
+  host: "localhost"       # 服务器地址
+  port: 25565              # 服务器端口
+  username: "MaicraftBot" # 机器人用户名
+  auth: "offline"         # 认证方式 ('offline', 'microsoft', 'mojang')
+  # version: "1.20.1"      # 可选，指定游戏版本
+
+# 路由配置
+router:
+  route_config:
+    # Key 是下游服务的唯一标识
+    amaidesu:
+      url: "ws://localhost:8080/ws" # 下游 WebSocket 服务地址
+      token: "your_secret_token"    # 可选，用于认证的 Token
+      reconnect_interval: 5000      # 可选，重连间隔（毫秒）
+      max_reconnect_attempts: 10    # 可选，最大重连次数
+
+# 可选，要监听和转发的游戏事件类型
+# 如果不设置，所有事件都会被转发
+enabledEvents:
+  - "chat"
+  - "playerJoined"
+  - "blockBroken"
+
+# 状态管理器中保留的最大事件历史数量
+maxMessageHistory: 100
+```
+
+### 3. 运行
 
 ```bash
-# 开发模式
+# 开发模式（使用 ts-node，文件变更时自动重启）
 pnpm run dev
 
-# 或者构建后运行
+# 生产模式（先构建，然后运行 JavaScript 文件）
 pnpm run build
 pnpm start
 ```
 
-### 4. 使用示例
+***
 
-#### 基础客户端示例
+## 消息协议 (`maim_message`)
 
-```typescript
-import { Router, MessageBuilder, RouteConfig } from 'maicraft';
+所有通信均遵循 [maim_message](https://github.com/AigisGuardian/maim_message) 协议。Maicraft 仅在 `message_segment` 的 `text` 字段中放入 *纯文本* JSON 字符串，外层完整的 maim_message 结构由 Router/WebSocketClient 负责转发。
 
-// 配置连接到 MaiBot
-const routeConfig: RouteConfig = {
-  route_config: {
-    'minecraft': {
-      url: 'ws://127.0.0.1:8000/ws',
-      token: undefined, // 如果需要认证
-      reconnect_interval: 5000,
-      max_reconnect_attempts: 10
-    }
-  }
-};
+### 载荷联合类型
 
-const router = new Router(routeConfig);
+Maicraft 在内部使用联合类型 `MaicraftPayload`（见 `src/messaging/PayloadTypes.ts`）统一描述所有可能负载：
 
-// 注册消息处理器
-router.registerMessageHandler(async (message) => {
-  console.log('收到消息:', message);
-  // 在这里处理来自 MaiBot 的消息
-});
-
-// 启动连接
-await router.run();
-
-// 发送消息到 MaiBot
-const message = new MessageBuilder(
-  'minecraft',
-  'msg_' + Date.now(),
-  'minecraft_bot',
-  'minecraft_server'
-)
-.addText('Hello MaiBot!')
-.build();
-
-await router.sendMessage(message);
+```ts
+export type MaicraftPayload =
+  | GameEventPayload         // 游戏事件推送
+  | GameStatePayload         // 完整状态快照
+  | ChatPayload              // 聊天消息
+  | SystemNotificationPayload// 系统通知
+  | LowLevelDecisionPayload  // 低级决策 (Amaidesu)
+  | HighLevelDecisionPayload // 高级决策 (MaiBot)
+  | ErrorPayload             // 错误信息
+  | ActionResultPayload      // 动作执行结果
+  | StateResponsePayload     // 状态查询响应
+  | ActionPayload            // 动作请求 (下游→Maicraft)
+  | QueryPayload;            // 状态查询请求 (下游→Maicraft)
 ```
 
-### 配置说明（config.json）
+以下内容按通信方向展开说明。
+
+#### 1. Maicraft → 下游（推送）
+
+| `type` 值            | 发送时机 / 语义                                        |
+| -------------------- | ----------------------------------------------------- |
+| `game_state`         | 任一游戏事件发生时，推送完整状态快照                  |
+| `game_event`         | `includeEventDetails=true` 时，推送单个事件            |
+| `chat`               | 游戏内出现聊天内容（机器人或其他玩家）                |
+| `system_notification`| 系统级通知（连接/断开、服务器广播等）                 |
+| `error`              | Maicraft 侧异常                                       |
+| `action_result`      | 执行动作 (`action`) 后的结果                           |
+| `query_response`     | 处理 `query` 请求后的返回                              |
+
+**game_state 载荷示例**（位于 `text` 字段中）：
+
+```json
+{
+  "type": "game_state",
+  "player": {
+    "uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "username": "MaicraftBot",
+    "displayName": "MaicraftBot",
+    "ping": 42,
+    "gamemode": 0
+  },
+  "position": { "x": 100, "y": 65, "z": -50 },
+  "health": 20,
+  "food": 20,
+  "experience": 0,
+  "level": 0,
+  "inventory": [ { "type": "dirt", "count": 64 } ],
+  "weather": "clear",
+  "timeOfDay": 6000,
+  "dimension": "overworld",
+  "nearbyPlayers": [],
+  "nearbyEntities": [],
+  "recentEvents": []
+}
+```
+
+> `MessageEncoder` 会将 `GameState` 字段**平铺**在最外层（而非放在 `state` 字段内），保持向后兼容。
+
+#### 2. 下游 → Maicraft（请求）
+
+| `type` 值 | 说明                     | 核心字段                |
+| ---------- | ---------------------- | ----------------------- |
+| `action`   | 执行动作                | `action`, `params?`     |
+| `query`    | 请求一次完整状态快照    | *(无)*                  |
+
+**action 请求示例**：
+
+```json
+{ "type": "action", "action": "chat", "params": { "message": "Hello world!" } }
+```
+
+Maicraft 会异步返回一条 `action_result`：
+
+```json
+{ "type": "action_result", "result": { "success": true }, "referenceId": "<same_message_id>" }
+```
+
+#### 3. 结构定义索引
+
+- **GameState**：`src/minecraft/StateManager.ts`
+- **GameEvent**：`src/minecraft/GameEvent.ts`
+- 其它载荷：`src/messaging/PayloadTypes.ts`
+
+---
+
+所有示例仅展示 `message_segment.text` 内部的负载内容。真实传输时，它们会被包装进标准 `maim_message` ：
 
 ```jsonc
 {
-  "minecraft": {
-    "host": "127.0.0.1",
-    "port": 25565,
-    "username": "MaiBot",
-    "auth": "offline"
+  "message_info": { /* 省略 */ },
+  "message_segment": {
+    "type": "seglist",
+    "data": [
+      { "type": "text", "data": "{...负载...}" }
+    ]
   },
-  "websocket": {
-    "url": "ws://127.0.0.1:3000/minecraft",
-    "reconnectInterval": 5000,
-    "heartbeatInterval": 30000
+  "raw_message": "{...负载...}"
+}
+```
+
+***
+
+## API 与扩展
+
+### 查询可用动作
+
+你可以通过 `MaicraftClient` 实例获取所有已注册的动作及其信息。
+
+```ts
+const client = new MaicraftClient(config);
+const actionNames = client.getAvailableActions();
+// -> ['moveToPosition', 'chat', 'craftItem', ...]
+
+const actionsInfo = client.getActionsInfo();
+/* ->
+{
+  "chat": {
+    "description": "发送聊天消息",
+    "params": { "message": "string" }
   },
-  "adapter": {
-    "stateUpdateInterval": 1000,
-    "enabledEvents": ["chat", "playerJoin", "playerLeave", "mobSpawn", "blockBreak"],
-    "maxMessageHistory": 100
+  ...
+}
+*/
+```
+
+### 注册自定义动作
+
+实现 `ActionInterface` 接口，然后使用 `registerAction` 方法即可注册一个新的动作。
+
+```ts
+import type { ActionInterface, ActionResult } from './minecraft/ActionInterface';
+import type { Bot } from 'mineflayer';
+
+class DanceAction implements ActionInterface {
+  readonly name = 'dance';
+  readonly description = '让机器人跳一段舞。';
+  
+  getParamsSchema(): object {
+    return { type: 'object', properties: {} };
+  }
+
+  async execute(bot: Bot, params: any): Promise<ActionResult> {
+    bot.setControlState('jump', true);
+    await bot.waitForTicks(20);
+    bot.setControlState('jump', false);
+    return { success: true, message: '跳舞完毕！' };
   }
 }
+
+// 在你的代码中
+client.registerAction(new DanceAction());
 ```
-
-***
-
-## 🗺️ 开发规划
-
-| 阶段        | 目标               | 关键任务                                                                                            |
-| ----------- | ------------------ | --------------------------------------------------------------------------------------------------- |
-| **Phase 1** | 基础适配器框架     | • 建立 mineflayer 客户端连接 <br/> • 实现 WebSocket 通信 <br/> • 集成 maim_message 协议             |
-| **Phase 2** | 事件监听与状态管理 | • 监听核心游戏事件 <br/> • 游戏状态 → 自然语言提示词 <br/> • 事件内容 → maim_message 格式           |
-| **Phase 3** | 动作执行系统       | • maim_message → 游戏操作解析 <br/> • 基础动作：移动、聊天、交互 <br/> • 复杂动作：建造、战斗、收集 |
-| **Phase 4** | 稳定性与性能       | • 错误处理与重连机制 <br/> • 状态同步优化 <br/> • 动作队列与优先级                                  |
-| **Phase 5** | 扩展与优化         | • 更多游戏事件支持 <br/> • 动作执行反馈 <br/> • 配置热重载                                          |
-
-### 详细实现计划
-
-#### Phase 1: 基础适配器框架
-
-```typescript
-// 核心组件结构
-interface MaicraftAdapter {
-  // Minecraft 连接
-  minecraftClient: MinecraftClient;
-  // WebSocket 连接
-  websocketClient: WebSocketClient;
-  // 消息处理器
-  messageHandler: MaimMessageHandler;
-}
-```
-
-#### Phase 2: 事件监听与状态管理
-
-```typescript
-// 事件 → 消息转换示例
-const gameEvent = {
-  type: 'playerJoin',
-  player: 'Steve',
-  position: { x: 100, y: 64, z: 200 }
-};
-
-const maimMessage = {
-  type: 'event',
-  content: '玩家 Steve 加入了游戏',
-  context: '当前位置：主城附近，在线玩家：3人，天气：晴朗',
-  timestamp: Date.now()
-};
-```
-
-#### Phase 3: 动作执行系统
-
-```typescript
-// 消息 → 动作转换示例
-const maimMessage = {
-  type: 'action',
-  content: '去挖一些石头',
-  metadata: { priority: 'normal' }
-};
-
-const gameActions = [
-  { type: 'navigate', target: 'stone_area' },
-  { type: 'mine', block: 'stone', count: 10 }
-];
-```
-
-***
-
-## 🤝 贡献指南
-
-欢迎 PR 与 Issue！请确保：
-
-1. 从 `dev` 分支创建您的功能分支；
-2. `pnpm lint && pnpm test` 通过后再提交；
-3. 在 PR 描述中清晰列出变更内容及动机。
-
-***
-
-## 📄 License
-
-MIT © 2025-present Maicraft Contributors

@@ -33,6 +33,12 @@ export declare interface WebSocketClient {
   ): boolean;
 }
 
+// 认证响应结构
+interface AuthResponse {
+  success: boolean;
+  message?: string;
+}
+
 /**
  * WebSocket 客户端类
  * 负责与 MaiBot 服务器建立和维护 WebSocket 连接
@@ -230,8 +236,14 @@ export class WebSocketClient extends EventEmitter {
         return;
       }
 
-      // 处理普通消息
-      const message = MessageParser.fromDict(messageData);
+      // 仅处理符合 MaimMessage 规范的数据
+      if (!messageData || !messageData.message_info) {
+        this.logger.warn('收到非 MaimMessage 格式数据，已忽略');
+        return;
+      }
+
+      const message: MessageBase = MessageParser.fromDict(messageData);
+
       this.logger.debug('收到消息:', message.message_info.message_id);
       this.emit('message', message);
       
@@ -344,7 +356,7 @@ export class WebSocketClient extends EventEmitter {
   /**
    * 处理认证响应
    */
-  private handleAuthResponse(response: any): void {
+  private handleAuthResponse(response: AuthResponse): void {
     if (response.success) {
       this.logger.info('认证成功');
     } else {
