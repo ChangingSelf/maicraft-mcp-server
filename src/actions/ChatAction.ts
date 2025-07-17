@@ -1,34 +1,25 @@
 import { Bot } from 'mineflayer';
-import { GameAction, ActionResult, BaseActionParams } from '../minecraft/ActionInterface';
+import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface';
 
 interface ChatParams extends BaseActionParams {
   message: string;
 }
 
-export class ChatAction implements GameAction<ChatParams> {
+export class ChatAction extends BaseAction<ChatParams> {
   name = 'chat';
   description = '发送聊天消息';
 
-  async execute(bot: Bot, params: ChatParams): Promise<ActionResult> {
+  async execute(bot: Bot, params: ChatParams): Promise<any> {
     try {
       await bot.chat(params.message);
-
-      return {
-        success: true,
-        message: `成功发送聊天消息: ${params.message}`,
-        data: { message: params.message }
-      };
+      return this.createSuccessResult(`成功发送聊天消息: ${params.message}`, { message: params.message });
     } catch (error) {
-      return {
-        success: false,
-        message: `发送聊天消息失败: ${error instanceof Error ? error.message : String(error)}`,
-        error: 'CHAT_FAILED'
-      };
+      return this.createExceptionResult(error, '发送聊天消息失败', 'CHAT_FAILED');
     }
   }
 
   validateParams(params: ChatParams): boolean {
-    return typeof params.message === 'string' && params.message.length > 0;
+    return this.validateStringParams(params, ['message']);
   }
 
   getParamsSchema(): Record<string, string> {

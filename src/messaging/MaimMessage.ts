@@ -1,6 +1,7 @@
 /**
  * maim_message TypeScript 类型定义
  * 基于 Python 版本的 maim_message 库实现
+ * 暂时没有用到，保留用于后续扩展
  */
 
 // 基础用户信息

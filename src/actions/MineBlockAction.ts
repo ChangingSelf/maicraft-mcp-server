@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { GameAction, ActionResult, BaseActionParams } from '../minecraft/ActionInterface';
+import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface';
 import minecraftData from 'minecraft-data';
 
 interface MineBlockParams extends BaseActionParams {
@@ -13,12 +13,12 @@ interface MineBlockParams extends BaseActionParams {
  * MineBlockAction - 按名称在附近寻找并挖掘若干方块。
  * 逻辑主要参照 MineLand 的 high_level_action/mineBlock.js。
  */
-export class MineBlockAction implements GameAction<MineBlockParams> {
+export class MineBlockAction extends BaseAction<MineBlockParams> {
   name = 'mineBlock';
   description = '挖掘指定类型的方块（按名称）';
 
   validateParams(params: MineBlockParams): boolean {
-    return typeof params.name === 'string' && params.name.length > 0 &&
+    return this.validateStringParams(params, ['name']) &&
            (typeof params.count === 'undefined' || typeof params.count === 'number');
   }
 
@@ -29,17 +29,13 @@ export class MineBlockAction implements GameAction<MineBlockParams> {
     };
   }
 
-  async execute(bot: Bot, params: MineBlockParams): Promise<ActionResult> {
+  async execute(bot: Bot, params: MineBlockParams): Promise<any> {
     try {
       const mcData = minecraftData(bot.version);
       const blockByName = mcData.blocksByName[params.name];
 
       if (!blockByName) {
-        return {
-          success: false,
-          message: `未找到名为 ${params.name} 的方块`,
-          error: 'BLOCK_NOT_FOUND'
-        };
+        return this.createErrorResult(`未找到名为 ${params.name} 的方块`, 'BLOCK_NOT_FOUND');
       }
 
       const count = params.count ?? 1;
@@ -52,11 +48,7 @@ export class MineBlockAction implements GameAction<MineBlockParams> {
       });
 
       if (positions.length === 0) {
-        return {
-          success: false,
-          message: `附近未找到 ${params.name} 方块，请先探索其他区域`,
-          error: 'NO_BLOCK_NEARBY'
-        };
+        return this.createErrorResult(`附近未找到 ${params.name} 方块，请先探索其他区域`, 'NO_BLOCK_NEARBY');
       }
 
       // 收集目标 block 对象
@@ -69,8 +61,8 @@ export class MineBlockAction implements GameAction<MineBlockParams> {
         for (const block of targets) {
           // 若没有 collectBlock 插件，则尝试移动到方块附近并直接挖掘
           if (bot.pathfinder?.goto) {
-            const { goals } = await import('mineflayer-pathfinder');
-            const { GoalNear } = goals;
+            const pathfinder = await import('mineflayer-pathfinder');
+            const { GoalNear } = pathfinder.goals;
             const goal = new GoalNear(block.position.x, block.position.y, block.position.z, 1);
             await bot.pathfinder.goto(goal);
           }
@@ -78,17 +70,12 @@ export class MineBlockAction implements GameAction<MineBlockParams> {
         }
       }
 
-      return {
-        success: true,
-        message: `已成功挖掘 ${targets.length} 个 ${params.name}`,
-        data: { name: params.name, count: targets.length }
-      };
+      return this.createSuccessResult(`已成功挖掘 ${targets.length} 个 ${params.name}`, { 
+        name: params.name, 
+        count: targets.length 
+      });
     } catch (err) {
-      return {
-        success: false,
-        message: `挖掘 ${params.name} 失败: ${err instanceof Error ? err.message : String(err)}`,
-        error: 'MINE_FAILED'
-      };
+      return this.createExceptionResult(err, `挖掘 ${params.name} 失败`, 'MINE_FAILED');
     }
   }
 } 

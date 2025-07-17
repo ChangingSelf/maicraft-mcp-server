@@ -1,5 +1,6 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import readline from 'readline';
+import { PayloadType } from './messaging/PayloadTypes.js';
 
 const PORT = Number(process.env.MOCK_PORT ?? 8080);
 const PATH = '/ws';
@@ -10,13 +11,17 @@ console.log(`\n🛰️  Mock Amaidesu WebSocket 服务器已启动: ws://localho
 console.log(' - 收到消息将打印到控制台');
 console.log(' - 在 "mock> " 提示符输入内容可发送给客户端');
 console.log('   • 直接输入 JSON 字符串，原样发送');
-console.log('   • 或输入:  actionName {"x":1}  将自动包装为 {type:"action"} 格式');
+console.log(`   • 或输入:  actionName {"x":1}  将自动包装为 {type:"${PayloadType.ACTION}"} 格式`);
 console.log('   • 快捷命令示例:');
 console.log('     chat Hello world');
-console.log('     craft diamond_sword 2');
-console.log('     dig 10 64 10');
-console.log('     move 10 64 10');
-console.log('     place 10 64 10 stone');
+console.log('     craftItem diamond_sword 2');
+console.log('     mineBlock dirt 5');
+console.log('     placeBlock 10 64 10 stone');
+console.log('     killMob cow');
+console.log('     followPlayer playerName 3');
+console.log('     smeltItem iron_ore coal 3');
+console.log('     swimToLand 64');
+console.log('     useChest store diamond 5');
 
 // 帮助函数：在不打断用户输入的情况下打印信息
 function safeLog(fn: () => void, rl: readline.Interface) {
@@ -37,49 +42,18 @@ function safeLog(fn: () => void, rl: readline.Interface) {
   }
 }
 
-// 提取 maim_message 内部 payload 文本并解析
-function extractPayload(message: any): any | null {
-  const seg = message?.message_segment;
-  if (!seg) return null;
-
-  const collectText = (segment: any): string => {
-    if (!segment) return '';
-    if (segment.type === 'text') return segment.data || '';
-    if (segment.type === 'seglist' && Array.isArray(segment.data)) {
-      return segment.data.map(collectText).join('');
-    }
-    return '';
-  };
-
-  const text = collectText(seg);
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
-
 wss.on('connection', (ws, req) => {
   console.log(`\n[连接] 来自 ${req.socket.remoteAddress}`);
 
   ws.on('message', (data) => {
     safeLog(() => {
       const text = data.toString();
-      let printed = false;
       try {
         const obj = JSON.parse(text);
-        const payload = extractPayload(obj);
-        if (payload) {
-          console.log('\n<<< 解码 payload');
-          console.dir(payload, { depth: null, colors: true });
-          printed = true;
-        }
+        console.log('\n<<< 收到载荷消息');
+        console.dir(obj, { depth: null, colors: true });
       } catch {
-        /* 解析失败，稍后回退打印 */
-      }
-
-      if (!printed) {
-        console.log('\n<<< 原始数据 (未能解析 payload)');
+        console.log('\n<<< 原始数据 (未能解析 JSON)');
         console.log(text);
       }
       console.log('<<< 结束\n');
@@ -93,7 +67,7 @@ wss.on('connection', (ws, req) => {
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: 'mock> ' });
 rl.prompt();
 
-// 在 "输入解析" 部分上方插入快捷命令解析函数
+// 快捷命令解析函数
 function parseCommand(input: string): { action: string; params: any } | null {
   const tokens = input.trim().split(/\s+/);
   if (tokens.length === 0) return null;
@@ -108,7 +82,7 @@ function parseCommand(input: string): { action: string; params: any } | null {
         params: { message: tokens.slice(1).join(' ') }
       };
 
-    // 合成: craftItem diamond_sword 2 或 craft diamond_sword
+    // 合成: craftItem diamond_sword 2
     case 'craft':
     case 'craftItem': {
       const item = tokens[1];
@@ -120,29 +94,21 @@ function parseCommand(input: string): { action: string; params: any } | null {
       };
     }
 
-    // 挖掘: dig 10 64 10
+    // 挖掘: mineBlock dirt 5
+    case 'mine':
+    case 'mineBlock':
     case 'dig':
     case 'digBlock': {
-      const [x, y, z] = tokens.slice(1, 4).map(Number);
-      if ([x, y, z].some((v) => isNaN(v))) return null;
+      const name = tokens[1];
+      if (!name) return null;
+      const count = tokens[2] ? Number(tokens[2]) : undefined;
       return {
-        action: 'digBlock',
-        params: { x, y, z }
+        action: 'mineBlock',
+        params: count ? { name, count } : { name }
       };
     }
 
-    // 移动: move 10 64 10
-    case 'move':
-    case 'moveToPosition': {
-      const [x, y, z] = tokens.slice(1, 4).map(Number);
-      if ([x, y, z].some((v) => isNaN(v))) return null;
-      return {
-        action: 'moveToPosition',
-        params: { x, y, z }
-      };
-    }
-
-    // 放置: place 10 64 10 stone 或 placeBlock 10 64 10 stone
+    // 放置: placeBlock 10 64 10 stone
     case 'place':
     case 'placeBlock': {
       const [xStr, yStr, zStr, ...itemParts] = tokens.slice(1);
@@ -156,29 +122,70 @@ function parseCommand(input: string): { action: string; params: any } | null {
         params: { x, y, z, item }
       };
     }
+
+    // 击杀生物: killMob cow
+    case 'kill':
+    case 'killMob': {
+      const mob = tokens[1];
+      if (!mob) return null;
+      const timeout = tokens[2] ? Number(tokens[2]) : undefined;
+      return {
+        action: 'killMob',
+        params: timeout ? { mob, timeout } : { mob }
+      };
+    }
+
+    // 跟随玩家: followPlayer playerName 3
+    case 'follow':
+    case 'followPlayer': {
+      const player = tokens[1];
+      if (!player) return null;
+      const distance = tokens[2] ? Number(tokens[2]) : undefined;
+      const timeout = tokens[3] ? Number(tokens[3]) : undefined;
+      return {
+        action: 'followPlayer',
+        params: { player, distance, timeout }
+      };
+    }
+
+    // 熔炼: smeltItem iron_ore coal 3
+    case 'smelt':
+    case 'smeltItem': {
+      const item = tokens[1];
+      const fuel = tokens[2];
+      if (!item || !fuel) return null;
+      const count = tokens[3] ? Number(tokens[3]) : undefined;
+      return {
+        action: 'smeltItem',
+        params: count ? { item, fuel, count } : { item, fuel }
+      };
+    }
+
+    // 游向陆地: swimToLand 64
+    case 'swim':
+    case 'swimToLand': {
+      const maxDistance = tokens[1] ? Number(tokens[1]) : undefined;
+      const timeout = tokens[2] ? Number(tokens[2]) : undefined;
+      return {
+        action: 'swimToLand',
+        params: { maxDistance, timeout }
+      };
+    }
+
+    // 使用箱子: useChest store diamond 5
+    case 'chest':
+    case 'useChest': {
+      const action = tokens[1];
+      const item = tokens[2];
+      if (!action || !item) return null;
+      const count = tokens[3] ? Number(tokens[3]) : undefined;
+      return {
+        action: 'useChest',
+        params: count ? { action, item, count } : { action, item }
+      };
+    }
   }
   return null;
-}
-
-// 构造最小化的 MaimMessage，文本段内放入 payload 字符串
-function buildMaimMessage(text: string) {
-  const now = Date.now();
-  return {
-    message_info: {
-      platform: 'mock',
-      message_id: `mock-${now}`,
-      time: Math.floor(now / 1000),
-      user_info: {
-        platform: 'mock',
-        user_id: 'tester'
-      }
-    },
-    message_segment: {
-      type: 'seglist',
-      data: [{ type: 'text', data: text }]
-    },
-    raw_message: text
-  };
 }
 
 rl.on('line', (line) => {
@@ -197,7 +204,7 @@ rl.on('line', (line) => {
     // 尝试快捷命令解析
     const parsed = parseCommand(text);
     if (parsed) {
-      payload = JSON.stringify({ type: 'action', action: parsed.action, params: parsed.params });
+      payload = JSON.stringify({ type: PayloadType.ACTION, action: parsed.action, params: parsed.params });
     } else {
       // 回退到原有: actionName {jsonParams}
       const spaceIdx = text.indexOf(' ');
@@ -211,19 +218,16 @@ rl.on('line', (line) => {
         rl.prompt();
         return;
       }
-      payload = JSON.stringify({ type: 'action', action: actionName, params });
+      payload = JSON.stringify({ type: PayloadType.ACTION, action: actionName, params });
     }
   }
 
-  // 包装为 maim_message
-  const maimMessage = JSON.stringify(buildMaimMessage(payload));
-
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
-      client.send(maimMessage);
+      client.send(payload);
     }
   });
-  console.log('>>> 已发送 (maim_message):', payload);
+  console.log('>>> 已发送载荷:', payload);
   rl.prompt();
 });
 

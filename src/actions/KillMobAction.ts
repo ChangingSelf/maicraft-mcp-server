@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { GameAction, ActionResult, BaseActionParams } from '../minecraft/ActionInterface';
+import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface';
 
 interface KillMobParams extends BaseActionParams {
   /** 生物名称，例如 "cow" */
@@ -12,12 +12,13 @@ interface KillMobParams extends BaseActionParams {
  * KillMobAction - 击杀附近指定名称的生物。
  * 若机器人已加载 pvp 插件则调用 pvp.attack，否则使用普通攻击。
  */
-export class KillMobAction implements GameAction<KillMobParams> {
+export class KillMobAction extends BaseAction<KillMobParams> {
   name = 'killMob';
   description = '击杀指定名称的生物';
 
   validateParams(params: KillMobParams): boolean {
-    return typeof params.mob === 'string' && params.mob.length > 0;
+    return this.validateStringParams(params, ['mob']) &&
+           (typeof params.timeout === 'undefined' || typeof params.timeout === 'number');
   }
 
   getParamsSchema(): Record<string, string> {
@@ -27,7 +28,7 @@ export class KillMobAction implements GameAction<KillMobParams> {
     };
   }
 
-  async execute(bot: Bot, params: KillMobParams): Promise<ActionResult> {
+  async execute(bot: Bot, params: KillMobParams): Promise<any> {
     try {
       const timeoutMs = (params.timeout ?? 300) * 1000;
       const startTime = Date.now();
@@ -35,11 +36,7 @@ export class KillMobAction implements GameAction<KillMobParams> {
       // 寻找最近目标生物
       const targetEntity = bot.nearestEntity((e: any) => e.name === params.mob && e.position.distanceTo(bot.entity.position) < 64);
       if (!targetEntity) {
-        return {
-          success: false,
-          message: `附近未发现 ${params.mob}，请先探索或靠近目标`,
-          error: 'MOB_NOT_FOUND'
-        };
+        return this.createErrorResult(`附近未发现 ${params.mob}，请先探索或靠近目标`, 'MOB_NOT_FOUND');
       }
 
       // 攻击逻辑
@@ -48,8 +45,8 @@ export class KillMobAction implements GameAction<KillMobParams> {
       } else {
         // 使用 simple attack：靠近然后 swingArm（简化处理）
         if (bot.pathfinder?.goto) {
-          const { goals } = await import('mineflayer-pathfinder');
-          const { GoalNear } = goals;
+                  const pathfinder = await import('mineflayer-pathfinder');
+        const { GoalNear } = pathfinder.goals;
           const goal = new GoalNear(targetEntity.position.x, targetEntity.position.y, targetEntity.position.z, 2);
           await bot.pathfinder.goto(goal);
         }
@@ -70,23 +67,12 @@ export class KillMobAction implements GameAction<KillMobParams> {
 
       const stillExists = bot.entities[targetEntity.id];
       if (stillExists) {
-        return {
-          success: false,
-          message: `在 ${params.timeout ?? 300}s 内未能击杀 ${params.mob}`,
-          error: 'TIMEOUT'
-        };
+        return this.createErrorResult(`在 ${params.timeout ?? 300}s 内未能击杀 ${params.mob}`, 'TIMEOUT');
       }
 
-      return {
-        success: true,
-        message: `已成功击杀 ${params.mob}`
-      };
+      return this.createSuccessResult(`已成功击杀 ${params.mob}`);
     } catch (err) {
-      return {
-        success: false,
-        message: `击杀 ${params.mob} 失败: ${err instanceof Error ? err.message : String(err)}`,
-        error: 'KILL_FAILED'
-      };
+      return this.createExceptionResult(err, `击杀 ${params.mob} 失败`, 'KILL_FAILED');
     }
   }
 } 

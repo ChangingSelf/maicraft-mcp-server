@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { GameAction, ActionResult, BaseActionParams } from '../minecraft/ActionInterface';
+import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface';
 
 interface FollowPlayerParams extends BaseActionParams {
   /** 目标玩家名称 */
@@ -14,12 +14,14 @@ interface FollowPlayerParams extends BaseActionParams {
  * FollowPlayerAction - 跟随指定玩家，直到超时或玩家离线。
  * 参考 MineLand high_level_action/followPlayer.js 实现。
  */
-export class FollowPlayerAction implements GameAction<FollowPlayerParams> {
+export class FollowPlayerAction extends BaseAction<FollowPlayerParams> {
   name = 'followPlayer';
   description = '跟随指定玩家';
 
   validateParams(params: FollowPlayerParams): boolean {
-    return typeof params.player === 'string' && params.player.length > 0;
+    return this.validateStringParams(params, ['player']) &&
+           (typeof params.distance === 'undefined' || typeof params.distance === 'number') &&
+           (typeof params.timeout === 'undefined' || typeof params.timeout === 'number');
   }
 
   getParamsSchema(): Record<string, string> {
@@ -30,15 +32,11 @@ export class FollowPlayerAction implements GameAction<FollowPlayerParams> {
     };
   }
 
-  async execute(bot: Bot, params: FollowPlayerParams): Promise<ActionResult> {
+  async execute(bot: Bot, params: FollowPlayerParams): Promise<any> {
     try {
       // 检查 pathfinder 插件
       if (!bot.pathfinder) {
-        return {
-          success: false,
-          message: '路径寻找插件未加载，请先加载 mineflayer-pathfinder 插件',
-          error: 'PATHFINDER_NOT_LOADED'
-        };
+        return this.createErrorResult('路径寻找插件未加载，请先加载 mineflayer-pathfinder 插件', 'PATHFINDER_NOT_LOADED');
       }
 
       const followDistance = params.distance ?? 3;
@@ -47,17 +45,13 @@ export class FollowPlayerAction implements GameAction<FollowPlayerParams> {
 
       const targetPlayer = bot.players[playerName];
       if (!targetPlayer || !targetPlayer.entity) {
-        return {
-          success: false,
-          message: `未找到玩家 ${playerName}，请确保其在附近`,
-          error: 'PLAYER_NOT_FOUND'
-        };
+        return this.createErrorResult(`未找到玩家 ${playerName}，请确保其在附近`, 'PLAYER_NOT_FOUND');
       }
 
-      const { goals } = await import('mineflayer-pathfinder');
-      const GoalFollow = (goals as any).GoalFollow;
+      const pathfinder = await import('mineflayer-pathfinder');
+      const GoalFollow = pathfinder.goals.GoalFollow;
 
-      return await new Promise<ActionResult>((resolve) => {
+      return await new Promise<any>((resolve) => {
         let followInterval: NodeJS.Timeout | null = null;
         let timedOut = false;
 
@@ -66,7 +60,7 @@ export class FollowPlayerAction implements GameAction<FollowPlayerParams> {
           timedOut = true;
           if (followInterval) clearInterval(followInterval);
           bot.pathfinder.setGoal(null);
-          resolve({ success: true, message: `已停止跟随 (超时 ${timeoutSec}s)` });
+          resolve(this.createSuccessResult(`已停止跟随 (超时 ${timeoutSec}s)`));
         }, timeoutSec * 1000);
 
         // 监听玩家离线
@@ -76,7 +70,7 @@ export class FollowPlayerAction implements GameAction<FollowPlayerParams> {
             if (followInterval) clearInterval(followInterval);
             bot.pathfinder.setGoal(null);
             bot.removeListener('playerLeft', onPlayerLeft);
-            resolve({ success: true, message: `${playerName} 已离线，停止跟随` });
+            resolve(this.createSuccessResult(`${playerName} 已离线，停止跟随`));
           }
         };
 
@@ -101,11 +95,7 @@ export class FollowPlayerAction implements GameAction<FollowPlayerParams> {
         }, 1000);
       });
     } catch (err) {
-      return {
-        success: false,
-        message: `跟随失败: ${err instanceof Error ? err.message : String(err)}`,
-        error: 'FOLLOW_FAILED'
-      };
+      return this.createExceptionResult(err, '跟随失败', 'FOLLOW_FAILED');
     }
   }
 } 

@@ -47,6 +47,17 @@ function getConfigPath(): string {
 }
 
 async function main() {
+  // 添加全局错误处理
+  process.on('uncaughtException', (error) => {
+    logger.error('未捕获的异常:', error);
+    // 不退出程序，让程序继续运行
+  });
+
+  process.on('unhandledRejection', (reason, promise) => {
+    logger.error('未处理的 Promise 拒绝:', reason);
+    // 不退出程序，让程序继续运行
+  });
+
   /**
    * 读取配置文件
    */

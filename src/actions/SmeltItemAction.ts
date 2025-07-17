@@ -1,6 +1,6 @@
 import { Bot } from 'mineflayer';
 import minecraftData from 'minecraft-data';
-import { GameAction, ActionResult, BaseActionParams } from '../minecraft/ActionInterface';
+import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface';
 
 interface SmeltItemParams extends BaseActionParams {
   /** 要熔炼的物品名称 */
@@ -14,12 +14,13 @@ interface SmeltItemParams extends BaseActionParams {
 /**
  * SmeltItemAction - 在附近熔炉中熔炼物品
  */
-export class SmeltItemAction implements GameAction<SmeltItemParams> {
+export class SmeltItemAction extends BaseAction<SmeltItemParams> {
   name = 'smeltItem';
   description = '在熔炉中熔炼物品';
 
   validateParams(params: SmeltItemParams): boolean {
-    return typeof params.item === 'string' && typeof params.fuel === 'string';
+    return this.validateStringParams(params, ['item', 'fuel']) &&
+           (typeof params.count === 'undefined' || typeof params.count === 'number');
   }
 
   getParamsSchema(): Record<string, string> {
@@ -30,29 +31,29 @@ export class SmeltItemAction implements GameAction<SmeltItemParams> {
     };
   }
 
-  async execute(bot: Bot, params: SmeltItemParams): Promise<ActionResult> {
+  async execute(bot: Bot, params: SmeltItemParams): Promise<any> {
     try {
       const count = params.count ?? 1;
       const mcData = minecraftData(bot.version);
       const itemMeta = mcData.itemsByName[params.item];
       const fuelMeta = mcData.itemsByName[params.fuel];
       if (!itemMeta) {
-        return { success: false, message: `未找到物品 ${params.item}`, error: 'ITEM_NOT_FOUND' };
+        return this.createErrorResult(`未找到物品 ${params.item}`, 'ITEM_NOT_FOUND');
       }
       if (!fuelMeta) {
-        return { success: false, message: `未找到燃料 ${params.fuel}`, error: 'FUEL_NOT_FOUND' };
+        return this.createErrorResult(`未找到燃料 ${params.fuel}`, 'FUEL_NOT_FOUND');
       }
 
       // 寻找熔炉
       const furnaceBlock = bot.findBlock({ matching: mcData.blocksByName.furnace.id, maxDistance: 48 });
       if (!furnaceBlock) {
-        return { success: false, message: '附近没有熔炉', error: 'FURNACE_NOT_FOUND' };
+        return this.createErrorResult('附近没有熔炉', 'FURNACE_NOT_FOUND');
       }
 
       // 移动到熔炉附近
       if (bot.pathfinder?.goto) {
-        const { goals } = await import('mineflayer-pathfinder');
-        const GoalLookAtBlock = (goals as any).GoalLookAtBlock ?? goals.GoalNear;
+        const pathfinder = await import('mineflayer-pathfinder');
+        const GoalLookAtBlock = pathfinder.goals.GoalLookAtBlock;
         const goal = new GoalLookAtBlock(furnaceBlock.position, bot.world as any);
         await bot.pathfinder.goto(goal);
       }
@@ -69,7 +70,7 @@ export class SmeltItemAction implements GameAction<SmeltItemParams> {
         if ((furnace as any).fuelSeconds < 15) {
           const fuelItem = bot.inventory.findInventoryItem(fuelMeta.id, null, false);
           if (!fuelItem) {
-            return { success: false, message: `背包中没有燃料 ${params.fuel}`, error: 'NO_FUEL' };
+            return this.createErrorResult(`背包中没有燃料 ${params.fuel}`, 'NO_FUEL');
           }
           await furnace.putFuel(fuelMeta.id, null, 1);
           await bot.waitForTicks(20);
@@ -79,7 +80,7 @@ export class SmeltItemAction implements GameAction<SmeltItemParams> {
         await furnace.putInput(itemMeta.id, null, 1);
         await bot.waitForTicks(12 * 20); // 等待 12 秒左右
         if (!furnace.outputItem()) {
-          return { success: false, message: `无法熔炼 ${params.item}，可能不是有效配方`, error: 'INVALID_INPUT' };
+          return this.createErrorResult(`无法熔炼 ${params.item}，可能不是有效配方`, 'INVALID_INPUT');
         }
         await furnace.takeOutput();
         success++;
@@ -87,11 +88,11 @@ export class SmeltItemAction implements GameAction<SmeltItemParams> {
       furnace.close();
 
       if (success > 0) {
-        return { success: true, message: `成功熔炼 ${params.item} × ${success}` };
+        return this.createSuccessResult(`成功熔炼 ${params.item} × ${success}`, { item: params.item, count: success });
       }
-      return { success: false, message: `未能熔炼任何 ${params.item}`, error: 'SMELT_FAILED' };
+      return this.createErrorResult(`未能熔炼任何 ${params.item}`, 'SMELT_FAILED');
     } catch (err) {
-      return { success: false, message: `熔炼失败: ${err instanceof Error ? err.message : String(err)}`, error: 'SMELT_FAILED' };
+      return this.createExceptionResult(err, '熔炼失败', 'SMELT_FAILED');
     }
   }
 } 

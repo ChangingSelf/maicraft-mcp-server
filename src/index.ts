@@ -1,52 +1,51 @@
 /**
  * Maicraft - Minecraft 游戏客户端适配器
- * 
+ *
  * 主入口文件，导出核心功能模块
  */
 
 // 核心客户端
-export { MaicraftClient } from './MaicraftClient';
-export type { 
-  ClientConfig,
-  MinecraftConfig,
-  RouteConfig
-} from './MaicraftClient';
+export { MaicraftClient } from "./MaicraftClient";
+export type { ClientConfig, MinecraftConfig } from "./MaicraftClient";
 
 // 动作系统
-export { ActionExecutor } from './minecraft/ActionExecutor';
-export type { 
+export type {
   GameAction,
   ActionResult,
   BaseActionParams,
-  ActionRegistry
-} from './minecraft/ActionInterface';
+  ActionRegistry,
+} from "./minecraft/ActionInterface";
+export { BaseAction } from "./minecraft/ActionInterface";
 
-export { 
-  MoveToPositionAction,
-  ChatAction,
-  CraftItemAction,
-  DigBlockAction,
-  PlaceBlockAction
-} from './minecraft/BasicActions';
+// 消息系统
+export type { MaicraftPayload } from "./messaging/PayloadTypes";
+export { PayloadType } from "./messaging/PayloadTypes";
 
-// 核心组件
-export { MinecraftClient } from './minecraft/MinecraftClient';
-export { StateManager } from './minecraft/StateManager';
-export { MessageEncoder } from './minecraft/MessageEncoder';
-export type { MinecraftClientOptions } from './minecraft/MinecraftClient.js';
-export type { StateManagerOptions, GameState } from './minecraft/StateManager.js';
-export type { MessageEncoderOptions } from './minecraft/MessageEncoder.js';
-
-// 消息传递模块
-export { WebSocketClient } from './messaging/WebSocketClient';
-export { Router } from './messaging/Router';
-
-// 类型定义
-export * from './messaging/MaimMessage';
-export * from './minecraft/GameEvent';
+// 游戏事件和状态
+export type { GameEvent } from "./minecraft/GameEvent";
+export type { GameState } from "./minecraft/StateManager";
 
 // 工具类
-export { Logger, LogLevel } from './utils/Logger';
+export { Logger } from "./utils/Logger";
+
+// 动作执行器
+export { ActionExecutor } from "./minecraft/ActionExecutor";
+export type { ActionInfo } from "./minecraft/ActionExecutor";
+
+// 所有预定义动作
+export { ChatAction } from "./actions/ChatAction";
+export { CraftItemAction } from "./actions/CraftItemAction";
+export { PlaceBlockAction } from "./actions/PlaceBlockAction";
+export { MineBlockAction } from "./actions/MineBlockAction";
+export { KillMobAction } from "./actions/KillMobAction";
+export { FollowPlayerAction } from "./actions/FollowPlayerAction";
+export { SmeltItemAction } from "./actions/SmeltItemAction";
+export { SwimToLandAction } from "./actions/SwimToLandAction";
+export { UseChestAction } from "./actions/UseChestAction";
+
+// 核心组件
+export * from "./messaging/MaimMessage";
+export * from "./minecraft/GameEvent";
 
 // 版本信息
-export const VERSION = '0.1.0';
+export const VERSION = "1.0.0";

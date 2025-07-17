@@ -1,6 +1,6 @@
 import { Bot } from 'mineflayer';
 import minecraftData from 'minecraft-data';
-import { GameAction, ActionResult, BaseActionParams } from '../minecraft/ActionInterface';
+import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface';
 
 interface SwimToLandParams extends BaseActionParams {
   /** 最大搜索半径，默认 64 */
@@ -15,12 +15,12 @@ interface SwimToLandParams extends BaseActionParams {
  * 1. 使用 `bot.findBlocks` 搜索附近非水固体方块且上方为空气。
  * 2. 按距离排序逐个尝试前往；到达并检测不在水中即成功。
  */
-export class SwimToLandAction implements GameAction<SwimToLandParams> {
+export class SwimToLandAction extends BaseAction<SwimToLandParams> {
   name = 'swimToLand';
   description = '游向最近的陆地';
 
   validateParams(_: SwimToLandParams): boolean {
-    return true;
+    return true; // 所有参数都是可选的
   }
 
   getParamsSchema(): Record<string, string> {
@@ -30,7 +30,7 @@ export class SwimToLandAction implements GameAction<SwimToLandParams> {
     };
   }
 
-  async execute(bot: Bot, params: SwimToLandParams): Promise<ActionResult> {
+  async execute(bot: Bot, params: SwimToLandParams): Promise<any> {
     try {
       const maxDist = params.maxDistance ?? 64;
       const timeoutSec = params.timeout ?? 60;
@@ -38,13 +38,13 @@ export class SwimToLandAction implements GameAction<SwimToLandParams> {
       if (bot.entity.onGround) {
         const block = bot.blockAt(bot.entity.position);
         if (block && block.name !== 'water') {
-          return { success: true, message: '已在陆地上' };
+          return this.createSuccessResult('已在陆地上');
         }
       }
 
       // ensure pathfinder
       if (!bot.pathfinder) {
-        return { success: false, message: '路径寻找插件未加载', error: 'PATHFINDER_NOT_LOADED' };
+        return this.createErrorResult('路径寻找插件未加载', 'PATHFINDER_NOT_LOADED');
       }
 
       const mcData = minecraftData(bot.version);
@@ -65,14 +65,14 @@ export class SwimToLandAction implements GameAction<SwimToLandParams> {
       });
 
       if (positions.length === 0) {
-        return { success: false, message: '未找到附近陆地', error: 'LAND_NOT_FOUND' };
+        return this.createErrorResult('未找到附近陆地', 'LAND_NOT_FOUND');
       }
 
       // 按距离排序
       positions.sort((a, b) => bot.entity.position.distanceTo(a) - bot.entity.position.distanceTo(b));
 
-      const { goals } = await import('mineflayer-pathfinder');
-      const GoalNear = (goals as any).GoalNear;
+      const pathfinder = await import('mineflayer-pathfinder');
+      const GoalNear = pathfinder.goals.GoalNear;
 
       const startTime = Date.now();
       for (const pos of positions) {
@@ -87,7 +87,7 @@ export class SwimToLandAction implements GameAction<SwimToLandParams> {
         if (bot.entity.onGround) {
           const blk = bot.blockAt(bot.entity.position);
           if (blk && blk.name !== 'water') {
-            return { success: true, message: '已到达陆地' };
+            return this.createSuccessResult('已到达陆地');
           }
         }
 
@@ -96,9 +96,9 @@ export class SwimToLandAction implements GameAction<SwimToLandParams> {
         }
       }
 
-      return { success: false, message: '超时未能到达陆地', error: 'TIMEOUT' };
+      return this.createErrorResult('超时未能到达陆地', 'TIMEOUT');
     } catch (err) {
-      return { success: false, message: `游向陆地失败: ${err instanceof Error ? err.message : String(err)}`, error: 'SWIM_FAILED' };
+      return this.createExceptionResult(err, '游向陆地失败', 'SWIM_FAILED');
     }
   }
 } 

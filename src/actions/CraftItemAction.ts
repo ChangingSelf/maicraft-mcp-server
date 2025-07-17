@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { GameAction, ActionResult, BaseActionParams } from '../minecraft/ActionInterface';
+import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface';
 import minecraftData from 'minecraft-data';
 
 interface CraftItemParams extends BaseActionParams {
@@ -7,11 +7,23 @@ interface CraftItemParams extends BaseActionParams {
   count?: number;
 }
 
-export class CraftItemAction implements GameAction<CraftItemParams> {
+export class CraftItemAction extends BaseAction<CraftItemParams> {
   name = 'craftItem';
   description = '合成指定物品';
 
-  async execute(bot: Bot, params: CraftItemParams): Promise<ActionResult> {
+  validateParams(params: CraftItemParams): boolean {
+    return this.validateStringParams(params, ['item']) &&
+           (typeof params.count === 'undefined' || typeof params.count === 'number');
+  }
+
+  getParamsSchema(): Record<string, string> {
+    return {
+      item: '要合成的物品名称 (字符串)',
+      count: '合成数量 (数字，可选，默认为1)'
+    };
+  }
+
+  async execute(bot: Bot, params: CraftItemParams): Promise<any> {
     try {
       const count = params.count ?? 1;
 
@@ -19,11 +31,7 @@ export class CraftItemAction implements GameAction<CraftItemParams> {
       const mcData = minecraftData(bot.version);
       const itemByName = mcData.itemsByName[params.item];
       if (!itemByName) {
-        return {
-          success: false,
-          message: `未找到名为 ${params.item} 的物品`,
-          error: 'ITEM_NOT_FOUND'
-        };
+        return this.createErrorResult(`未找到名为 ${params.item} 的物品`, 'ITEM_NOT_FOUND');
       }
 
       // 1) 尝试寻找附近工作台
@@ -48,8 +56,8 @@ export class CraftItemAction implements GameAction<CraftItemParams> {
               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
               // @ts-ignore - vec3 没有类型声明
               const Vec3 = (await import('vec3')).default;
-              const { goals } = await import('mineflayer-pathfinder');
-              const {GoalNear} = goals;
+              const pathfinder = await import('mineflayer-pathfinder');
+              const {GoalNear} = pathfinder.goals;
 
               const placePos = bot.entity.position.offset(1, 0, 0);
               const goal = new GoalNear(placePos.x, placePos.y, placePos.z, 1);
@@ -94,8 +102,8 @@ export class CraftItemAction implements GameAction<CraftItemParams> {
 
       // 3) 如果已找到工作台且路径插件可用，走过去
       if (craftingTableBlock && bot.pathfinder?.goto) {
-        const { goals } = await import('mineflayer-pathfinder');
-        const {GoalNear} = goals;
+        const pathfinder = await import('mineflayer-pathfinder');
+        const {GoalNear} = pathfinder.goals;
         const goal = new GoalNear(craftingTableBlock.position.x, craftingTableBlock.position.y, craftingTableBlock.position.z, 1);
         await bot.pathfinder.goto(goal);
       }
@@ -103,37 +111,14 @@ export class CraftItemAction implements GameAction<CraftItemParams> {
       // 4) 拿配方并尝试合成
       const recipe = bot.recipesFor(itemByName.id, null, count, craftingTableBlock ?? null)?.[0];
       if (!recipe) {
-        return {
-          success: false,
-          message: `无法找到 ${params.item} 的合成配方`,
-          error: 'RECIPE_NOT_FOUND'
-        };
+        return this.createErrorResult(`无法找到 ${params.item} 的合成配方`, 'RECIPE_NOT_FOUND');
       }
 
       await bot.craft(recipe, count, craftingTableBlock ?? null);
 
-      return {
-        success: true,
-        message: `成功合成 ${params.item} × ${count}`,
-        data: { item: params.item, count }
-      };
+      return this.createSuccessResult(`成功合成 ${params.item} × ${count}`, { item: params.item, count });
     } catch (err) {
-      return {
-        success: false,
-        message: `合成失败: ${err instanceof Error ? err.message : String(err)}`,
-        error: 'CRAFT_FAILED'
-      };
+      return this.createExceptionResult(err, `合成失败`, 'CRAFT_FAILED');
     }
-  }
-
-  validateParams(params: CraftItemParams): boolean {
-    return typeof params.item === 'string' && params.item.length > 0;
-  }
-
-  getParamsSchema(): Record<string, string> {
-    return {
-      item: '要合成的物品名称 (字符串)',
-      count: '合成数量 (数字，可选，默认为1)'
-    };
   }
 } 
