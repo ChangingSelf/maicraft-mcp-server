@@ -1,6 +1,8 @@
 # Maicraft
 
-一个面向 MCP 的 Minecraft 机器人服务。以 Mineflayer 为核心，提供最小可用的一组 MCP 工具：状态查询、事件查询与基础动作（挖掘、放置、跟随）。移除了历史的 WebSocket/消息路由模块，仅保留清晰可维护的最小接口。
+一个基于Mineflayer的Minecraft MCP Server。
+
+部分高级动作参考[mineland](https://github.com/cocacola-lab/MineLand)项目的实现。
 
 ---
 
@@ -28,7 +30,7 @@ pnpm run dev  -- ./config.yaml   # 开发（tsx）
 pnpm run build && pnpm start     # 生产（tsc -> node）
 ```
 
-将 `config.yaml` 中的 `mcp.enabled` 设为 `true` 可启用 MCP（stdio）。
+项目默认启动 MCP Server（stdio 传输）。
 
 ---
 
@@ -49,7 +51,6 @@ enabledEvents:
 maxMessageHistory: 100
 
 mcp:
-  enabled: true
   name: "Maicraft MCP"
   version: "0.1.0"
   tools:
@@ -80,7 +81,6 @@ mcp:
 参考工具仓库：[`modelcontextprotocol/inspector`](https://github.com/modelcontextprotocol/inspector)
 
 1) 准备
-- 确保 `config.yaml` 中 `mcp.enabled: true`
 - 生产态建议先构建：`pnpm build`
 
 2) UI 调试（生产态，推荐）

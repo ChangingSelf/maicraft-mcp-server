@@ -23,9 +23,8 @@ enabledEvents:
 
 maxMessageHistory: 100     # 本地最大事件缓存条数
 
-# MCP Server（可选）
+# MCP Server 配置
 mcp:
-  enabled: false           # 启用后将通过 stdio 暴露 MCP Server
   name: "Maicraft MCP"
   version: "0.1.0"
   tools:

@@ -35,6 +35,28 @@ export class Logger {
   }
 
   /**
+   * 设置MCP stdio模式，并重定向全局console输出
+   * 在MCP stdio模式下，所有console输出都会重定向到stderr，避免污染stdout
+   */
+  static setupMcpMode(): void {
+    // 设置环境变量
+    if (!process.env.MCP_STDIO_MODE) {
+      process.env.MCP_STDIO_MODE = '1';
+    }
+
+    // 重定向全局console输出到stderr
+    if (process.env.MCP_STDIO_MODE === '1') {
+      // 保留原始方法以便调试需要
+      const origError = console.error.bind(console);
+      const toStderr = (...args: unknown[]) => origError(...args);
+      console.log = toStderr as any;
+      console.info = toStderr as any;
+      console.debug = toStderr as any;
+      console.warn = toStderr as any;
+    }
+  }
+
+  /**
    * 设置日志级别
    */
   setLevel(level: LogLevel): void {

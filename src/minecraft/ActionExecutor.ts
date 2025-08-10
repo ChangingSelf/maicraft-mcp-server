@@ -1,5 +1,6 @@
 import { Bot } from 'mineflayer';
 import { ActionRegistry, GameAction, BaseActionParams, ActionResult } from './ActionInterface.js';
+import { Logger } from '../utils/Logger.js';
 
 // 动作信息接口
 export interface ActionInfo {
@@ -30,14 +31,14 @@ export class ActionExecutor implements ActionRegistry {
   private isProcessingQueue = false;
   private maxConcurrentActions = 1; // 当前限制为串行执行
   private isCancelled = false;
+  private logger = new Logger('ActionExecutor');
 
   /**
    * 注册动作
    */
   register(action: GameAction): void {
     this.actions.set(action.name, action);
-    // Avoid stdout pollution when running under MCP stdio; use stderr
-    console.error(`已注册高级动作: ${action.name} - ${action.description}`);
+    this.logger.info(`已注册高级动作: ${action.name} - ${action.description}`);
   }
 
   /**
@@ -174,7 +175,7 @@ export class ActionExecutor implements ActionRegistry {
       }
 
       // 执行动作（带超时）
-      console.error(`执行高级动作: ${name}`, params);
+      this.logger.info(`执行高级动作: ${name}`, params);
       const timeoutMs = timeout || this.defaultTimeout;
       
       const result = await Promise.race([
@@ -184,10 +185,10 @@ export class ActionExecutor implements ActionRegistry {
         )
       ]);
       
-      console.error(`动作 ${name} 执行结果:`, result);
+      this.logger.info(`动作 ${name} 执行结果:`, result);
       return result;
     } catch (error) {
-      console.error(`执行动作 ${name} 时发生错误:`, error);
+      this.logger.error(`执行动作 ${name} 时发生错误:`, error);
       
       // 检查是否是超时错误
       if (error instanceof Error && error.message.includes('超时')) {
