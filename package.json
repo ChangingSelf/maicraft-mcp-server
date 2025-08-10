@@ -12,6 +12,8 @@
     "test": "jest --runInBand",
     "lint": "eslint src/**/*.ts",
     "clean": "rimraf dist",
+    "log": "node scripts/watch-log.js",
+    "test:logging": "node scripts/test-logging.js",
     "inspect:ui:dev": "pnpm dlx @modelcontextprotocol/inspector@0.16.2 --config mcp-inspector.json --server maicraft-dev",
     "inspect:ui:dist": "pnpm dlx @modelcontextprotocol/inspector@0.16.2 --config mcp-inspector.json --server maicraft-dist",
     "inspect:cli:dev:tools": "pnpm dlx @modelcontextprotocol/inspector@0.16.2 --cli --config mcp-inspector.json --server maicraft-dev --method tools/list",

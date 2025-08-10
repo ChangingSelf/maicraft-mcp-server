@@ -15,12 +15,14 @@ import { resolve, extname } from 'path';
 import { load as yamlLoad } from 'js-yaml';
 
 import { MaicraftClient, ClientConfig } from './MaicraftClient.js';
-import { Logger } from './utils/Logger.js';
+import { Logger, LoggingConfig } from './utils/Logger.js';
+import { MaicraftMcpServer } from './mcp/MaicraftMcpServer.js';
 
 // 设置MCP stdio模式，重定向全局console输出到stderr
 Logger.setupMcpMode();
 
-const logger = new Logger('Maicraft', { useStderr: true });
+// 临时日志器，用于配置加载阶段
+const tempLogger = new Logger('Maicraft', { useStderr: true });
 
 /** 获取配置文件路径
  * 1. 如果用户传入路径，则使用该路径。
@@ -32,7 +34,7 @@ function getConfigPath(): string {
     const abs = resolve(process.cwd(), userPath);
     const ext = extname(abs).toLowerCase();
     if (ext !== '.yaml' && ext !== '.yml') {
-      logger.error('仅支持 YAML 格式的配置文件（.yaml / .yml）');
+      tempLogger.error('仅支持 YAML 格式的配置文件（.yaml / .yml）');
       process.exit(1);
     }
     return abs;
@@ -45,19 +47,19 @@ function getConfigPath(): string {
   if (fs.existsSync(yamlPath)) return yamlPath;
   if (fs.existsSync(ymlPath)) return ymlPath;
 
-  logger.error('未找到配置文件，请在当前目录提供 config.yaml 或 config.yml');
+  tempLogger.error('未找到配置文件，请在当前目录提供 config.yaml 或 config.yml');
   process.exit(1);
 }
 
 async function main() {
   // 添加全局错误处理
   process.on('uncaughtException', (error) => {
-    logger.error('未捕获的异常:', error);
+    tempLogger.error('未捕获的异常:', error);
     // 不退出程序，让程序继续运行
   });
 
   process.on('unhandledRejection', (reason, promise) => {
-    logger.error('未处理的 Promise 拒绝:', reason);
+    tempLogger.error('未处理的 Promise 拒绝:', reason);
     // 不退出程序，让程序继续运行
   });
 
@@ -66,18 +68,30 @@ async function main() {
    */
   const configPath = getConfigPath();
   if (!fs.existsSync(configPath)) {
-    logger.error(`配置文件不存在: ${configPath}`);
+    tempLogger.error(`配置文件不存在: ${configPath}`);
     process.exit(1);
   }
 
-  let config: ClientConfig & { mcp?: { name?: string; version?: string; auth?: { token?: string; enabled?: boolean }, tools?: { enabled?: string[] } } };
+  let config: ClientConfig & { 
+    mcp?: { 
+      name?: string; 
+      version?: string; 
+      auth?: { token?: string; enabled?: boolean }, 
+      tools?: { enabled?: string[] } 
+    },
+    logging?: LoggingConfig
+  };
+  
   try {
     const raw = fs.readFileSync(configPath, 'utf8');
     config = yamlLoad(raw) as ClientConfig;
   } catch (err) {
-    logger.error('读取或解析配置文件失败:', err);
+    tempLogger.error('读取或解析配置文件失败:', err);
     process.exit(1);
   }
+
+  // 创建正式的日志器
+  const logger = Logger.fromConfig('Maicraft', config.logging || {});
 
   /**
    * 创建客户端
@@ -90,11 +104,8 @@ async function main() {
   const actionExecutor = client.getActionExecutor();
 
   // 启动 MCP server (stdio)
-  let mcpServer: any = null;
-  // 动态导入内部函数避免顶级 await 和大小写问题
+  let mcpServer: MaicraftMcpServer | null = null;
   try {
-    const mod = await import('./mcp/MaicraftMcpServer.js');
-    const { MaicraftMcpServer } = mod as any;
     mcpServer = new MaicraftMcpServer({
       minecraftClient,
       stateManager,
@@ -107,7 +118,7 @@ async function main() {
       },
     });
   } catch (e: unknown) {
-    logger.error('加载 MCP 模块失败:', e as Error);
+    logger.error('创建 MCP 服务器失败:', e as Error);
   }
 
   // 退出时停止客户端
@@ -123,6 +134,7 @@ async function main() {
   try {
     await client.start();
     logger.info('Maicraft 客户端已启动，按 Ctrl+C 退出。');
+    logger.info(`日志文件位置: ${logger.getLogFilePath()}`);
     
     // 启动 MCP Server（独立于 Minecraft 连接）
     if (mcpServer) {
@@ -141,6 +153,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  logger.error('未知错误:', err);
+  tempLogger.error('未知错误:', err);
   process.exit(1);
 });

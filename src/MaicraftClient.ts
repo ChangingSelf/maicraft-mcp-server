@@ -12,7 +12,7 @@ import { SmeltItemAction } from "./actions/SmeltItemAction.js";
 import { SwimToLandAction } from "./actions/SwimToLandAction.js";
 import { UseChestAction } from "./actions/UseChestAction.js";
 
-import { Logger } from "./utils/Logger.js";
+import { Logger, LoggingConfig } from "./utils/Logger.js";
 import { GameEvent } from "./minecraft/GameEvent.js";
 
 /**
@@ -34,6 +34,7 @@ export interface ClientConfig {
   minecraft: MinecraftConfig;
   enabledEvents?: string[];
   maxMessageHistory?: number;
+  logging?: LoggingConfig;
 }
 
 /**
@@ -50,10 +51,13 @@ export class MaicraftClient {
 
   constructor(config: ClientConfig) {
     this.config = config;
-    this.logger = new Logger("MaicraftClient");
+    this.logger = Logger.fromConfig("MaicraftClient", config.logging || {});
 
     // 初始化组件
-    this.minecraftClient = new MinecraftClient(config.minecraft);
+    this.minecraftClient = new MinecraftClient({
+      ...config.minecraft,
+      logging: config.logging
+    });
     this.stateManager = new StateManager({
       maxEventHistory: config.maxMessageHistory || 100,
     });

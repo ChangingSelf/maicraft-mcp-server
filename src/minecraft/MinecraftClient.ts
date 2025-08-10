@@ -1,6 +1,6 @@
 import { createBot, Bot } from 'mineflayer';
 import { EventEmitter } from 'events';
-import { Logger } from '../utils/Logger.js';
+import { Logger, LoggingConfig } from '../utils/Logger.js';
 import { GameEvent, GameEventType, PlayerInfo, Position } from './GameEvent.js';
 import { plugin as pvpPlugin } from 'mineflayer-pvp';
 import { pathfinder as pathfinderPlugin } from 'mineflayer-pathfinder';
@@ -21,6 +21,7 @@ export interface MinecraftClientOptions {
   reconnectInterval?: number;
   maxReconnectAttempts?: number;
   enableReconnect?: boolean;
+  logging?: LoggingConfig;
 }
 
 export interface MinecraftClientEvents {
@@ -78,7 +79,7 @@ export class MinecraftClient extends EventEmitter {
       enableReconnect: true,
       ...options
     };
-    this.logger = new Logger('MinecraftClient');
+    this.logger = Logger.fromConfig('MinecraftClient', options.logging || {});
   }
 
   /**

@@ -6,7 +6,6 @@ async function main() {
   // 启动本地 MCP Server（stdio）
   const child = spawn('node', ['dist/main.js', 'config.yaml'], {
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, MCP_STDIO_MODE: '1' },
   });
 
   child.stderr.on('data', (buf) => {
