@@ -18,7 +18,6 @@ export interface ClientConfig {
   mcp?: {
     name?: string;
     version?: string;
-    auth?: { token?: string; enabled?: boolean };
     tools?: { enabled?: string[]; disabled?: string[] };
   };
 }

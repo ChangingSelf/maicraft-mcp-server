@@ -151,7 +151,6 @@ async function main() {
       config: {
         name: config.mcp?.name || 'Maicraft MCP',
         version: config.mcp?.version || '0.1.0',
-        auth: config.mcp?.auth,
         tools: config.mcp?.tools,
       },
     });

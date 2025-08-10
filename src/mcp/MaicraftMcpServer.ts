@@ -11,10 +11,6 @@ import { ActionExecutor } from "../minecraft/ActionExecutor.js";
 export interface McpConfig {
   name: string;
   version: string;
-  auth?: {
-    token?: string;
-    enabled?: boolean;
-  };
   tools?: {
     enabled?: string[];
     disabled?: string[];
@@ -43,7 +39,6 @@ export class MaicraftMcpServer {
       version: deps.config.version || "0.1.0",
     });
 
-    this.registerBuiltInTools();
     this.registerQueryTools();
     // 立即尝试注册动作工具（测试环境下无 discover 也会注册 fallback）
     this.registerActionTools();
@@ -59,28 +54,11 @@ export class MaicraftMcpServer {
     await this.server.connect(transport);
     this.logger.info("MCP server connected over stdio");
     
-    // Keep the connection alive
+    // 保持连接存活
     return new Promise(() => {
-      // This promise never resolves, keeping the process alive
-      // The process will be terminated by SIGINT or when the transport closes
+      // 这个 promise 不会 resolve, 保持进程存活
+      // 进程将在 SIGINT 或 transport 关闭时终止
     });
-  }
-
-  private registerBuiltInTools(): void {
-    const pingHandler = async (extra: any) => {
-      const requestId = randomUUID();
-      const start = Date.now();
-      const pong = {
-        ok: true,
-        data: { pong: true, version: this.deps.config.version, ready: this.deps.minecraftClient.isConnectedToServer(), echo: "pong" },
-        request_id: requestId,
-        elapsed_ms: Date.now() - start,
-      };
-      this.logToolInvocation("ping", requestId, {}, pong.ok, undefined, pong.elapsed_ms);
-      return { content: [{ type: "text", text: JSON.stringify(pong) }], structuredContent: pong };
-    };
-    this.__handlers.set("ping", pingHandler);
-    this.server.tool("ping", "Health check. Returns pong and service version.", pingHandler as any);
   }
 
   private registerQueryTools(): void {
@@ -89,8 +67,6 @@ export class MaicraftMcpServer {
       const requestId = randomUUID();
       const start = Date.now();
       try {
-        const authError = this.verifyAuth();
-        if (authError) return this.errorResult("permission_denied", authError, requestId, start);
         const bot = this.deps.minecraftClient.getBot();
         if (!bot) return this.errorResult("service_unavailable", "Minecraft bot is not ready", requestId, start);
         const state = this.deps.stateManager.getGameState();
@@ -112,8 +88,6 @@ export class MaicraftMcpServer {
       const requestId = randomUUID();
       const start = Date.now();
       try {
-        const authError = this.verifyAuth();
-        if (authError) return this.errorResult("permission_denied", authError, requestId, start);
         const type = input?.type;
         const sinceMs = input?.since_ms;
         const limit = input?.limit ?? 50;
@@ -142,8 +116,14 @@ export class MaicraftMcpServer {
     );
   }
 
+  /**
+   * 注册Minecraft动作作为MCP工具
+   * @returns 
+   */
   private registerActionTools(): void {
     if (this.actionToolsRegistered) return;
+
+    // 获取配置的白名单和黑名单
     const enabled = this.deps.config.tools?.enabled;
     const disabled = new Set(this.deps.config.tools?.disabled || []);
     const allow = (name: string) => {
@@ -152,36 +132,27 @@ export class MaicraftMcpServer {
       return enabled.includes(name); // 同时存在时，两者并存：既要在白名单，又不能在黑名单
     };
 
+    // 获取自动发现的MCP工具
     const specs = this.deps.actionExecutor.getDiscoveredMcpTools?.() ?? [];
     
     if (Array.isArray(specs) && specs.length > 0) {
       this.logger.info(`注册 ${specs.length} 个自动发现的 MCP 工具: ${specs.map(s => s.toolName).join(', ')}`);
       
       for (const spec of specs) {
+        // 如果工具被禁用，则跳过
          if (!allow(spec.toolName)) {
           this.logger.debug(`跳过被禁用的工具: ${spec.toolName}`);
           continue;
         }
         
+        // 注册工具处理函数
         const handler = async (input: any) => {
           const requestId = randomUUID();
           const start = Date.now();
-          const authError = this.verifyAuth();
-          if (authError) return this.errorResult("permission_denied", authError, requestId, start);
           
-          const normalize = (raw: any) => {
-            if (!raw || typeof raw !== 'object') return {} as any;
-            const obj = { ...(raw as any) };
-            if (obj.blockName && !obj.name) obj.name = obj.blockName;
-            if (obj.itemName && !obj.item) obj.item = obj.itemName;
-            if (obj.playerName && !obj.player) obj.player = obj.playerName;
-            if (obj.timeoutSec && !obj.timeout) obj.timeout = obj.timeoutSec;
-            return obj;
-          };
-
           const params = typeof spec.mapInputToParams === 'function'
             ? spec.mapInputToParams(input, { state: this.deps.stateManager })
-            : normalize(input ?? {});
+            : (input ?? {});
           
           const actionName = spec.actionName || undefined;
           const finalActionName = actionName ?? (input?.actionName as string) ?? spec.toolName;
@@ -189,47 +160,53 @@ export class MaicraftMcpServer {
           return this.wrapAction(finalActionName, params as any);
         };
         
-        this.__handlers.set(spec.toolName, handler);
-
         // 处理 schema
-        const schema = (spec as any).schema;
+        const {schema, toolName, description} = spec;
+        this.__handlers.set(toolName, handler);
+        
         const isZod = schema && typeof schema === 'object' && typeof schema.safeParse === 'function';
         const isShape = schema && typeof schema === 'object' && !isZod;
         
         if (isZod) {
           const shape = (schema as any)?._def?.shape?.();
           if (shape && typeof shape === 'object') {
-            this.server.tool(spec.toolName, spec.description, shape as any, handler as any);
+            this.server.tool(toolName, description, shape as any, handler as any);
           } else {
-            this.server.tool(spec.toolName, spec.description, handler as any);
+            this.server.tool(toolName, description, handler as any);
           }
         } else if (isShape) {
-          this.server.tool(spec.toolName, spec.description, schema as any, handler as any);
+          this.server.tool(toolName, description, schema as any, handler as any);
         } else {
-          this.server.tool(spec.toolName, spec.description, handler as any);
+          this.server.tool(toolName, description, handler as any);
         }
         
-        this.logger.debug(`已注册工具: ${spec.toolName}`);
+        this.logger.debug(`已注册工具: ${toolName}`);
       }
       this.actionToolsRegistered = true;
     } else {
       this.logger.warn('未发现任何 MCP 工具定义，启用兼容的内建工具: mine_block');
       // 兼容：注册最常用的 mine_block 工具，映射到 mineBlock 动作
       const handler = async (input: any) => {
-        const params = { name: input?.blockName ?? input?.name, count: input?.count ?? 1 };
+        const params = { name: input?.name, count: input?.count ?? 1 };
         return this.wrapAction('mineBlock', params);
       };
       this.__handlers.set('mine_block', handler);
       this.server.tool(
         'mine_block',
         'Mine blocks by name nearby.',
-        { blockName: z.string(), count: z.number().int().min(1).optional() } as any,
+        { name: z.string(), count: z.number().int().min(1).optional() } as any,
         handler as any
       );
       this.actionToolsRegistered = true;
     }
   }
 
+  /**
+   * 包装Minecraft动作并返回MCP结果
+   * @param name 动作名称
+   * @param params 动作参数
+   * @returns 
+   */
   private async wrapAction(name: string, params: Record<string, unknown>) {
     const requestId = randomUUID();
     const start = Date.now();
@@ -281,47 +258,14 @@ export class MaicraftMcpServer {
   private summarizeParams(params: unknown): unknown {
     if (params && typeof params === 'object') {
       try {
-        const json = JSON.parse(JSON.stringify(params));
-        // 避免过大对象
-        return json;
+        return JSON.parse(JSON.stringify(params));
       } catch {
         return '[unserializable]';
       }
     }
     return params;
   }
-
-  private verifyAuth(): string | null {
-    const enabled = this.deps.config.auth?.enabled ?? false;
-    if (!enabled) return null;
-    // For now, we only check presence match when enabled. Extend as needed.
-    // Expect a token in env or process args is not desired; keep it no-op per project preference.
-    return null;
-  }
-
-  private ensureActionsRegistered(): void {
-    // 兼容：若未通过自动发现注册到核心动作，则补充内建的几个基础动作。
-    // 注意：当 main.ts 已启用自动发现时，此处通常不会生效。
-    try {
-      const names = this.deps.actionExecutor.getRegisteredActions?.() ?? [];
-      // 保持兼容，不在此直接实例化动作类，避免强耦合
-      // 用户应通过在 actions 目录提供动作文件来完成注册
-      if (names.length === 0) {
-        this.logger.info('未检测到已注册动作，建议在 src/actions 中提供动作文件以启用自动注册。');
-      }
-    } catch {}
-  }
-
-  // Testing-only helpers
-  public __testInvokeTool(name: string, input: any): Promise<any> {
-    const h = this.__handlers.get(name);
-    if (!h) throw new Error(`tool not found: ${name}`);
-    return h(input);
-  }
-
-  public __testHasTool(name: string): boolean {
-    return this.__handlers.has(name);
-  }
+  
 }
 
 
