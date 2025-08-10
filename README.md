@@ -48,7 +48,7 @@ graph LR
 graph TD
   A[Action File] -->|继承| B[BaseAction]
   A -->|定义| C[schema: z.ZodTypeAny]
-  A -->|实现| D[execute: (bot, params) => Promise<ActionResult>]
+  A -->|实现| D[execute: bot, params => Promise&lt;ActionResult&gt;]
   
   B -->|自动提供| E[validateParams]
   B -->|自动提供| F[getParamsSchema]
