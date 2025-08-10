@@ -6,8 +6,8 @@
  *   maicraft <configPath>
  *   # 或
  *   pnpm run dev -- <configPath>
- * 
- * 默认读取根目录下的 config.json
+ *
+ * 默认读取根目录下的 config.yaml / config.yml（仅支持 YAML）
  */
 
 import fs from 'fs';

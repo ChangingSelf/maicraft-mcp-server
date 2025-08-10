@@ -1,6 +1,10 @@
 # Maicraft
 
-Minecraft × MCP 机器人服务：通过 MCP 工具查询状态/事件并执行基础动作
+基于 [mineflayer](https://github.com/PrismarineJS/mineflayer) 构建的 Minecraft MCP Server。
+
+主要用于和[Amaidesu](https://github.com/MaiM-with-u/Amaidesu)项目配合，让[MaiBot](https://github.com/MaiM-with-u/MaiBot)游玩Minecraft游戏。
+
+当然，也可以像普通MCP Server一样使用本项目。
 
 ## 功能特性
 
@@ -130,22 +134,44 @@ logging:
 ### 3. 启动
 
 ```bash
-# 开发模式
-pnpm run dev
+# 开发模式（读取 ./config.yaml）
+pnpm dev
 
 # 生产模式
-pnpm run build
+pnpm build
 pnpm start
 ```
 
-### 4. 查看日志
+### 4. 调试 MCP（图形界面）
 
 ```bash
-# 实时查看日志
-pnpm run log
+pnpm mcp:ui
+```
 
-# 测试日志配置
-pnpm run test:logging
+打开浏览器中的 Inspector，验证工具、请求与响应。
+
+### 5. 快速测试（命令行）
+
+```bash
+# 列出已注册的工具
+pnpm mcp:tools
+
+# 调用 query_state 进行烟囱测试
+pnpm mcp:state
+```
+
+### 查看日志
+
+程序启动后会在控制台打印日志文件路径。可使用系统命令实时查看：
+
+```powershell
+# Windows PowerShell
+Get-Content <日志文件路径> -Wait
+```
+
+```bash
+# macOS/Linux
+tail -f <日志文件路径>
 ```
 
 ## 配置说明
@@ -201,38 +227,7 @@ logs/maicraft-YYYY-MM-DDTHH-mm-ss.log
 
 #### 查看日志的方法
 
-**1. 实时查看日志（推荐）**
-```bash
-# 查看最新的日志文件
-pnpm run log
-
-# 或者指定特定日志文件
-node scripts/watch-log.js logs/maicraft-2024-01-15T10-30-00.log
-```
-
-**2. 直接查看日志文件**
-```bash
-# 查看完整日志
-cat logs/maicraft-2024-01-15T10-30-00.log
-
-# 查看最后100行
-tail -n 100 logs/maicraft-2024-01-15T10-30-00.log
-
-# 实时跟踪日志（类似 tail -f）
-tail -f logs/maicraft-2024-01-15T10-30-00.log
-```
-
-**3. 在 Windows 上查看**
-```powershell
-# 查看完整日志
-Get-Content logs/maicraft-2024-01-15T10-30-00.log
-
-# 查看最后100行
-Get-Content logs/maicraft-2024-01-15T10-30-00.log -Tail 100
-
-# 实时跟踪日志
-Get-Content logs/maicraft-2024-01-15T10-30-00.log -Wait
-```
+见上文“查看日志”一节，分别给出了 Windows 与 macOS/Linux 的系统命令。
 
 #### 日志级别
 
@@ -296,6 +291,36 @@ mcp:
     
     # 方式4：不配置 - 默认暴露所有工具
     # （删除或注释掉 tools 部分）
+```
+
+## 将 Maicraft 配置到第三方 MCP Client（JSON）
+
+以下是通用的 stdio 配置示例，请在你的 MCP Client 配置文件中加入：
+
+```json
+{
+  "mcpServers": {
+    "maicraft": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/path/to/maicraft/dist/main.js", "/path/to/maicraft/config.yaml"]
+    }
+  }
+}
+```
+
+开发阶段也可以改为直接运行 TypeScript 源码：
+
+```json
+{
+  "mcpServers": {
+    "maicraft": {
+      "type": "stdio",
+      "command": "tsx",
+      "args": ["/path/to/maicraft/src/main.ts", "/path/to/maicraft/config.yaml"]
+    }
+  }
+}
 ```
 
 ## 动作开发
@@ -398,7 +423,6 @@ export const MyAction = defineAction({
 
 ### 查询工具
 
-- `ping` - 测试连接
 - `query_state` - 查询游戏状态
 - `query_events` - 查询事件历史
 
@@ -410,16 +434,16 @@ export const MyAction = defineAction({
 
 ```bash
 # 构建
-pnpm run build
+pnpm build
 
 # 测试
-pnpm run test
+pnpm test
 
 # 代码检查
-pnpm run lint
+pnpm lint
 
 # 清理构建文件
-pnpm run clean
+pnpm clean
 ```
 
 ## 许可证

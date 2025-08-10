@@ -81,7 +81,7 @@ export class MaicraftMcpServer {
       }
     };
     this.__handlers.set("query_state", queryStateHandler);
-    this.server.tool("query_state", "Return a minimal snapshot of bot state.", queryStateHandler as any);
+    this.server.tool("query_state", "返回Minecraft bot的当前状态", queryStateHandler as any);
 
     // query_events
     const queryEventsHandler = async (input: any) => {
@@ -106,7 +106,7 @@ export class MaicraftMcpServer {
     this.__handlers.set("query_events", queryEventsHandler);
     this.server.tool(
       "query_events",
-      "Return recent events with optional filters.",
+      "返回最近的事件，可选过滤器。",
       {
         type: z.string().optional(),
         since_ms: z.number().int().optional(),
@@ -184,20 +184,7 @@ export class MaicraftMcpServer {
       }
       this.actionToolsRegistered = true;
     } else {
-      this.logger.warn('未发现任何 MCP 工具定义，启用兼容的内建工具: mine_block');
-      // 兼容：注册最常用的 mine_block 工具，映射到 mineBlock 动作
-      const handler = async (input: any) => {
-        const params = { name: input?.name, count: input?.count ?? 1 };
-        return this.wrapAction('mineBlock', params);
-      };
-      this.__handlers.set('mine_block', handler);
-      this.server.tool(
-        'mine_block',
-        'Mine blocks by name nearby.',
-        { name: z.string(), count: z.number().int().min(1).optional() } as any,
-        handler as any
-      );
-      this.actionToolsRegistered = true;
+      this.logger.warn('未发现任何 MCP 工具定义');
     }
   }
 
@@ -217,7 +204,7 @@ export class MaicraftMcpServer {
         return this.errorResult("service_unavailable", "Minecraft bot is not ready", requestId, start);
       }
       const result = await this.deps.actionExecutor.execute(name, bot, params as any, 30_000);
-      const mappedError = !result.success && result.error === 'TIMEOUT' ? 'execution_timeout' : (!result.success ? (result.error ?? 'execution_error') : undefined);
+      const mappedError = !result.success && result.error === 'TIMEOUT' ? 'execution_timeout' : (result.success ? undefined : result.error ?? 'execution_error');
       const content = {
         ok: Boolean(result.success),
         data: result.success ? (result.data ?? { message: result.message }) : undefined,
