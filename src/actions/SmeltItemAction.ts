@@ -1,6 +1,7 @@
 import { Bot } from 'mineflayer';
 import minecraftData from 'minecraft-data';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams, McpToolSpec } from '../minecraft/ActionInterface.js';
+import { z } from 'zod';
 
 interface SmeltItemParams extends BaseActionParams {
   /** 要熔炼的物品名称 */
@@ -94,5 +95,17 @@ export class SmeltItemAction extends BaseAction<SmeltItemParams> {
     } catch (err) {
       return this.createExceptionResult(err, '熔炼失败', 'SMELT_FAILED');
     }
+  }
+
+  public override getMcpTools(): McpToolSpec[] {
+    return [
+      {
+        toolName: 'smelt_item',
+        description: 'Smelt an item in a nearby furnace.',
+        schema: { item: z.string(), fuel: z.string(), count: z.number().int().min(1).optional() },
+        actionName: 'smeltItem',
+        mapInputToParams: (input: any) => ({ item: input.item, fuel: input.fuel, count: input.count ?? 1 }),
+      },
+    ];
   }
 } 

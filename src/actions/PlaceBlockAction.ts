@@ -1,6 +1,7 @@
 import { Bot } from 'mineflayer';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams, McpToolSpec } from '../minecraft/ActionInterface.js';
 import minecraftData from 'minecraft-data';
+import { z } from 'zod';
 
 interface PlaceBlockParams extends BaseActionParams {
   x: number;
@@ -67,4 +68,16 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
       return this.createExceptionResult(error, '放置方块失败', 'PLACE_FAILED');
     }
   }
-} 
+
+  public override getMcpTools(): McpToolSpec[] {
+    return [
+      {
+        toolName: 'place_block',
+        description: 'Place a block at a position.',
+        schema: { x: z.number(), y: z.number(), z: z.number(), itemName: z.string() },
+        actionName: 'placeBlock',
+        mapInputToParams: (input: any) => ({ x: input.x, y: input.y, z: input.z, item: input.itemName }),
+      },
+    ];
+  }
+}

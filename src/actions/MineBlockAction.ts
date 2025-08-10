@@ -1,6 +1,7 @@
 import { Bot } from 'mineflayer';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams, McpToolSpec } from '../minecraft/ActionInterface.js';
 import minecraftData from 'minecraft-data';
+import { z } from 'zod';
 
 interface MineBlockParams extends BaseActionParams {
   /** 方块名称，例如 "dirt" */
@@ -78,4 +79,20 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       return this.createExceptionResult(err, `挖掘 ${params.name} 失败`, 'MINE_FAILED');
     }
   }
-} 
+
+  public override getMcpTools(): McpToolSpec[] {
+    return [
+      {
+        toolName: 'mine_block',
+        description: 'Mine blocks by name nearby.',
+        schema: {
+          blockName: z.string(),
+          name: z.string().optional(),
+          count: z.number().int().min(1).optional(),
+        },
+        actionName: 'mineBlock',
+        mapInputToParams: (input: any) => ({ name: input.blockName ?? input.name, count: input.count ?? 1 }),
+      },
+    ];
+  }
+}

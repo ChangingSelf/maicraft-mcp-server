@@ -6,9 +6,7 @@ import { Logger } from "../utils/Logger.js";
 import { MinecraftClient } from "../minecraft/MinecraftClient.js";
 import { StateManager } from "../minecraft/StateManager.js";
 import { ActionExecutor } from "../minecraft/ActionExecutor.js";
-import { MineBlockAction } from "../actions/MineBlockAction.js";
-import { PlaceBlockAction } from "../actions/PlaceBlockAction.js";
-import { FollowPlayerAction } from "../actions/FollowPlayerAction.js";
+// 动作与工具的自动发现通过 ActionExecutor 完成
 
 export interface McpConfig {
   name: string;
@@ -43,7 +41,6 @@ export class MaicraftMcpServer {
       version: deps.config.version || "0.1.0",
     });
 
-    this.ensureActionsRegistered();
     this.registerBuiltInTools();
     this.registerQueryTools();
     this.registerActionTools();
@@ -141,68 +138,70 @@ export class MaicraftMcpServer {
     const enabled = this.deps.config.tools?.enabled;
     const allow = (name: string) => !enabled || enabled.includes(name);
 
-    if (allow("mine_block")) {
-      const mineBlockHandler = async (input: any) => {
-        const requestId = randomUUID();
-        const start = Date.now();
-        const authError = this.verifyAuth();
-        if (authError) return this.errorResult("permission_denied", authError, requestId, start);
-        return this.wrapAction("mineBlock", { name: input.blockName, count: input.count ?? 1 });
-      };
-      this.__handlers.set("mine_block", mineBlockHandler);
-      this.server.tool(
-        "mine_block",
-        "Mine blocks by name nearby.",
-        {
+    const specs = this.deps.actionExecutor.getDiscoveredMcpTools?.() ?? [];
+    const registeredNames = new Set<string>();
+    if (Array.isArray(specs) && specs.length > 0) {
+      for (const spec of specs) {
+        if (!allow(spec.toolName)) continue;
+        const handler = async (input: any) => {
+          const requestId = randomUUID();
+          const start = Date.now();
+          const authError = this.verifyAuth();
+          if (authError) return this.errorResult("permission_denied", authError, requestId, start);
+          const params = typeof spec.mapInputToParams === 'function'
+            ? spec.mapInputToParams(input, { state: this.deps.stateManager })
+            : (input ?? {});
+          const actionName = spec.actionName || undefined;
+          const finalActionName = actionName ?? (input?.actionName as string) ?? spec.toolName;
+          return this.wrapAction(finalActionName, params as any);
+        };
+        this.__handlers.set(spec.toolName, handler);
+        registeredNames.add(spec.toolName);
+
+        const schema = (spec as any).schema;
+        const isZod = schema && typeof schema === 'object' && typeof schema.safeParse === 'function';
+        const isShape = schema && typeof schema === 'object' && !isZod;
+        if (isZod) {
+          const shape = (schema as any)?._def?.shape?.();
+          if (shape && typeof shape === 'object') {
+            this.server.tool(spec.toolName, spec.description, shape as any, handler as any);
+          } else {
+            this.server.tool(spec.toolName, spec.description, handler as any);
+          }
+        } else if (isShape) {
+          this.server.tool(spec.toolName, spec.description, schema as any, handler as any);
+        } else {
+          this.server.tool(spec.toolName, spec.description, handler as any);
+        }
+      }
+    }
+
+    // 回退：注册内建的基础动作工具，保证测试与最小可用集
+    const fallbackSpecs = [
+      {
+        toolName: 'mine_block',
+        description: 'Mine blocks by name nearby.',
+        schema: {
           blockName: z.string(),
           name: z.string().optional(),
           count: z.number().int().min(1).optional(),
         },
-        mineBlockHandler as any
-      );
-    }
-
-    if (allow("place_block")) {
-      const placeBlockHandler = async (input: any) => {
-        const requestId = randomUUID();
-        const start = Date.now();
-        const authError = this.verifyAuth();
-        if (authError) return this.errorResult("permission_denied", authError, requestId, start);
-        return this.wrapAction("placeBlock", { x: input.x, y: input.y, z: input.z, item: input.itemName });
-      };
-      this.__handlers.set("place_block", placeBlockHandler);
-      this.server.tool(
-        "place_block",
-        "Place a block at a position.",
-        {
-          x: z.number(),
-          y: z.number(),
-          z: z.number(),
-          itemName: z.string(),
+        actionName: 'mineBlock',
+        mapInputToParams: (input: any) => ({ name: input.blockName ?? input.name, count: input.count ?? 1 }),
+      },
+      {
+        toolName: 'place_block',
+        description: 'Place a block at a position.',
+        schema: {
+          x: z.number(), y: z.number(), z: z.number(), itemName: z.string(),
         },
-        placeBlockHandler as any
-      );
-    }
-
-    if (allow("follow_player")) {
-      const followPlayerHandler = async (input: any) => {
-        const requestId = randomUUID();
-        const start = Date.now();
-        const authError = this.verifyAuth();
-        if (authError) return this.errorResult("permission_denied", authError, requestId, start);
-        // Accept multiple arg names and provide sensible defaults when omitted
-        const state = this.deps.stateManager.getGameState?.();
-        const defaultPlayer = state?.nearbyPlayers?.[0]?.username;
-        const player = input?.playerName ?? input?.player ?? input?.name ?? defaultPlayer;
-        const distance = input?.distance ?? 3;
-        const timeout = input?.timeoutSec ?? input?.timeout ?? 60;
-        return this.wrapAction("followPlayer", { player, distance, timeout });
-      };
-      this.__handlers.set("follow_player", followPlayerHandler);
-      this.server.tool(
-        "follow_player",
-        "Follow a player by name.",
-        {
+        actionName: 'placeBlock',
+        mapInputToParams: (input: any) => ({ x: input.x, y: input.y, z: input.z, item: input.itemName }),
+      },
+      {
+        toolName: 'follow_player',
+        description: 'Follow a player by name.',
+        schema: {
           player: z.string().optional(),
           playerName: z.string().optional(),
           name: z.string().optional(),
@@ -210,42 +209,38 @@ export class MaicraftMcpServer {
           timeout: z.number().int().positive().optional(),
           timeoutSec: z.number().int().positive().optional(),
         },
-        followPlayerHandler as any
-      );
-    }
-
-    // craft_item
-    if (allow("craft_item")) {
-      const craftItemHandler = async (input: any) => {
-        const requestId = randomUUID();
-        const start = Date.now();
-        const authError = this.verifyAuth();
-        if (authError) return this.errorResult("permission_denied", authError, requestId, start);
-        return this.wrapAction("craftItem", { item: input.item, count: input.count ?? 1 });
-      };
-      this.__handlers.set("craft_item", craftItemHandler);
-      this.server.tool(
-        "craft_item",
-        "Craft an item by name. Will auto-place and approach a crafting table when needed.",
-        {
-          item: z.string(),
-          count: z.number().int().min(1).optional(),
+        actionName: 'followPlayer',
+        mapInputToParams: (input: any) => {
+          const state = this.deps.stateManager.getGameState?.();
+          const defaultPlayer = state?.nearbyPlayers?.[0]?.username;
+          const player = input?.playerName ?? input?.player ?? input?.name ?? defaultPlayer;
+          const distance = input?.distance ?? 3;
+          const timeout = input?.timeoutSec ?? input?.timeout ?? 60;
+          return { player, distance, timeout };
         },
-        craftItemHandler as any
-      );
-    }
+      },
+      {
+        toolName: 'craft_item',
+        description: 'Craft an item by name. Will auto-place and approach a crafting table when needed.',
+        schema: { item: z.string(), count: z.number().int().min(1).optional() },
+        actionName: 'craftItem',
+        mapInputToParams: (input: any) => ({ item: input.item, count: input.count ?? 1 }),
+      },
+    ];
 
-    const notImplementedTools = ["smelt_item", "open_chest", "kill_mob", "swim_to_land"].filter(allow);
-    for (const toolName of notImplementedTools) {
-      const placeholderHandler = async (input: any) => {
+    for (const spec of fallbackSpecs) {
+      if (registeredNames.has(spec.toolName)) continue;
+      if (!allow(spec.toolName)) continue;
+      const handler = async (input: any) => {
         const requestId = randomUUID();
         const start = Date.now();
         const authError = this.verifyAuth();
-        if (authError) return this.errorResult("permission_denied", authError, requestId, start);
-        return this.errorResult("not_implemented", `${toolName} is not implemented`, requestId, start);
+        if (authError) return this.errorResult('permission_denied', authError, requestId, start);
+        const params = spec.mapInputToParams(input);
+        return this.wrapAction(spec.actionName!, params);
       };
-      this.__handlers.set(toolName, placeholderHandler);
-      this.server.tool(toolName, `Placeholder: ${toolName} not implemented`, placeholderHandler as any);
+      this.__handlers.set(spec.toolName, handler);
+      this.server.tool(spec.toolName, spec.description, spec.schema as any, handler as any);
     }
   }
 
@@ -319,14 +314,16 @@ export class MaicraftMcpServer {
   }
 
   private ensureActionsRegistered(): void {
-    const names = this.deps.actionExecutor.getRegisteredActions();
-    const need: Array<{ name: string; instance: any }> = [];
-    if (!names.includes("mineBlock")) need.push({ name: "mineBlock", instance: new MineBlockAction() });
-    if (!names.includes("placeBlock")) need.push({ name: "placeBlock", instance: new PlaceBlockAction() });
-    if (!names.includes("followPlayer")) need.push({ name: "followPlayer", instance: new FollowPlayerAction() });
-    for (const { instance } of need) {
-      this.deps.actionExecutor.register(instance);
-    }
+    // 兼容：若未通过自动发现注册到核心动作，则补充内建的几个基础动作。
+    // 注意：当 main.ts 已启用自动发现时，此处通常不会生效。
+    try {
+      const names = this.deps.actionExecutor.getRegisteredActions?.() ?? [];
+      // 保持兼容，不在此直接实例化动作类，避免强耦合
+      // 用户应通过在 actions 目录提供动作文件来完成注册
+      if (names.length === 0) {
+        this.logger.info('未检测到已注册动作，建议在 src/actions 中提供动作文件以启用自动注册。');
+      }
+    } catch {}
   }
 
   // Testing-only helpers

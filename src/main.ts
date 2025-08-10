@@ -21,15 +21,7 @@ import { MinecraftClient } from './minecraft/MinecraftClient.js';
 import { StateManager } from './minecraft/StateManager.js';
 import { ActionExecutor } from './minecraft/ActionExecutor.js';
 import { GameEvent } from './minecraft/GameEvent.js';
-import { ChatAction } from './actions/ChatAction.js';
-import { CraftItemAction } from './actions/CraftItemAction.js';
-import { PlaceBlockAction } from './actions/PlaceBlockAction.js';
-import { MineBlockAction } from './actions/MineBlockAction.js';
-import { KillMobAction } from './actions/KillMobAction.js';
-import { FollowPlayerAction } from './actions/FollowPlayerAction.js';
-import { SmeltItemAction } from './actions/SmeltItemAction.js';
-import { SwimToLandAction } from './actions/SwimToLandAction.js';
-import { UseChestAction } from './actions/UseChestAction.js';
+// 动作由 ActionExecutor 自动发现与注册，无需在此显式导入
 
 // 设置MCP stdio模式，重定向全局console输出到stderr
 Logger.setupMcpMode();
@@ -108,20 +100,17 @@ async function main() {
   });
   const actionExecutor = new ActionExecutor();
 
-  // 注册基础动作
-  const basicActions = [
-    ChatAction,
-    CraftItemAction,
-    PlaceBlockAction,
-    MineBlockAction,
-    KillMobAction,
-    FollowPlayerAction,
-    SmeltItemAction,
-    SwimToLandAction,
-    UseChestAction,
-  ];
-  basicActions.forEach((ActionClass) => actionExecutor.register(new ActionClass()));
-  logger.info(`已注册基础动作: ${basicActions.map((a) => a.name).join(', ')}`);
+  // 自动发现并注册动作 + 工具说明
+  try {
+    const tools = await actionExecutor.discoverAndRegisterActions();
+    const actionNames = actionExecutor.getRegisteredActions();
+    logger.info(`已自动发现并注册动作: ${actionNames.join(', ')}`);
+    if (tools.length > 0) {
+      logger.info(`已自动发现 MCP 工具: ${tools.map(t => t.toolName).join(', ')}`);
+    }
+  } catch (e) {
+    logger.warn('自动发现动作时出错，但不影响后续流程:', e as Error);
+  }
 
   // 事件过滤
   if (Array.isArray(config.enabledEvents) && config.enabledEvents.length > 0) {

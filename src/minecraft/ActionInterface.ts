@@ -1,4 +1,5 @@
 import { Bot } from 'mineflayer';
+import type { z } from 'zod';
 
 /**
  * 动作参数基础接口
@@ -37,6 +38,28 @@ export interface ActionRegistry {
   getRegisteredActions(): string[];
   getActionInfo(name: string): { description: string; params: Record<string, string> } | null;
   getAllActionsInfo(): Record<string, { description: string; params: Record<string, string> }>;
+}
+
+/**
+ * MCP 工具定义（由各 Action 模块可选导出，用于自动注册 MCP 工具）
+ */
+export interface McpToolSpec {
+  /** MCP 工具名称（例如: "mine_block"） */
+  toolName: string;
+  /** 工具描述 */
+  description: string;
+  /**
+   * 输入参数校验 Schema。
+   * 支持：
+   * - 直接传入 z.object({...})
+   * - 传入 Zod 原始 shape（Record<string, z.ZodTypeAny>）
+   * - 省略（将不进行 schema 校验）
+   */
+  schema?: z.ZodTypeAny | Record<string, z.ZodTypeAny>;
+  /** 映射到的动作名称，缺省为对应 Action 实例的 name */
+  actionName?: string;
+  /** 将工具输入映射为动作参数 */
+  mapInputToParams?: (input: unknown, ctx: unknown) => BaseActionParams;
 }
 
 /**
@@ -119,5 +142,13 @@ export abstract class BaseAction<T extends BaseActionParams = BaseActionParams> 
       const value = params[key];
       return typeof value === 'string' && value.length > 0;
     });
+  }
+
+  /**
+   * 返回与该动作关联的 MCP 工具定义（可选）。
+   * 默认不提供任何工具定义，子类可重写以启用自动注册。
+   */
+  public getMcpTools(): McpToolSpec[] {
+    return [];
   }
 } 

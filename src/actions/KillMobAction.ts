@@ -1,5 +1,6 @@
 import { Bot } from 'mineflayer';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams, McpToolSpec } from '../minecraft/ActionInterface.js';
+import { z } from 'zod';
 
 interface KillMobParams extends BaseActionParams {
   /** 生物名称，例如 "cow" */
@@ -74,5 +75,17 @@ export class KillMobAction extends BaseAction<KillMobParams> {
     } catch (err) {
       return this.createExceptionResult(err, `击杀 ${params.mob} 失败`, 'KILL_FAILED');
     }
+  }
+
+  public override getMcpTools(): McpToolSpec[] {
+    return [
+      {
+        toolName: 'kill_mob',
+        description: 'Kill a mob by name nearby.',
+        schema: { mob: z.string(), timeout: z.number().int().positive().optional() },
+        actionName: 'killMob',
+        mapInputToParams: (input: any) => ({ mob: input.mob, timeout: input.timeout }),
+      },
+    ];
   }
 } 

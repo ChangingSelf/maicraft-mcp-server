@@ -1,5 +1,6 @@
 import { Bot } from 'mineflayer';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams, McpToolSpec } from '../minecraft/ActionInterface.js';
+import { z } from 'zod';
 
 interface FollowPlayerParams extends BaseActionParams {
   /** 目标玩家名称 */
@@ -99,4 +100,30 @@ export class FollowPlayerAction extends BaseAction<FollowPlayerParams> {
       return this.createExceptionResult(err, '跟随失败', 'FOLLOW_FAILED');
     }
   }
-} 
+
+  public override getMcpTools(): McpToolSpec[] {
+    return [
+      {
+        toolName: 'follow_player',
+        description: 'Follow a player by name.',
+        schema: {
+          player: z.string().optional(),
+          playerName: z.string().optional(),
+          name: z.string().optional(),
+          distance: z.number().int().positive().optional(),
+          timeout: z.number().int().positive().optional(),
+          timeoutSec: z.number().int().positive().optional(),
+        },
+        actionName: 'followPlayer',
+        mapInputToParams: (input: any, ctx: any) => {
+          const state = ctx?.state?.getGameState?.();
+          const defaultPlayer = state?.nearbyPlayers?.[0]?.username;
+          const player = input?.playerName ?? input?.player ?? input?.name ?? defaultPlayer;
+          const distance = input?.distance ?? 3;
+          const timeout = input?.timeoutSec ?? input?.timeout ?? 60;
+          return { player, distance, timeout };
+        },
+      },
+    ];
+  }
+}

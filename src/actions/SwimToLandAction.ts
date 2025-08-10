@@ -1,6 +1,7 @@
 import { Bot } from 'mineflayer';
 import minecraftData from 'minecraft-data';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams, McpToolSpec } from '../minecraft/ActionInterface.js';
+import { z } from 'zod';
 
 interface SwimToLandParams extends BaseActionParams {
   /** 最大搜索半径，默认 64 */
@@ -100,5 +101,17 @@ export class SwimToLandAction extends BaseAction<SwimToLandParams> {
     } catch (err) {
       return this.createExceptionResult(err, '游向陆地失败', 'SWIM_FAILED');
     }
+  }
+
+  public override getMcpTools(): McpToolSpec[] {
+    return [
+      {
+        toolName: 'swim_to_land',
+        description: 'Swim to the nearest land when in water.',
+        schema: { maxDistance: z.number().int().positive().optional(), timeout: z.number().int().positive().optional() },
+        actionName: 'swimToLand',
+        mapInputToParams: (input: any) => ({ maxDistance: input.maxDistance, timeout: input.timeout }),
+      },
+    ];
   }
 } 

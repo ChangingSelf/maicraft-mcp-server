@@ -1,6 +1,7 @@
 import { Bot } from 'mineflayer';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams, McpToolSpec } from '../minecraft/ActionInterface.js';
 import minecraftData from 'minecraft-data';
+import { z } from 'zod';
 
 interface CraftItemParams extends BaseActionParams {
   item: string;
@@ -120,5 +121,17 @@ export class CraftItemAction extends BaseAction<CraftItemParams> {
     } catch (err) {
       return this.createExceptionResult(err, `合成失败`, 'CRAFT_FAILED');
     }
+  }
+
+  public override getMcpTools(): McpToolSpec[] {
+    return [
+      {
+        toolName: 'craft_item',
+        description: 'Craft an item by name. Will auto-place and approach a crafting table when needed.',
+        schema: { item: z.string(), count: z.number().int().min(1).optional() },
+        actionName: 'craftItem',
+        mapInputToParams: (input: any) => ({ item: input.item, count: input.count ?? 1 }),
+      },
+    ];
   }
 } 

@@ -1,6 +1,9 @@
 import { Bot } from 'mineflayer';
-import { ActionRegistry, GameAction, BaseActionParams, ActionResult } from './ActionInterface.js';
+import { ActionRegistry, GameAction, BaseActionParams, ActionResult, McpToolSpec } from './ActionInterface.js';
 import { Logger } from '../utils/Logger.js';
+import fs from 'fs';
+import path from 'path';
+import { pathToFileURL } from 'url';
 
 // 动作信息接口
 export interface ActionInfo {
@@ -32,6 +35,7 @@ export class ActionExecutor implements ActionRegistry {
   private maxConcurrentActions = 1; // 当前限制为串行执行
   private isCancelled = false;
   private logger = new Logger('ActionExecutor');
+  private discoveredMcpTools: McpToolSpec[] = [];
 
   /**
    * 注册动作
@@ -46,6 +50,93 @@ export class ActionExecutor implements ActionRegistry {
    */
   getRegisteredActions(): string[] {
     return Array.from(this.actions.keys());
+  }
+
+  /**
+   * 自动发现并注册 `actions` 目录下的动作，同时收集 MCP 工具定义。
+   * 支持在开发环境扫描 `src/actions`，生产环境扫描 `dist/actions`。
+   */
+  async discoverAndRegisterActions(): Promise<McpToolSpec[]> {
+    const cwd = process.cwd();
+    const candidateDirs = [
+      path.resolve(cwd, 'dist', 'actions'),
+      path.resolve(cwd, 'src', 'actions'),
+    ];
+
+    const discoveredTools: McpToolSpec[] = [];
+
+    for (const dir of candidateDirs) {
+      if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) continue;
+      const files = fs.readdirSync(dir)
+        .filter((f) => /\.(mjs|cjs|js|ts)$/.test(f));
+
+      for (const file of files) {
+        const full = path.join(dir, file);
+        try {
+          const mod = await import(pathToFileURL(full).href);
+          const exportedValues: unknown[] = Object.values(mod);
+
+          // 收集动作实例或类
+          const maybeActions: GameAction[] = [];
+          for (const value of exportedValues) {
+            try {
+              if (!value) continue;
+              // 1) 已实例化
+              if (typeof value === 'object' && 'execute' in (value as any) && 'validateParams' in (value as any) && 'getParamsSchema' in (value as any)) {
+                maybeActions.push(value as GameAction);
+                continue;
+              }
+              // 2) 可实例化的类
+              if (typeof value === 'function') {
+                const proto = (value as any).prototype;
+                if (proto && typeof proto.execute === 'function' && typeof proto.validateParams === 'function' && typeof proto.getParamsSchema === 'function') {
+                  // eslint-disable-next-line new-cap
+                  const instance = new (value as any)();
+                  maybeActions.push(instance as GameAction);
+                }
+              }
+            } catch {}
+          }
+
+          for (const action of maybeActions) {
+            if (!this.actions.has(action.name)) {
+              this.register(action);
+            }
+            // 优先从实例方法收集 MCP 工具定义
+            try {
+              const fromInstance = (action as any).getMcpTools?.();
+              if (Array.isArray(fromInstance) && fromInstance.length > 0) {
+                discoveredTools.push(...fromInstance);
+              }
+            } catch {}
+          }
+
+          // 回退：收集模块级 MCP 工具定义（约定导出 mcpTools 或 MCP_TOOLS）
+          const toolsExport: unknown = (mod as any).mcpTools ?? (mod as any).MCP_TOOLS ?? null;
+          if (Array.isArray(toolsExport)) {
+            for (const spec of toolsExport) {
+              if (spec && typeof (spec as any).toolName === 'string' && typeof (spec as any).description === 'string') {
+                discoveredTools.push(spec as McpToolSpec);
+              }
+            }
+          }
+        } catch (err) {
+          this.logger.warn(`加载动作模块失败: ${full}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+      // 若从 dist/actions 已找到，优先使用；不再继续扫描 src/actions
+      if (discoveredTools.length > 0 && dir.endsWith(path.join('dist', 'actions'))) break;
+    }
+
+    this.discoveredMcpTools = discoveredTools;
+    if (discoveredTools.length > 0) {
+      this.logger.info(`已发现 MCP 工具定义: ${discoveredTools.map(t => t.toolName).join(', ')}`);
+    }
+    return discoveredTools;
+  }
+
+  getDiscoveredMcpTools(): McpToolSpec[] {
+    return [...this.discoveredMcpTools];
   }
 
   /**

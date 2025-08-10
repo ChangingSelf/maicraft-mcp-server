@@ -1,6 +1,7 @@
 import { Bot } from 'mineflayer';
 import minecraftData from 'minecraft-data';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams, McpToolSpec } from '../minecraft/ActionInterface.js';
+import { z } from 'zod';
 
 interface UseChestParams extends BaseActionParams {
   /** store | withdraw */
@@ -79,5 +80,17 @@ export class UseChestAction extends BaseAction<UseChestParams> {
     } catch (err) {
       return this.createExceptionResult(err, '箱子交互失败', 'CHEST_FAILED');
     }
+  }
+
+  public override getMcpTools(): McpToolSpec[] {
+    return [
+      {
+        toolName: 'use_chest',
+        description: 'Interact with a nearby chest to store or withdraw items.',
+        schema: { action: z.enum(['store', 'withdraw']), item: z.string(), count: z.number().int().min(1).optional() },
+        actionName: 'useChest',
+        mapInputToParams: (input: any) => ({ action: input.action, item: input.item, count: input.count ?? 1 }),
+      },
+    ];
   }
 } 
