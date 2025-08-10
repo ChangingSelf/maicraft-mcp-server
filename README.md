@@ -10,6 +10,68 @@ Minecraft × MCP 机器人服务：通过 MCP 工具查询状态/事件并执行
 - 🎮 **动作执行**：支持挖矿、建造、跟随等基础动作
 - 📝 **日志系统**：双重日志输出（stderr + 文件），支持配置化
 
+## 架构
+
+```mermaid
+graph LR
+  A[main.ts 启动器] -->|读取| C[config.yaml]
+  A --> L[Logger]
+  A --> MC[MinecraftClient]
+  A --> SM[StateManager]
+  A --> AE[ActionExecutor]
+  A --> MCP[MaicraftMcpServer]
+
+  MC -->|使用| B[mineflayer Bot]
+  B -->|事件| MC
+  MC -->|gameEvent| A
+  A -->|addEvent| SM
+
+  MCP -->|query_state / query_events| SM
+  MCP -->|动作工具| AE
+  MCP -->|连接/状态| MC
+  AE -->|使用 Bot 执行动作| B
+```
+
+### 时序：调用动作（mine_block）
+
+```mermaid
+sequenceDiagram
+  participant Client as MCP Client
+  participant Server as MaicraftMcpServer
+  participant AE as ActionExecutor
+  participant MC as MinecraftClient
+  participant Bot as mineflayer Bot
+
+  Client->>Server: tools/call mine_block
+  Server->>MC: getBot()
+  MC-->>Server: Bot
+  alt Bot ready
+    Server->>AE: execute('mineBlock', Bot, params)
+    AE->>Bot: 动作执行（寻路/采集等）
+    Bot-->>AE: result
+    AE-->>Server: { success, data }
+    Server-->>Client: structuredContent
+  else Bot not ready
+    Server-->>Client: { ok:false, error: service_unavailable }
+  end
+```
+
+### 时序：事件汇聚与状态更新
+
+```mermaid
+sequenceDiagram
+  participant Bot as mineflayer Bot
+  participant MC as MinecraftClient
+  participant Main as main.ts
+  participant SM as StateManager
+
+  Bot->>MC: 原始游戏事件
+  MC->>MC: 过滤 enabledEvents
+  MC-->>Main: gameEvent
+  Main->>SM: addEvent(event)
+  SM->>SM: 更新 GameState
+```
+
 ## 快速开始
 
 ### 1. 安装依赖

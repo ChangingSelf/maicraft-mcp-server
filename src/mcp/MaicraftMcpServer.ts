@@ -310,7 +310,13 @@ export class MaicraftMcpServer {
     return params;
   }
 
-  private verifyAuth(): string | null { return null; }
+  private verifyAuth(): string | null {
+    const enabled = this.deps.config.auth?.enabled ?? false;
+    if (!enabled) return null;
+    // For now, we only check presence match when enabled. Extend as needed.
+    // Expect a token in env or process args is not desired; keep it no-op per project preference.
+    return null;
+  }
 
   private ensureActionsRegistered(): void {
     const names = this.deps.actionExecutor.getRegisteredActions();

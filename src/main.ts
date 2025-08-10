@@ -14,9 +14,22 @@ import fs from 'fs';
 import { resolve, extname } from 'path';
 import { load as yamlLoad } from 'js-yaml';
 
-import { MaicraftClient, ClientConfig } from './MaicraftClient.js';
 import { Logger, LoggingConfig } from './utils/Logger.js';
 import { MaicraftMcpServer } from './mcp/MaicraftMcpServer.js';
+import { ClientConfig } from './config.js';
+import { MinecraftClient } from './minecraft/MinecraftClient.js';
+import { StateManager } from './minecraft/StateManager.js';
+import { ActionExecutor } from './minecraft/ActionExecutor.js';
+import { GameEvent } from './minecraft/GameEvent.js';
+import { ChatAction } from './actions/ChatAction.js';
+import { CraftItemAction } from './actions/CraftItemAction.js';
+import { PlaceBlockAction } from './actions/PlaceBlockAction.js';
+import { MineBlockAction } from './actions/MineBlockAction.js';
+import { KillMobAction } from './actions/KillMobAction.js';
+import { FollowPlayerAction } from './actions/FollowPlayerAction.js';
+import { SmeltItemAction } from './actions/SmeltItemAction.js';
+import { SwimToLandAction } from './actions/SwimToLandAction.js';
+import { UseChestAction } from './actions/UseChestAction.js';
 
 // 设置MCP stdio模式，重定向全局console输出到stderr
 Logger.setupMcpMode();
@@ -72,15 +85,7 @@ async function main() {
     process.exit(1);
   }
 
-  let config: ClientConfig & { 
-    mcp?: { 
-      name?: string; 
-      version?: string; 
-      auth?: { token?: string; enabled?: boolean }, 
-      tools?: { enabled?: string[] } 
-    },
-    logging?: LoggingConfig
-  };
+  let config: ClientConfig;
   
   try {
     const raw = fs.readFileSync(configPath, 'utf8');
@@ -93,15 +98,59 @@ async function main() {
   // 创建正式的日志器
   const logger = Logger.fromConfig('Maicraft', config.logging || {});
 
-  /**
-   * 创建客户端
-   */
-  const client = new MaicraftClient(config);
+  // 构建核心组件
+  const minecraftClient = new MinecraftClient({
+    ...config.minecraft,
+    logging: config.logging,
+  });
+  const stateManager = new StateManager({
+    maxEventHistory: config.maxMessageHistory || 100,
+  });
+  const actionExecutor = new ActionExecutor();
 
-  // 重用 MaicraftClient 的组件保持单一来源
-  const minecraftClient = client.getMinecraftClient();
-  const stateManager = client.getStateManager();
-  const actionExecutor = client.getActionExecutor();
+  // 注册基础动作
+  const basicActions = [
+    ChatAction,
+    CraftItemAction,
+    PlaceBlockAction,
+    MineBlockAction,
+    KillMobAction,
+    FollowPlayerAction,
+    SmeltItemAction,
+    SwimToLandAction,
+    UseChestAction,
+  ];
+  basicActions.forEach((ActionClass) => actionExecutor.register(new ActionClass()));
+  logger.info(`已注册基础动作: ${basicActions.map((a) => a.name).join(', ')}`);
+
+  // 事件过滤
+  if (Array.isArray(config.enabledEvents) && config.enabledEvents.length > 0) {
+    // @ts-ignore: allow string[] tolerant mapping inside MinecraftClient
+    minecraftClient.setEnabledEvents(config.enabledEvents as any);
+  }
+
+  // 监听游戏事件并维护状态
+  minecraftClient.on('gameEvent', (event: GameEvent) => {
+    try {
+      const { enabledEvents } = config;
+      if (enabledEvents && !enabledEvents.includes(event.type)) return;
+      stateManager.addEvent(event);
+      logger.debug(`事件已记录: ${event.type}`);
+    } catch (e) {
+      logger.error('处理游戏事件时发生错误:', e);
+    }
+  });
+
+  // 连接生命周期
+  minecraftClient.on('connected', () => {
+    logger.info('Minecraft 客户端已连接');
+    const bot = minecraftClient.getBot();
+    if (bot) stateManager.setBot(bot);
+  });
+  minecraftClient.on('disconnected', () => {
+    logger.warn('Minecraft 客户端连接断开');
+    stateManager.setStatus('unavailable');
+  });
 
   // 启动 MCP server (stdio)
   let mcpServer: MaicraftMcpServer | null = null;
@@ -124,15 +173,22 @@ async function main() {
   // 退出时停止客户端
   process.on('SIGINT', async () => {
     logger.info('收到 SIGINT，正在停止客户端...');
-    await client.stop();
+    try {
+      await minecraftClient.disconnect();
+    } catch {}
     process.exit(0);
   });
 
-  /**
-   * 启动客户端
-   */
+  // 启动客户端
   try {
-    await client.start();
+    try {
+      stateManager.setStatus('connecting');
+      await minecraftClient.connect();
+      logger.info('Minecraft 连接成功');
+    } catch (error) {
+      logger.error('Minecraft 连接失败，但程序将继续运行:', error);
+      stateManager.setStatus('unavailable');
+    }
     logger.info('Maicraft 客户端已启动，按 Ctrl+C 退出。');
     logger.info(`日志文件位置: ${logger.getLogFilePath()}`);
     

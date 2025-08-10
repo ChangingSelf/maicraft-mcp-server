@@ -4,9 +4,12 @@
  * 主入口文件，导出核心功能模块
  */
 
-// 核心客户端
-export { MaicraftClient } from "./MaicraftClient.js";
-export type { ClientConfig, MinecraftConfig } from "./MaicraftClient.js";
+// 配置与核心组件
+export type { ClientConfig, MinecraftConfig } from "./config.js";
+export { Logger } from "./utils/Logger.js";
+export { ActionExecutor } from "./minecraft/ActionExecutor.js";
+export type { ActionInfo } from "./minecraft/ActionExecutor.js";
+export * from "./minecraft/GameEvent.js";
 
 // 动作系统
 export type {
@@ -21,12 +24,7 @@ export { BaseAction } from "./minecraft/ActionInterface";
 export type { GameEvent } from "./minecraft/GameEvent.js";
 export type { GameState } from "./minecraft/StateManager.js";
 
-// 工具类
-export { Logger } from "./utils/Logger.js";
-
-// 动作执行器
-export { ActionExecutor } from "./minecraft/ActionExecutor.js";
-export type { ActionInfo } from "./minecraft/ActionExecutor.js";
+// 工具类与执行器已在前方导出
 
 // 所有预定义动作
 export { ChatAction } from "./actions/ChatAction.js";
