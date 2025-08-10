@@ -19,7 +19,6 @@ enabledEvents:
   - healthUpdate
   - experienceUpdate
   - weatherChange
-  - timeUpdate
 
 maxMessageHistory: 100     # 本地最大事件缓存条数
 

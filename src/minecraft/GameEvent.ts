@@ -117,12 +117,6 @@ export interface WeatherChangeEvent extends BaseGameEvent {
   weather: 'clear' | 'rain' | 'thunder'; // 天气类型
 }
 
-export interface TimeUpdateEvent extends BaseGameEvent {
-  type: 'timeUpdate';
-  time: number; // 世界总时间（tick）
-  timeOfDay: number; // 当天时间（tick）
-}
-
 export interface HealthUpdateEvent extends BaseGameEvent {
   type: 'healthUpdate';
   health: number; // 当前生命值
@@ -147,7 +141,6 @@ export type GameEvent =
   | PlayerDeathEvent
   | PlayerMoveEvent
   | WeatherChangeEvent
-  | TimeUpdateEvent
   | HealthUpdateEvent
   | ExperienceUpdateEvent;
 
@@ -162,7 +155,6 @@ export enum GameEventType {
   PLAYER_DEATH = 'playerDeath',
   PLAYER_MOVE = 'playerMove',
   WEATHER_CHANGE = 'weatherChange',
-  TIME_UPDATE = 'timeUpdate',
   HEALTH_UPDATE = 'healthUpdate',
   EXPERIENCE_UPDATE = 'experienceUpdate'
 }
@@ -176,6 +168,5 @@ export interface GameEventListener {
 export interface EventConfig {
   enabledEvents: GameEventType[]; // 要启用的事件类型列表
   playerMoveThreshold: number; // 触发 playerMove 事件的位移阈值
-  timeUpdateInterval: number; // 触发 timeUpdate 事件的时间间隔（毫秒）
   maxEventHistory: number; // 本地缓存的事件历史最大条目数
 } 

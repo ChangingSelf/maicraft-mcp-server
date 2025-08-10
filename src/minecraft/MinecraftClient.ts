@@ -533,20 +533,6 @@ export class MinecraftClient extends EventEmitter {
     // 天气变化事件（简化处理）
     // 注意：mineflayer 的天气事件处理比较复杂，这里先简化处理
     // 可以通过定期检查 bot.isRaining 和 bot.thunderState 来获取天气状态
-
-    // 时间更新事件
-    this.bot.on('time', () => {
-      if (this.enabledEvents.has(GameEventType.TIME_UPDATE)) {
-        this.emitGameEvent({
-          type: 'timeUpdate',
-          timestamp: Date.now(),
-          serverId: this.options.host,
-          playerName: this.bot!.username,
-          time: this.bot!.time.age,
-          timeOfDay: this.bot!.time.timeOfDay
-        });
-      }
-    });
   }
 
   /**

@@ -265,8 +265,6 @@ export class StateManager {
         return `${timeText}: 生命值更新: ${event.health}/20`;
       case 'experienceUpdate':
         return `${timeText}: 经验更新: 等级 ${event.level}`;
-      case 'timeUpdate':
-        return `${timeText}: 时间更新`;
       case 'weatherChange':
         return `${timeText}: 天气变化: ${this.getWeatherText(event.weather)}`;
       default:
