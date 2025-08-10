@@ -17,6 +17,7 @@ export interface McpConfig {
   };
   tools?: {
     enabled?: string[];
+    disabled?: string[];
   };
 }
 
@@ -33,6 +34,7 @@ export class MaicraftMcpServer {
   private readonly deps: McpServerDeps;
   // Testing-only registry of tool handlers
   private readonly __handlers: Map<string, (input: any) => Promise<any>> = new Map();
+  private actionToolsRegistered = false;
 
   constructor(deps: McpServerDeps) {
     this.deps = deps;
@@ -43,10 +45,16 @@ export class MaicraftMcpServer {
 
     this.registerBuiltInTools();
     this.registerQueryTools();
+    // 立即尝试注册动作工具（测试环境下无 discover 也会注册 fallback）
     this.registerActionTools();
   }
 
   async startOnStdio(): Promise<void> {
+    // 在启动时若未注册成功，重试一次（通常 discover 完成后可获取到 schema 工具）
+    if (!this.actionToolsRegistered) {
+      this.registerActionTools();
+    }
+    
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
     this.logger.info("MCP server connected over stdio");
@@ -135,32 +143,59 @@ export class MaicraftMcpServer {
   }
 
   private registerActionTools(): void {
+    if (this.actionToolsRegistered) return;
     const enabled = this.deps.config.tools?.enabled;
-    const allow = (name: string) => !enabled || enabled.includes(name);
+    const disabled = new Set(this.deps.config.tools?.disabled || []);
+    const allow = (name: string) => {
+      if (disabled.has(name)) return false; // 黑名单优先
+      if (!enabled || enabled.length === 0) return true; // 未配置白名单时，默认允许
+      return enabled.includes(name); // 同时存在时，两者并存：既要在白名单，又不能在黑名单
+    };
 
     const specs = this.deps.actionExecutor.getDiscoveredMcpTools?.() ?? [];
-    const registeredNames = new Set<string>();
+    
     if (Array.isArray(specs) && specs.length > 0) {
+      this.logger.info(`注册 ${specs.length} 个自动发现的 MCP 工具: ${specs.map(s => s.toolName).join(', ')}`);
+      
       for (const spec of specs) {
-        if (!allow(spec.toolName)) continue;
+         if (!allow(spec.toolName)) {
+          this.logger.debug(`跳过被禁用的工具: ${spec.toolName}`);
+          continue;
+        }
+        
         const handler = async (input: any) => {
           const requestId = randomUUID();
           const start = Date.now();
           const authError = this.verifyAuth();
           if (authError) return this.errorResult("permission_denied", authError, requestId, start);
+          
+          const normalize = (raw: any) => {
+            if (!raw || typeof raw !== 'object') return {} as any;
+            const obj = { ...(raw as any) };
+            if (obj.blockName && !obj.name) obj.name = obj.blockName;
+            if (obj.itemName && !obj.item) obj.item = obj.itemName;
+            if (obj.playerName && !obj.player) obj.player = obj.playerName;
+            if (obj.timeoutSec && !obj.timeout) obj.timeout = obj.timeoutSec;
+            return obj;
+          };
+
           const params = typeof spec.mapInputToParams === 'function'
             ? spec.mapInputToParams(input, { state: this.deps.stateManager })
-            : (input ?? {});
+            : normalize(input ?? {});
+          
           const actionName = spec.actionName || undefined;
           const finalActionName = actionName ?? (input?.actionName as string) ?? spec.toolName;
+          
           return this.wrapAction(finalActionName, params as any);
         };
+        
         this.__handlers.set(spec.toolName, handler);
-        registeredNames.add(spec.toolName);
 
+        // 处理 schema
         const schema = (spec as any).schema;
         const isZod = schema && typeof schema === 'object' && typeof schema.safeParse === 'function';
         const isShape = schema && typeof schema === 'object' && !isZod;
+        
         if (isZod) {
           const shape = (schema as any)?._def?.shape?.();
           if (shape && typeof shape === 'object') {
@@ -173,74 +208,25 @@ export class MaicraftMcpServer {
         } else {
           this.server.tool(spec.toolName, spec.description, handler as any);
         }
+        
+        this.logger.debug(`已注册工具: ${spec.toolName}`);
       }
-    }
-
-    // 回退：注册内建的基础动作工具，保证测试与最小可用集
-    const fallbackSpecs = [
-      {
-        toolName: 'mine_block',
-        description: 'Mine blocks by name nearby.',
-        schema: {
-          blockName: z.string(),
-          name: z.string().optional(),
-          count: z.number().int().min(1).optional(),
-        },
-        actionName: 'mineBlock',
-        mapInputToParams: (input: any) => ({ name: input.blockName ?? input.name, count: input.count ?? 1 }),
-      },
-      {
-        toolName: 'place_block',
-        description: 'Place a block at a position.',
-        schema: {
-          x: z.number(), y: z.number(), z: z.number(), itemName: z.string(),
-        },
-        actionName: 'placeBlock',
-        mapInputToParams: (input: any) => ({ x: input.x, y: input.y, z: input.z, item: input.itemName }),
-      },
-      {
-        toolName: 'follow_player',
-        description: 'Follow a player by name.',
-        schema: {
-          player: z.string().optional(),
-          playerName: z.string().optional(),
-          name: z.string().optional(),
-          distance: z.number().int().positive().optional(),
-          timeout: z.number().int().positive().optional(),
-          timeoutSec: z.number().int().positive().optional(),
-        },
-        actionName: 'followPlayer',
-        mapInputToParams: (input: any) => {
-          const state = this.deps.stateManager.getGameState?.();
-          const defaultPlayer = state?.nearbyPlayers?.[0]?.username;
-          const player = input?.playerName ?? input?.player ?? input?.name ?? defaultPlayer;
-          const distance = input?.distance ?? 3;
-          const timeout = input?.timeoutSec ?? input?.timeout ?? 60;
-          return { player, distance, timeout };
-        },
-      },
-      {
-        toolName: 'craft_item',
-        description: 'Craft an item by name. Will auto-place and approach a crafting table when needed.',
-        schema: { item: z.string(), count: z.number().int().min(1).optional() },
-        actionName: 'craftItem',
-        mapInputToParams: (input: any) => ({ item: input.item, count: input.count ?? 1 }),
-      },
-    ];
-
-    for (const spec of fallbackSpecs) {
-      if (registeredNames.has(spec.toolName)) continue;
-      if (!allow(spec.toolName)) continue;
+      this.actionToolsRegistered = true;
+    } else {
+      this.logger.warn('未发现任何 MCP 工具定义，启用兼容的内建工具: mine_block');
+      // 兼容：注册最常用的 mine_block 工具，映射到 mineBlock 动作
       const handler = async (input: any) => {
-        const requestId = randomUUID();
-        const start = Date.now();
-        const authError = this.verifyAuth();
-        if (authError) return this.errorResult('permission_denied', authError, requestId, start);
-        const params = spec.mapInputToParams(input);
-        return this.wrapAction(spec.actionName!, params);
+        const params = { name: input?.blockName ?? input?.name, count: input?.count ?? 1 };
+        return this.wrapAction('mineBlock', params);
       };
-      this.__handlers.set(spec.toolName, handler);
-      this.server.tool(spec.toolName, spec.description, spec.schema as any, handler as any);
+      this.__handlers.set('mine_block', handler);
+      this.server.tool(
+        'mine_block',
+        'Mine blocks by name nearby.',
+        { blockName: z.string(), count: z.number().int().min(1).optional() } as any,
+        handler as any
+      );
+      this.actionToolsRegistered = true;
     }
   }
 

@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { BaseAction, BaseActionParams, McpToolSpec } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
 import minecraftData from 'minecraft-data';
 import { z } from 'zod';
 
@@ -17,18 +17,12 @@ interface MineBlockParams extends BaseActionParams {
 export class MineBlockAction extends BaseAction<MineBlockParams> {
   name = 'mineBlock';
   description = '挖掘指定类型的方块（按名称）';
+  schema = z.object({
+    name: z.string().describe('方块名称 (字符串)'),
+    count: z.number().int().min(1).optional().describe('挖掘数量 (数字，可选，默认 1)'),
+  });
 
-  validateParams(params: MineBlockParams): boolean {
-    return this.validateStringParams(params, ['name']) &&
-           (typeof params.count === 'undefined' || typeof params.count === 'number');
-  }
-
-  getParamsSchema(): Record<string, string> {
-    return {
-      name: '方块名称 (字符串)',
-      count: '挖掘数量 (数字，可选，默认 1)'
-    };
-  }
+  // 校验和 schema 描述由基类提供
 
   async execute(bot: Bot, params: MineBlockParams): Promise<any> {
     try {
@@ -80,19 +74,5 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
     }
   }
 
-  public override getMcpTools(): McpToolSpec[] {
-    return [
-      {
-        toolName: 'mine_block',
-        description: 'Mine blocks by name nearby.',
-        schema: {
-          blockName: z.string(),
-          name: z.string().optional(),
-          count: z.number().int().min(1).optional(),
-        },
-        actionName: 'mineBlock',
-        mapInputToParams: (input: any) => ({ name: input.blockName ?? input.name, count: input.count ?? 1 }),
-      },
-    ];
-  }
+  // MCP 工具由基类根据 schema 自动暴露为 tool: mine_block
 }

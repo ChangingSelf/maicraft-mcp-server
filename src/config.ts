@@ -19,7 +19,7 @@ export interface ClientConfig {
     name?: string;
     version?: string;
     auth?: { token?: string; enabled?: boolean };
-    tools?: { enabled?: string[] };
+    tools?: { enabled?: string[]; disabled?: string[] };
   };
 }
 

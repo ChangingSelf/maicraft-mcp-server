@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import type { z } from 'zod';
+import { z } from 'zod';
 
 /**
  * 动作参数基础接口
@@ -70,6 +70,11 @@ export abstract class BaseAction<T extends BaseActionParams = BaseActionParams> 
   abstract description: string;
 
   /**
+   * 参数校验器（可选，若提供将自动用于 validateParams 和 MCP schema 暴露）
+   */
+  public schema?: z.ZodTypeAny;
+
+  /**
    * 执行动作
    */
   abstract execute(bot: Bot, params: T): Promise<ActionResult>;
@@ -77,12 +82,29 @@ export abstract class BaseAction<T extends BaseActionParams = BaseActionParams> 
   /**
    * 验证参数
    */
-  abstract validateParams(params: T): boolean;
+  validateParams(params: T): boolean {
+    if (!this.schema) return true;
+    const result = this.schema.safeParse(params);
+    return result.success;
+  }
 
   /**
    * 获取参数模式
    */
-  abstract getParamsSchema(): Record<string, string>;
+  getParamsSchema(): Record<string, string> {
+    if (!this.schema) return {};
+    const shape: Record<string, z.ZodTypeAny> | undefined = (this.schema as any)?._def?.shape?.();
+    if (!shape) return {};
+    const desc: Record<string, string> = {};
+    for (const key of Object.keys(shape)) {
+      const def = shape[key] as any;
+      // 读取 Zod description 或类型名
+      const d: string | undefined = typeof def.description === 'function' ? def.description() : def._def?.description;
+      const typeName = def._def?.typeName ?? def._def?.innerType?._def?.typeName;
+      desc[key] = d || String(typeName || 'param');
+    }
+    return desc;
+  }
 
   /**
    * 创建成功结果
@@ -146,9 +168,76 @@ export abstract class BaseAction<T extends BaseActionParams = BaseActionParams> 
 
   /**
    * 返回与该动作关联的 MCP 工具定义（可选）。
-   * 默认不提供任何工具定义，子类可重写以启用自动注册。
+   * 默认：若提供了 schema，则自动生成一个工具定义，名称为动作名的 snake_case。
    */
   public getMcpTools(): McpToolSpec[] {
-    return [];
+    if (!this.schema) return [];
+    const toSnake = (s: string) => s
+      .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+      .replace(/\s+/g, '_')
+      .toLowerCase();
+    const toolName = toSnake(this.name);
+    return [
+      {
+        toolName,
+        description: this.description,
+        schema: this.schema,
+        actionName: this.name,
+        mapInputToParams: (input: unknown) => (typeof input === 'object' && input !== null ? (input as any) : {}),
+      },
+    ];
   }
 } 
+
+/**
+ * 轻量动作工厂：无需继承类，直接定义 name/description/schema/execute
+ */
+export function defineAction<T extends BaseActionParams>(opts: {
+  name: string;
+  description: string;
+  schema?: z.ZodTypeAny;
+  execute: (bot: Bot, params: T) => Promise<ActionResult>;
+}): GameAction<T> & { getMcpTools(): McpToolSpec[] } {
+  const { name, description, schema, execute } = opts;
+  const toSnake = (s: string) => s
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/\s+/g, '_')
+    .toLowerCase();
+
+  return {
+    name,
+    description,
+    async execute(bot: Bot, params: T) {
+      return execute(bot, params);
+    },
+    validateParams(params: T): boolean {
+      if (!schema) return true;
+      return Boolean(schema.safeParse(params).success);
+    },
+    getParamsSchema(): Record<string, string> {
+      if (!schema) return {};
+      const shape: Record<string, z.ZodTypeAny> | undefined = (schema as any)?._def?.shape?.();
+      if (!shape) return {};
+      const desc: Record<string, string> = {};
+      for (const key of Object.keys(shape)) {
+        const def = shape[key] as any;
+        const d: string | undefined = typeof def.description === 'function' ? def.description() : def._def?.description;
+        const typeName = def._def?.typeName ?? def._def?.innerType?._def?.typeName;
+        desc[key] = d || String(typeName || 'param');
+      }
+      return desc;
+    },
+    getMcpTools(): McpToolSpec[] {
+      if (!schema) return [];
+      return [
+        {
+          toolName: toSnake(name),
+          description,
+          schema,
+          actionName: name,
+          mapInputToParams: (input: unknown) => (typeof input === 'object' && input !== null ? (input as any) : {}),
+        },
+      ];
+    },
+  };
+}

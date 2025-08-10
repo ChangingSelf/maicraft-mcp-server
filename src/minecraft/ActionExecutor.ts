@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { ActionRegistry, GameAction, BaseActionParams, ActionResult, McpToolSpec } from './ActionInterface.js';
+import { ActionRegistry, GameAction, BaseActionParams, ActionResult, McpToolSpec, BaseAction } from './ActionInterface.js';
 import { Logger } from '../utils/Logger.js';
 import fs from 'fs';
 import path from 'path';
@@ -57,18 +57,15 @@ export class ActionExecutor implements ActionRegistry {
    * 支持在开发环境扫描 `src/actions`，生产环境扫描 `dist/actions`。
    */
   async discoverAndRegisterActions(): Promise<McpToolSpec[]> {
-    const cwd = process.cwd();
-    const candidateDirs = [
-      path.resolve(cwd, 'dist', 'actions'),
-      path.resolve(cwd, 'src', 'actions'),
-    ];
-
     const discoveredTools: McpToolSpec[] = [];
+    
+    // 同时支持开发与生产：优先 dist，其次 src
+    const candidateDirs = ['./dist/actions', './src/actions'];
 
     for (const dir of candidateDirs) {
       if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) continue;
       const files = fs.readdirSync(dir)
-        .filter((f) => /\.(mjs|cjs|js|ts)$/.test(f));
+        .filter((f) => /\.(mjs|cjs|js|ts)$/.test(f) && !/\.d\.ts$/.test(f));
 
       for (const file of files) {
         const full = path.join(dir, file);
@@ -76,23 +73,44 @@ export class ActionExecutor implements ActionRegistry {
           const mod = await import(pathToFileURL(full).href);
           const exportedValues: unknown[] = Object.values(mod);
 
-          // 收集动作实例或类
+          // 收集继承了 BaseAction 的类实例
           const maybeActions: GameAction[] = [];
           for (const value of exportedValues) {
             try {
               if (!value) continue;
-              // 1) 已实例化
-              if (typeof value === 'object' && 'execute' in (value as any) && 'validateParams' in (value as any) && 'getParamsSchema' in (value as any)) {
+              
+              // 检测是否继承了 BaseAction
+              const isBaseActionClass = (cls: any): boolean => {
+                if (typeof cls !== 'function') return false;
+                
+                // 检查原型链，看是否继承自 BaseAction
+                let current = cls.prototype;
+                while (current) {
+                  if (current.constructor === BaseAction) {
+                    return true;
+                  }
+                  current = Object.getPrototypeOf(current);
+                }
+                return false;
+              };
+
+              // 1) 已实例化的对象
+              if (typeof value === 'object' && 
+                  'execute' in (value as any) && 
+                  'validateParams' in (value as any) && 
+                  'getParamsSchema' in (value as any)) {
                 maybeActions.push(value as GameAction);
                 continue;
               }
-              // 2) 可实例化的类
-              if (typeof value === 'function') {
-                const proto = (value as any).prototype;
-                if (proto && typeof proto.execute === 'function' && typeof proto.validateParams === 'function' && typeof proto.getParamsSchema === 'function') {
+              
+              // 2) 继承了 BaseAction 的类
+              if (isBaseActionClass(value)) {
+                try {
                   // eslint-disable-next-line new-cap
                   const instance = new (value as any)();
                   maybeActions.push(instance as GameAction);
+                } catch (instErr) {
+                  this.logger.warn(`实例化动作类失败: ${file}: ${instErr instanceof Error ? instErr.message : String(instErr)}`);
                 }
               }
             } catch {}
@@ -102,7 +120,7 @@ export class ActionExecutor implements ActionRegistry {
             if (!this.actions.has(action.name)) {
               this.register(action);
             }
-            // 优先从实例方法收集 MCP 工具定义
+            // 收集 MCP 工具定义
             try {
               const fromInstance = (action as any).getMcpTools?.();
               if (Array.isArray(fromInstance) && fromInstance.length > 0) {
@@ -111,7 +129,7 @@ export class ActionExecutor implements ActionRegistry {
             } catch {}
           }
 
-          // 回退：收集模块级 MCP 工具定义（约定导出 mcpTools 或 MCP_TOOLS）
+          // 回退：收集模块级 MCP 工具定义
           const toolsExport: unknown = (mod as any).mcpTools ?? (mod as any).MCP_TOOLS ?? null;
           if (Array.isArray(toolsExport)) {
             for (const spec of toolsExport) {
@@ -124,8 +142,9 @@ export class ActionExecutor implements ActionRegistry {
           this.logger.warn(`加载动作模块失败: ${full}: ${err instanceof Error ? err.message : String(err)}`);
         }
       }
-      // 若从 dist/actions 已找到，优先使用；不再继续扫描 src/actions
-      if (discoveredTools.length > 0 && dir.endsWith(path.join('dist', 'actions'))) break;
+      
+      // 如果从当前目录找到了工具，就不再扫描其他目录
+      if (discoveredTools.length > 0) break;
     }
 
     this.discoveredMcpTools = discoveredTools;

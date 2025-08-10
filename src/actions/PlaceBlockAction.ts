@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { BaseAction, BaseActionParams, McpToolSpec } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
 import minecraftData from 'minecraft-data';
 import { z } from 'zod';
 
@@ -14,21 +14,15 @@ interface PlaceBlockParams extends BaseActionParams {
 export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
   name = 'placeBlock';
   description = '在指定位置放置方块';
+  schema = z.object({
+    x: z.number().describe('目标位置X坐标 (数字)'),
+    y: z.number().describe('目标位置Y坐标 (数字)'),
+    z: z.number().describe('目标位置Z坐标 (数字)'),
+    item: z.string().describe('要放置的物品名称 (字符串)'),
+    face: z.string().optional().describe('放置面向 (字符串，可选)'),
+  });
 
-  validateParams(params: PlaceBlockParams): boolean {
-    return this.validateNumberParams(params, ['x', 'y', 'z']) &&
-           this.validateStringParams(params, ['item']);
-  }
-
-  getParamsSchema(): Record<string, string> {
-    return {
-      x: '目标位置X坐标 (数字)',
-      y: '目标位置Y坐标 (数字)',
-      z: '目标位置Z坐标 (数字)',
-      item: '要放置的物品名称 (字符串)',
-      face: '放置面向 (字符串，可选)'
-    };
-  }
+  // 校验和参数描述由基类通过 schema 自动生成
 
   async execute(bot: Bot, params: PlaceBlockParams): Promise<any> {
     try {
@@ -69,15 +63,5 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
     }
   }
 
-  public override getMcpTools(): McpToolSpec[] {
-    return [
-      {
-        toolName: 'place_block',
-        description: 'Place a block at a position.',
-        schema: { x: z.number(), y: z.number(), z: z.number(), itemName: z.string() },
-        actionName: 'placeBlock',
-        mapInputToParams: (input: any) => ({ x: input.x, y: input.y, z: input.z, item: input.itemName }),
-      },
-    ];
-  }
+  // MCP 工具由基类根据 schema 自动暴露（tool: place_block）
 }

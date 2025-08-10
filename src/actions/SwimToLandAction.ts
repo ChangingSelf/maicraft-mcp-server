@@ -1,6 +1,6 @@
 import { Bot } from 'mineflayer';
 import minecraftData from 'minecraft-data';
-import { BaseAction, BaseActionParams, McpToolSpec } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 
 interface SwimToLandParams extends BaseActionParams {
@@ -19,17 +19,12 @@ interface SwimToLandParams extends BaseActionParams {
 export class SwimToLandAction extends BaseAction<SwimToLandParams> {
   name = 'swimToLand';
   description = '游向最近的陆地';
+  schema = z.object({
+    maxDistance: z.number().int().positive().optional().describe('最大搜索距离 (数字，可选，默认 64)'),
+    timeout: z.number().int().positive().optional().describe('超时时间 (秒，可选，默认 60)'),
+  });
 
-  validateParams(_: SwimToLandParams): boolean {
-    return true; // 所有参数都是可选的
-  }
-
-  getParamsSchema(): Record<string, string> {
-    return {
-      maxDistance: '最大搜索距离 (数字，可选，默认 64)',
-      timeout: '超时时间 (秒，可选，默认 60)'
-    };
-  }
+  // 校验与参数描述由基类通过 schema 自动提供
 
   async execute(bot: Bot, params: SwimToLandParams): Promise<any> {
     try {
@@ -103,15 +98,5 @@ export class SwimToLandAction extends BaseAction<SwimToLandParams> {
     }
   }
 
-  public override getMcpTools(): McpToolSpec[] {
-    return [
-      {
-        toolName: 'swim_to_land',
-        description: 'Swim to the nearest land when in water.',
-        schema: { maxDistance: z.number().int().positive().optional(), timeout: z.number().int().positive().optional() },
-        actionName: 'swimToLand',
-        mapInputToParams: (input: any) => ({ maxDistance: input.maxDistance, timeout: input.timeout }),
-      },
-    ];
-  }
+  // MCP 工具由基类根据 schema 自动暴露（tool: swim_to_land）
 } 

@@ -37,7 +37,22 @@ mcp:
   name: "Maicraft MCP"
   version: "0.1.0"
   tools:
-    enabled:               # 可选：仅暴露指定工具，留空则全部可用
-      - mine_block
-      - place_block
-      - follow_player
+    # 工具过滤配置（可选）
+    # 方式1：黑名单模式（推荐）- 屏蔽指定工具，其他全部可用
+    disabled:
+      - use_chest
+      - smelt_item
+    # 方式2：白名单模式 - 仅暴露指定工具
+    # enabled:
+    #   - mine_block
+    #   - place_block
+    #   - follow_player
+    # 方式3：同时使用 - 白名单允许的集合减去黑名单
+    # enabled:
+    #   - mine_block
+    #   - place_block
+    #   - chat
+    # disabled:
+    #   - chat
+    # 方式4：不配置 - 默认暴露所有工具
+    # （删除或注释掉 tools 部分）

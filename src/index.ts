@@ -26,16 +26,7 @@ export type { GameState } from "./minecraft/StateManager.js";
 
 // 工具类与执行器已在前方导出
 
-// 所有预定义动作
-export { ChatAction } from "./actions/ChatAction.js";
-export { CraftItemAction } from "./actions/CraftItemAction.js";
-export { PlaceBlockAction } from "./actions/PlaceBlockAction.js";
-export { MineBlockAction } from "./actions/MineBlockAction.js";
-export { KillMobAction } from "./actions/KillMobAction.js";
-export { FollowPlayerAction } from "./actions/FollowPlayerAction.js";
-export { SmeltItemAction } from "./actions/SmeltItemAction.js";
-export { SwimToLandAction } from "./actions/SwimToLandAction.js";
-export { UseChestAction } from "./actions/UseChestAction.js";
+// 动作由 ActionExecutor 自动发现，无需在此显式导出
 
 // 核心组件
 export * from "./minecraft/GameEvent.js";

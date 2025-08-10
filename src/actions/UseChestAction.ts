@@ -1,6 +1,6 @@
 import { Bot } from 'mineflayer';
 import minecraftData from 'minecraft-data';
-import { BaseAction, BaseActionParams, McpToolSpec } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 
 interface UseChestParams extends BaseActionParams {
@@ -15,19 +15,13 @@ interface UseChestParams extends BaseActionParams {
 export class UseChestAction extends BaseAction<UseChestParams> {
   name = 'useChest';
   description = '与附近箱子交互，存取物品';
+  schema = z.object({
+    action: z.enum(['store', 'withdraw']).describe('操作类型 (store | withdraw)'),
+    item: z.string().describe('物品名称 (字符串)'),
+    count: z.number().int().min(1).optional().describe('数量 (数字，可选，默认 1)'),
+  });
 
-  validateParams(params: UseChestParams): boolean {
-    return this.validateStringParams(params, ['action', 'item']) &&
-           (typeof params.count === 'undefined' || typeof params.count === 'number');
-  }
-
-  getParamsSchema(): Record<string, string> {
-    return { 
-      action: '操作类型 (store | withdraw)', 
-      item: '物品名称 (字符串)', 
-      count: '数量 (数字，可选，默认 1)' 
-    };
-  }
+  // 校验和参数描述由基类通过 schema 自动提供
 
   async execute(bot: Bot, params: UseChestParams): Promise<any> {
     try {
@@ -82,15 +76,5 @@ export class UseChestAction extends BaseAction<UseChestParams> {
     }
   }
 
-  public override getMcpTools(): McpToolSpec[] {
-    return [
-      {
-        toolName: 'use_chest',
-        description: 'Interact with a nearby chest to store or withdraw items.',
-        schema: { action: z.enum(['store', 'withdraw']), item: z.string(), count: z.number().int().min(1).optional() },
-        actionName: 'useChest',
-        mapInputToParams: (input: any) => ({ action: input.action, item: input.item, count: input.count ?? 1 }),
-      },
-    ];
-  }
+  // MCP 工具由基类根据 schema 自动暴露（tool: use_chest）
 } 

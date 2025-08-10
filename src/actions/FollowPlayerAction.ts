@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { BaseAction, BaseActionParams, McpToolSpec } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 
 interface FollowPlayerParams extends BaseActionParams {
@@ -18,20 +18,13 @@ interface FollowPlayerParams extends BaseActionParams {
 export class FollowPlayerAction extends BaseAction<FollowPlayerParams> {
   name = 'followPlayer';
   description = '跟随指定玩家';
+  schema = z.object({
+    player: z.string().describe('目标玩家名称 (字符串)'),
+    distance: z.number().int().positive().optional().describe('跟随距离 (数字，可选，默认 3)'),
+    timeout: z.number().int().positive().optional().describe('超时时间 (秒，可选，默认 60)'),
+  });
 
-  validateParams(params: FollowPlayerParams): boolean {
-    return this.validateStringParams(params, ['player']) &&
-           (typeof params.distance === 'undefined' || typeof params.distance === 'number') &&
-           (typeof params.timeout === 'undefined' || typeof params.timeout === 'number');
-  }
-
-  getParamsSchema(): Record<string, string> {
-    return {
-      player: '目标玩家名称 (字符串)',
-      distance: '跟随距离 (数字，可选，默认 3)',
-      timeout: '超时时间 (秒，可选，默认 60)'
-    };
-  }
+  // 校验和参数描述由基类通过 schema 自动提供
 
   async execute(bot: Bot, params: FollowPlayerParams): Promise<any> {
     try {
@@ -101,29 +94,5 @@ export class FollowPlayerAction extends BaseAction<FollowPlayerParams> {
     }
   }
 
-  public override getMcpTools(): McpToolSpec[] {
-    return [
-      {
-        toolName: 'follow_player',
-        description: 'Follow a player by name.',
-        schema: {
-          player: z.string().optional(),
-          playerName: z.string().optional(),
-          name: z.string().optional(),
-          distance: z.number().int().positive().optional(),
-          timeout: z.number().int().positive().optional(),
-          timeoutSec: z.number().int().positive().optional(),
-        },
-        actionName: 'followPlayer',
-        mapInputToParams: (input: any, ctx: any) => {
-          const state = ctx?.state?.getGameState?.();
-          const defaultPlayer = state?.nearbyPlayers?.[0]?.username;
-          const player = input?.playerName ?? input?.player ?? input?.name ?? defaultPlayer;
-          const distance = input?.distance ?? 3;
-          const timeout = input?.timeoutSec ?? input?.timeout ?? 60;
-          return { player, distance, timeout };
-        },
-      },
-    ];
-  }
+  // MCP 工具由基类根据 schema 自动暴露（tool: follow_player）
 }

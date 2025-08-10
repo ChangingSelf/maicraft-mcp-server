@@ -9,6 +9,8 @@ Minecraft × MCP 机器人服务：通过 MCP 工具查询状态/事件并执行
 - 📊 **状态管理**：实时游戏状态监控和事件记录
 - 🎮 **动作执行**：支持挖矿、建造、跟随等基础动作
 - 📝 **日志系统**：双重日志输出（stderr + 文件），支持配置化
+- ⚡ **动态发现**：动作自动发现与注册，无需手动配置
+- 🛡️ **参数校验**：基于 Zod 的自动参数校验与类型安全
 
 ## 架构
 
@@ -30,6 +32,27 @@ graph LR
   MCP -->|动作工具| AE
   MCP -->|连接/状态| MC
   AE -->|使用 Bot 执行动作| B
+  
+  AE -->|自动发现| ACT[src/actions/*.ts]
+  ACT -->|schema + execute| AE
+  AE -->|自动生成| MCP_TOOLS[MCP Tools]
+```
+
+### 动作系统架构
+
+```mermaid
+graph TD
+  A[Action File] -->|继承| B[BaseAction]
+  A -->|定义| C[schema: z.ZodTypeAny]
+  A -->|实现| D[execute: (bot, params) => Promise<ActionResult>]
+  
+  B -->|自动提供| E[validateParams]
+  B -->|自动提供| F[getParamsSchema]
+  B -->|自动提供| G[getMcpTools]
+  
+  G -->|生成| H[MCP Tool: action_name_snake_case]
+  C -->|校验| I[参数类型安全]
+  C -->|描述| J[自动生成参数文档]
 ```
 
 ### 时序：调用动作（mine_block）
@@ -243,18 +266,133 @@ Get-ChildItem logs/*.log | Where-Object {$_.LastWriteTime -lt (Get-Date).AddDays
 - 日志文件不生成：检查写入权限和磁盘空间
 - 日志文件过大：日志按启动时间分割，可定期清理
 
-### MCP 配置
+### MCP 工具配置
+
+Maicraft 支持多种工具过滤模式，推荐使用黑名单模式：
 
 ```yaml
 mcp:
   name: "Maicraft MCP"
   version: "0.1.0"
   tools:
-    enabled:               # 可选：仅暴露指定工具，留空则全部可用
-      - mine_block
-      - place_block
-      - follow_player
+    # 方式1：黑名单模式（推荐）- 屏蔽指定工具，其他全部可用
+    disabled:
+      - use_chest
+      - smelt_item
+    
+    # 方式2：白名单模式 - 仅暴露指定工具
+    # enabled:
+    #   - mine_block
+    #   - place_block
+    #   - follow_player
+    
+    # 方式3：同时使用 - 白名单允许的集合减去黑名单
+    # enabled:
+    #   - mine_block
+    #   - place_block
+    #   - chat
+    # disabled:
+    #   - chat
+    
+    # 方式4：不配置 - 默认暴露所有工具
+    # （删除或注释掉 tools 部分）
 ```
+
+## 动作开发
+
+### 动作系统特性
+
+- **自动发现**：将动作文件放在 `src/actions/` 目录即可自动发现
+- **参数校验**：基于 Zod 的自动参数校验
+- **类型安全**：完整的 TypeScript 类型支持
+- **MCP 集成**：自动生成对应的 MCP 工具
+
+### 编写新动作
+
+#### 方式1：继承基类（推荐）
+
+```typescript
+// src/actions/MyAction.ts
+import { BaseAction } from '../minecraft/ActionInterface';
+import { z } from 'zod';
+
+interface MyActionParams {
+  target: string;
+  count?: number;
+}
+
+export class MyAction extends BaseAction<MyActionParams> {
+  name = 'myAction';
+  description = '执行我的自定义动作';
+  
+  // 定义参数校验 schema
+  schema = z.object({
+    target: z.string().describe('目标对象'),
+    count: z.number().int().min(1).optional().describe('执行次数（可选）'),
+  });
+
+  async execute(bot: Bot, params: MyActionParams) {
+    try {
+      // 实现动作逻辑
+      const count = params.count ?? 1;
+      
+      // ... 具体实现
+      
+      return this.createSuccessResult(`成功执行动作 ${count} 次`);
+    } catch (error) {
+      return this.createExceptionResult(error, '执行失败', 'EXECUTION_ERROR');
+    }
+  }
+  
+  // validateParams、getParamsSchema、getMcpTools 由基类自动提供
+}
+```
+
+#### 方式2：函数式定义
+
+```typescript
+// src/actions/MyAction.ts
+import { defineAction } from '../minecraft/ActionInterface';
+import { z } from 'zod';
+
+export const MyAction = defineAction({
+  name: 'myAction',
+  description: '执行我的自定义动作',
+  schema: z.object({
+    target: z.string().describe('目标对象'),
+    count: z.number().int().min(1).optional().describe('执行次数（可选）'),
+  }),
+  async execute(bot, params) {
+    // 实现动作逻辑
+    const count = params.count ?? 1;
+    
+    // ... 具体实现
+    
+    return { success: true, message: `成功执行动作 ${count} 次` };
+  },
+});
+```
+
+### 动作自动注册
+
+1. 将动作文件放在 `src/actions/` 目录
+2. 文件会被自动发现并注册
+3. 对应的 MCP 工具会自动生成（工具名为动作名的 snake_case 形式）
+4. 例如：`MyAction` → `my_action` 工具
+
+### 可用的动作工具
+
+当前支持的动作工具：
+
+- `chat` - 发送聊天消息
+- `craft_item` - 合成物品
+- `smelt_item` - 熔炼物品
+- `use_chest` - 使用箱子
+- `swim_to_land` - 游向陆地
+- `kill_mob` - 击杀生物
+- `mine_block` - 挖掘方块
+- `place_block` - 放置方块
+- `follow_player` - 跟随玩家
 
 ## MCP 工具
 
@@ -266,9 +404,7 @@ mcp:
 
 ### 动作工具
 
-- `mine_block` - 挖掘方块
-- `place_block` - 放置方块
-- `follow_player` - 跟随玩家
+动作工具会根据 `src/actions/` 目录中的动作文件自动生成，工具名格式为动作名的 snake_case 形式。
 
 ## 开发
 

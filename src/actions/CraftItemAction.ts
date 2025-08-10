@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { BaseAction, BaseActionParams, McpToolSpec } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
 import minecraftData from 'minecraft-data';
 import { z } from 'zod';
 
@@ -11,18 +11,12 @@ interface CraftItemParams extends BaseActionParams {
 export class CraftItemAction extends BaseAction<CraftItemParams> {
   name = 'craftItem';
   description = '合成指定物品';
+  schema = z.object({
+    item: z.string().describe('要合成的物品名称 (字符串)'),
+    count: z.number().int().min(1).optional().describe('合成数量 (数字，可选，默认为1)'),
+  });
 
-  validateParams(params: CraftItemParams): boolean {
-    return this.validateStringParams(params, ['item']) &&
-           (typeof params.count === 'undefined' || typeof params.count === 'number');
-  }
-
-  getParamsSchema(): Record<string, string> {
-    return {
-      item: '要合成的物品名称 (字符串)',
-      count: '合成数量 (数字，可选，默认为1)'
-    };
-  }
+  // 校验与参数描述由基类通过 schema 自动提供
 
   async execute(bot: Bot, params: CraftItemParams): Promise<any> {
     try {
@@ -123,15 +117,5 @@ export class CraftItemAction extends BaseAction<CraftItemParams> {
     }
   }
 
-  public override getMcpTools(): McpToolSpec[] {
-    return [
-      {
-        toolName: 'craft_item',
-        description: 'Craft an item by name. Will auto-place and approach a crafting table when needed.',
-        schema: { item: z.string(), count: z.number().int().min(1).optional() },
-        actionName: 'craftItem',
-        mapInputToParams: (input: any) => ({ item: input.item, count: input.count ?? 1 }),
-      },
-    ];
-  }
+  // MCP 工具由基类根据 schema 自动暴露（tool: craft_item）
 } 

@@ -1,6 +1,6 @@
 import { Bot } from 'mineflayer';
 import minecraftData from 'minecraft-data';
-import { BaseAction, BaseActionParams, McpToolSpec } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 
 interface SmeltItemParams extends BaseActionParams {
@@ -18,19 +18,13 @@ interface SmeltItemParams extends BaseActionParams {
 export class SmeltItemAction extends BaseAction<SmeltItemParams> {
   name = 'smeltItem';
   description = '在熔炉中熔炼物品';
+  schema = z.object({
+    item: z.string().describe('要熔炼的物品 (字符串)'),
+    fuel: z.string().describe('燃料物品 (字符串)'),
+    count: z.number().int().min(1).optional().describe('熔炼数量 (数字，可选，默认 1)'),
+  });
 
-  validateParams(params: SmeltItemParams): boolean {
-    return this.validateStringParams(params, ['item', 'fuel']) &&
-           (typeof params.count === 'undefined' || typeof params.count === 'number');
-  }
-
-  getParamsSchema(): Record<string, string> {
-    return {
-      item: '要熔炼的物品 (字符串)',
-      fuel: '燃料物品 (字符串)',
-      count: '熔炼数量 (数字，可选，默认 1)'
-    };
-  }
+  // 校验和参数描述由基类通过 schema 自动提供
 
   async execute(bot: Bot, params: SmeltItemParams): Promise<any> {
     try {
@@ -97,15 +91,5 @@ export class SmeltItemAction extends BaseAction<SmeltItemParams> {
     }
   }
 
-  public override getMcpTools(): McpToolSpec[] {
-    return [
-      {
-        toolName: 'smelt_item',
-        description: 'Smelt an item in a nearby furnace.',
-        schema: { item: z.string(), fuel: z.string(), count: z.number().int().min(1).optional() },
-        actionName: 'smeltItem',
-        mapInputToParams: (input: any) => ({ item: input.item, fuel: input.fuel, count: input.count ?? 1 }),
-      },
-    ];
-  }
+  // MCP 工具由基类根据 schema 自动暴露（tool: smelt_item）
 } 

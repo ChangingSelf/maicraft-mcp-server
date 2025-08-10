@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { BaseAction, BaseActionParams, McpToolSpec } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 
 interface KillMobParams extends BaseActionParams {
@@ -16,18 +16,12 @@ interface KillMobParams extends BaseActionParams {
 export class KillMobAction extends BaseAction<KillMobParams> {
   name = 'killMob';
   description = '击杀指定名称的生物';
+  schema = z.object({
+    mob: z.string().describe('目标生物名称 (字符串)'),
+    timeout: z.number().int().positive().optional().describe('等待超时时间 (秒，可选，默认 300)'),
+  });
 
-  validateParams(params: KillMobParams): boolean {
-    return this.validateStringParams(params, ['mob']) &&
-           (typeof params.timeout === 'undefined' || typeof params.timeout === 'number');
-  }
-
-  getParamsSchema(): Record<string, string> {
-    return {
-      mob: '目标生物名称 (字符串)',
-      timeout: '等待超时时间 (秒，可选，默认 300)'
-    };
-  }
+  // 校验和参数描述由基类通过 schema 自动提供
 
   async execute(bot: Bot, params: KillMobParams): Promise<any> {
     try {
@@ -77,15 +71,5 @@ export class KillMobAction extends BaseAction<KillMobParams> {
     }
   }
 
-  public override getMcpTools(): McpToolSpec[] {
-    return [
-      {
-        toolName: 'kill_mob',
-        description: 'Kill a mob by name nearby.',
-        schema: { mob: z.string(), timeout: z.number().int().positive().optional() },
-        actionName: 'killMob',
-        mapInputToParams: (input: any) => ({ mob: input.mob, timeout: input.timeout }),
-      },
-    ];
-  }
+  // MCP 工具由基类根据 schema 自动暴露（tool: kill_mob）
 } 
