@@ -14,10 +14,26 @@ import fs from 'fs';
 import { resolve, extname } from 'path';
 import { load as yamlLoad } from 'js-yaml';
 
-import { MaicraftClient, ClientConfig } from './MaicraftClient';
-import { Logger } from './utils/Logger';
+import { MaicraftClient, ClientConfig } from './MaicraftClient.js';
+import { Logger } from './utils/Logger.js';
 
-const logger = new Logger('Maicraft');
+// 在最开始设置 MCP_STDIO_MODE，确保后续创建的 Logger 默认走 stderr，避免污染 MCP stdout
+if (!process.env.MCP_STDIO_MODE) {
+  process.env.MCP_STDIO_MODE = '1';
+}
+
+const logger = new Logger('Maicraft', { useStderr: true });
+
+// 在 MCP stdio 模式下，强制将所有 console.* 输出重定向到 stderr，避免污染 stdout
+if (process.env.MCP_STDIO_MODE === '1') {
+  // 保留原始方法以便调试需要
+  const origError = console.error.bind(console);
+  const toStderr = (...args: unknown[]) => origError(...args);
+  console.log = toStderr as any;
+  console.info = toStderr as any;
+  console.debug = toStderr as any;
+  console.warn = toStderr as any;
+}
 
 /** 获取配置文件路径
  * 1. 如果用户传入路径，则使用该路径。
@@ -67,7 +83,7 @@ async function main() {
     process.exit(1);
   }
 
-  let config: ClientConfig;
+  let config: ClientConfig & { mcp?: { enabled?: boolean; name?: string; version?: string; auth?: { token?: string; enabled?: boolean }, tools?: { enabled?: string[] } } };
   try {
     const raw = fs.readFileSync(configPath, 'utf8');
     config = yamlLoad(raw) as ClientConfig;
@@ -80,6 +96,36 @@ async function main() {
    * 创建客户端
    */
   const client = new MaicraftClient(config);
+
+  // Reuse components from MaicraftClient to keep single source of truth
+  const minecraftClient = client.getMinecraftClient();
+  const stateManager = client.getStateManager();
+  const actionExecutor = client.getActionExecutor();
+
+  // Optionally start MCP server (stdio)
+  let mcpServer: any = null;
+  if (config.mcp?.enabled) {
+    // dynamic import inside function to avoid top-level await and casing issues
+    try {
+      // Signal logger to use stderr to avoid corrupting MCP stdout
+      process.env.MCP_STDIO_MODE = '1';
+      const mod = await import('./mcp/MaicraftMcpServer.js');
+      const { MaicraftMcpServer } = mod as any;
+      mcpServer = new MaicraftMcpServer({
+      minecraftClient,
+      stateManager,
+      actionExecutor,
+      config: {
+        name: config.mcp.name || 'Maicraft MCP',
+        version: config.mcp.version || '0.1.0',
+        auth: config.mcp.auth,
+        tools: config.mcp.tools,
+      },
+      });
+    } catch (e: unknown) {
+      logger.error('加载 MCP 模块失败:', e as Error);
+    }
+  }
 
   // 退出时停止客户端
   process.on('SIGINT', async () => {
@@ -94,6 +140,17 @@ async function main() {
   try {
     await client.start();
     logger.info('Maicraft 客户端已启动，按 Ctrl+C 退出。');
+    
+    // 启动 MCP Server（独立于 Minecraft 连接）
+    if (mcpServer) {
+      logger.info('正在启动 MCP Server...');
+      try {
+        await mcpServer.startOnStdio();
+        logger.info('MCP Server 已启动');
+      } catch (e: unknown) {
+        logger.error('启动 MCP 失败:', e);
+      }
+    }
   } catch (err) {
     logger.error('启动客户端失败:', err);
     process.exit(1);

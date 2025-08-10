@@ -73,8 +73,8 @@ export class MinecraftClient extends EventEmitter {
       checkTimeoutInterval: 30000,
       logErrors: false,
       hideErrors: false,
-      reconnectInterval: 5000,
-      maxReconnectAttempts: 10,
+      reconnectInterval: 3000,
+      maxReconnectAttempts: 3,
       enableReconnect: true,
       ...options
     };
@@ -217,13 +217,8 @@ export class MinecraftClient extends EventEmitter {
     this.isReconnecting = true;
     this.reconnectAttempts++;
 
-    // 计算重连延迟，避免频繁重连
-    const baseDelay = this.options.reconnectInterval;
-    const delay = Math.min(baseDelay * Math.pow(2, this.reconnectAttempts - 1), 60000); // 最大60秒
-    
-    // 如果是被踢出，增加额外延迟
-    const extraDelay = this.reconnectAttempts === 1 ? 5000 : 0; // 第一次重连额外等待5秒
-    const totalDelay = delay + extraDelay;
+    // 固定间隔重连：每次间隔固定时间（符合 MVP 要求）
+    const totalDelay = this.options.reconnectInterval;
 
     this.logger.info(`开始第 ${this.reconnectAttempts} 次重连，${totalDelay}ms 后尝试...`);
 
@@ -343,18 +338,9 @@ export class MinecraftClient extends EventEmitter {
       this.emit('kicked', reasonStr);
       
       // 如果是重复登录，等待更长时间再重连
-      if (reasonStr.includes('duplicate_login')) {
-        this.logger.info('检测到重复登录，等待30秒后重连...');
-        setTimeout(() => {
-          if (this.options.enableReconnect && this.shouldReconnect) {
-            this.startReconnect();
-          }
-        }, 30000);
-      } else {
-        // 如果启用了重连，开始重连
-        if (this.options.enableReconnect && this.shouldReconnect) {
-          this.startReconnect();
-        }
+      // 无特殊延迟策略，统一采用固定间隔重连
+      if (this.options.enableReconnect && this.shouldReconnect) {
+        this.startReconnect();
       }
     });
 

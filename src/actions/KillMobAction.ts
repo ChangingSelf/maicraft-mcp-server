@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface';
+import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
 
 interface KillMobParams extends BaseActionParams {
   /** 生物名称，例如 "cow" */

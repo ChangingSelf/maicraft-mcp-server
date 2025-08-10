@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface';
+import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
 
 interface FollowPlayerParams extends BaseActionParams {
   /** 目标玩家名称 */
@@ -48,8 +48,9 @@ export class FollowPlayerAction extends BaseAction<FollowPlayerParams> {
         return this.createErrorResult(`未找到玩家 ${playerName}，请确保其在附近`, 'PLAYER_NOT_FOUND');
       }
 
-      const pathfinder = await import('mineflayer-pathfinder');
-      const GoalFollow = pathfinder.goals.GoalFollow;
+      // 动态导入 GoalFollow
+      const pathfinderModule = await import('mineflayer-pathfinder');
+      const GoalFollow = pathfinderModule.goals.GoalFollow;
 
       return await new Promise<any>((resolve) => {
         let followInterval: NodeJS.Timeout | null = null;

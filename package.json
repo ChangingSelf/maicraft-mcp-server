@@ -2,28 +2,31 @@
   "name": "maicraft",
   "version": "0.1.0",
   "private": true,
-  "description": "Minecraft × MaiBot 客户端 - 通过 WebSocket 双向同步游戏状态与高级动作指令",
+  "description": "Minecraft × MCP 机器人服务：通过 MCP 工具查询状态/事件并执行基础动作",
   "type": "module",
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/main.ts",
     "start": "node dist/main.js",
-    "test": "jest",
+    "test:mcp": "tsx scripts/test-mcp.ts",
+    "test": "jest --runInBand",
     "lint": "eslint src/**/*.ts",
     "clean": "rimraf dist",
-    "dev:mock": "tsx src/MockAmaidesu.ts"
+    "inspect:ui:dev": "pnpm dlx @modelcontextprotocol/inspector@0.16.2 --config mcp-inspector.json --server maicraft-dev",
+    "inspect:ui:dist": "pnpm dlx @modelcontextprotocol/inspector@0.16.2 --config mcp-inspector.json --server maicraft-dist",
+    "inspect:cli:dev:tools": "pnpm dlx @modelcontextprotocol/inspector@0.16.2 --cli --config mcp-inspector.json --server maicraft-dev --method tools/list",
+    "inspect:cli:dev:ping": "pnpm dlx @modelcontextprotocol/inspector@0.16.2 --cli --config mcp-inspector.json --server maicraft-dev --method tools/call --tool-name ping"
   },
   "keywords": [
     "minecraft",
-    "maibot",
-    "client",
-    "websocket",
-    "mineflayer",
-    "maim-message"
+    "mcp",
+    "agent",
+    "mineflayer"
   ],
   "author": "ChangingSelf",
   "license": "MIT",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.2",
     "canvas": "^3.1.2",
     "js-yaml": "^4.1.0",
     "minecraft-data": "^3.92.0",
@@ -33,9 +36,10 @@
     "mineflayer-pathfinder": "^2.4.5",
     "mineflayer-pvp": "^1.3.2",
     "mineflayer-tool": "^1.2.0",
-    "ws": "^8.16.0"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^24.0.10",
     "@types/ws": "^8.5.10",

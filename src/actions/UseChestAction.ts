@@ -1,6 +1,6 @@
 import { Bot } from 'mineflayer';
 import minecraftData from 'minecraft-data';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface';
+import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
 
 interface UseChestParams extends BaseActionParams {
   /** store | withdraw */

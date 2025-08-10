@@ -9,14 +9,6 @@ minecraft:
   auth: offline          # offline | microsoft | mojang
   version: "1.19.0"      # 可选，留空自动检测
 
-router:
-  route_config:
-    amaidesu:            # 自定义平台名
-      url: ws://127.0.0.1:8080/ws
-      token:             # 可选鉴权 token
-      reconnect_interval: 5000    # 断线重连间隔 (ms)
-      max_reconnect_attempts: 10  # 最大重连次数
-
 enabledEvents:
   - chat
   - playerJoin
@@ -29,5 +21,15 @@ enabledEvents:
   - weatherChange
   - timeUpdate
 
-stateUpdateInterval: 3000  # 状态推送间隔 (ms)
-maxMessageHistory: 100     # 本地最大事件缓存条数 
+maxMessageHistory: 100     # 本地最大事件缓存条数
+
+# MCP Server（可选）
+mcp:
+  enabled: false           # 启用后将通过 stdio 暴露 MCP Server
+  name: "Maicraft MCP"
+  version: "0.1.0"
+  tools:
+    enabled:               # 可选：仅暴露指定工具，留空则全部可用
+      - mine_block
+      - place_block
+      - follow_player

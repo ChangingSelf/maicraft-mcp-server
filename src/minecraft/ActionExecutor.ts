@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { ActionRegistry, GameAction, BaseActionParams, ActionResult } from './ActionInterface';
+import { ActionRegistry, GameAction, BaseActionParams, ActionResult } from './ActionInterface.js';
 
 // 动作信息接口
 export interface ActionInfo {
@@ -29,13 +29,15 @@ export class ActionExecutor implements ActionRegistry {
   private actionQueue: QueuedAction[] = [];
   private isProcessingQueue = false;
   private maxConcurrentActions = 1; // 当前限制为串行执行
+  private isCancelled = false;
 
   /**
    * 注册动作
    */
   register(action: GameAction): void {
     this.actions.set(action.name, action);
-    console.log(`已注册高级动作: ${action.name} - ${action.description}`);
+    // Avoid stdout pollution when running under MCP stdio; use stderr
+    console.error(`已注册高级动作: ${action.name} - ${action.description}`);
   }
 
   /**
@@ -82,6 +84,13 @@ export class ActionExecutor implements ActionRegistry {
     priority: number = 0,
     timeout?: number
   ): Promise<ActionResult> {
+    if (this.isCancelled) {
+      return Promise.resolve({
+        success: false,
+        message: '动作执行已被取消',
+        error: 'CANCELLED'
+      });
+    }
     return new Promise<ActionResult>((resolve, reject) => {
       const queuedAction: QueuedAction = {
         id: `action_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -118,6 +127,14 @@ export class ActionExecutor implements ActionRegistry {
     this.isProcessingQueue = true;
 
     while (this.actionQueue.length > 0) {
+      if (this.isCancelled) {
+        // 拒绝余下任务
+        while (this.actionQueue.length > 0) {
+          const pending = this.actionQueue.shift()!;
+          pending.reject(new Error('队列已被取消'));
+        }
+        break;
+      }
       const queuedAction = this.actionQueue.shift()!;
       
       try {
@@ -157,7 +174,7 @@ export class ActionExecutor implements ActionRegistry {
       }
 
       // 执行动作（带超时）
-      console.log(`执行高级动作: ${name}`, params);
+      console.error(`执行高级动作: ${name}`, params);
       const timeoutMs = timeout || this.defaultTimeout;
       
       const result = await Promise.race([
@@ -167,7 +184,7 @@ export class ActionExecutor implements ActionRegistry {
         )
       ]);
       
-      console.log(`动作 ${name} 执行结果:`, result);
+      console.error(`动作 ${name} 执行结果:`, result);
       return result;
     } catch (error) {
       console.error(`执行动作 ${name} 时发生错误:`, error);
@@ -215,6 +232,22 @@ export class ActionExecutor implements ActionRegistry {
       action.reject(new Error('队列已清空'));
     });
     this.actionQueue = [];
+  }
+
+  /**
+   * 取消所有动作（包含队列与未来请求）。
+   * 正在执行的动作无法强制中断，但将尽快返回。
+   */
+  cancelAll(): void {
+    this.isCancelled = true;
+    this.clearQueue();
+  }
+
+  /**
+   * 重置取消标志（启动新会话时调用）。
+   */
+  resetCancellation(): void {
+    this.isCancelled = false;
   }
 
   /**

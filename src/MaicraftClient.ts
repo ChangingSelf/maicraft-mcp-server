@@ -1,24 +1,19 @@
-import { Router } from "./messaging/Router";
-import { MinecraftClient } from "./minecraft/MinecraftClient";
-import { StateManager } from "./minecraft/StateManager";
-import { MessageEncoder } from "./minecraft/MessageEncoder";
+import { MinecraftClient } from "./minecraft/MinecraftClient.js";
+import { StateManager } from "./minecraft/StateManager.js";
 
-import { ActionExecutor } from "./minecraft/ActionExecutor";
-import { ChatAction } from "./actions/ChatAction";
-import { CraftItemAction } from "./actions/CraftItemAction";
-import { PlaceBlockAction } from "./actions/PlaceBlockAction";
-import { MineBlockAction } from "./actions/MineBlockAction";
-import { KillMobAction } from "./actions/KillMobAction";
-import { FollowPlayerAction } from "./actions/FollowPlayerAction";
-import { SmeltItemAction } from "./actions/SmeltItemAction";
-import { SwimToLandAction } from "./actions/SwimToLandAction";
-import { UseChestAction } from "./actions/UseChestAction";
+import { ActionExecutor } from "./minecraft/ActionExecutor.js";
+import { ChatAction } from "./actions/ChatAction.js";
+import { CraftItemAction } from "./actions/CraftItemAction.js";
+import { PlaceBlockAction } from "./actions/PlaceBlockAction.js";
+import { MineBlockAction } from "./actions/MineBlockAction.js";
+import { KillMobAction } from "./actions/KillMobAction.js";
+import { FollowPlayerAction } from "./actions/FollowPlayerAction.js";
+import { SmeltItemAction } from "./actions/SmeltItemAction.js";
+import { SwimToLandAction } from "./actions/SwimToLandAction.js";
+import { UseChestAction } from "./actions/UseChestAction.js";
 
-import { Logger } from "./utils/Logger";
-import { GameEvent } from "./minecraft/GameEvent";
-import type { MaicraftPayload } from "./messaging/PayloadTypes.js";
-import { PayloadType } from "./messaging/PayloadTypes.js";
-import type { RouteConfig } from "./messaging/MaimMessage.js";
+import { Logger } from "./utils/Logger.js";
+import { GameEvent } from "./minecraft/GameEvent.js";
 
 /**
  * Minecraft 配置
@@ -37,7 +32,6 @@ export interface MinecraftConfig {
  */
 export interface ClientConfig {
   minecraft: MinecraftConfig;
-  router: RouteConfig;
   enabledEvents?: string[];
   maxMessageHistory?: number;
 }
@@ -48,9 +42,7 @@ export interface ClientConfig {
  */
 export class MaicraftClient {
   private minecraftClient: MinecraftClient;
-  private router: Router;
   private stateManager: StateManager;
-  private messageEncoder: MessageEncoder;
   private actionExecutor: ActionExecutor;
   private logger: Logger;
   private config: ClientConfig;
@@ -62,11 +54,9 @@ export class MaicraftClient {
 
     // 初始化组件
     this.minecraftClient = new MinecraftClient(config.minecraft);
-    this.router = new Router(config.router);
     this.stateManager = new StateManager({
       maxEventHistory: config.maxMessageHistory || 100,
     });
-    this.messageEncoder = new MessageEncoder();
     this.actionExecutor = new ActionExecutor();
 
     // 注册基础动作
@@ -74,6 +64,13 @@ export class MaicraftClient {
 
     // 设置事件监听
     this.setupEventListeners();
+
+    // 应用事件过滤配置（如果提供）
+    if (Array.isArray(config.enabledEvents) && config.enabledEvents.length > 0) {
+      // 由 MinecraftClient 自行过滤事件
+      // @ts-ignore 允许传入字符串数组，内部做映射/容错
+      this.minecraftClient.setEnabledEvents(config.enabledEvents as any);
+    }
   }
 
 
@@ -116,16 +113,18 @@ export class MaicraftClient {
     // 监听机器人连接状态
     this.minecraftClient.on("connected", () => {
       this.logger.info("Minecraft 客户端已连接");
+      const bot = this.minecraftClient.getBot();
+      if (bot) {
+        this.stateManager.setBot(bot);
+      }
     });
 
     this.minecraftClient.on("disconnected", () => {
       this.logger.warn("Minecraft 客户端连接断开");
+      this.stateManager.setStatus('unavailable');
     });
 
-    // 监听来自上游的消息
-    this.router.registerMessageHandler(async (payload: MaicraftPayload) => {
-      await this.handleIncomingMessage(payload);
-    });
+    // 不再处理上游 WebSocket 消息，交互统一通过 MCP Server 提供的工具完成
   }
 
   /**
@@ -140,85 +139,9 @@ export class MaicraftClient {
 
       // 记录事件并更新内部状态
       this.stateManager.addEvent(event);
-
-      const currentState = this.stateManager.getGameState();
-
-      // 发送完整的游戏状态
-      const message = this.messageEncoder.encodeGameState(currentState);
-      await this.router.sendMessage(message);
-
-      this.logger.debug(`已发送游戏事件更新: ${event.type}`);
+      this.logger.debug(`事件已记录: ${event.type}`);
     } catch (error) {
       this.logger.error("处理游戏事件时发生错误:", error);
-    }
-  }
-
-  /**
-   * 处理来自上游的消息
-   */
-  private async handleIncomingMessage(payload: MaicraftPayload): Promise<void> {
-    try {
-      this.logger.debug("收到消息:", payload);
-
-      if (payload.type === PayloadType.ACTION) {
-        // 检查 Minecraft 连接状态
-        const bot = this.minecraftClient.getBot();
-        if (!bot) {
-          const errorResult = {
-            success: false,
-            message: "Minecraft 客户端未连接，无法执行动作",
-            error: 'MINECRAFT_NOT_CONNECTED'
-          };
-          
-          const resultMessage = this.messageEncoder.encodeActionResult(
-            errorResult,
-            payload.message_id || ""
-          );
-          await this.router.sendMessage(resultMessage);
-          
-          this.logger.warn("尝试执行动作但 Minecraft 未连接");
-          return;
-        }
-
-        // 执行动作
-        const actionPayload = payload as any; // ActionPayload
-        const result = await this.actionExecutor.execute(
-          actionPayload.action ?? "unknown",
-          bot,
-          actionPayload.params
-        );
-
-        // 发送执行结果
-        const resultMessage = this.messageEncoder.encodeActionResult(
-          result,
-          payload.message_id || ""
-        );
-        await this.router.sendMessage(resultMessage);
-
-        this.logger.info(
-          `动作执行结果: ${result.success ? "成功" : "失败"} - ${
-            result.message
-          }`
-        );
-      } else if (payload.type === PayloadType.QUERY) {
-        // 查询游戏状态
-        const response = this.messageEncoder.encodeStateResponse(
-          this.stateManager.getGameState(),
-          payload.message_id || ""
-        );
-        await this.router.sendMessage(response);
-
-        this.logger.debug("已发送状态查询响应");
-      }
-    } catch (error) {
-      this.logger.error("处理消息时发生错误:", error);
-
-      // 发送错误响应
-      const errorMessage = this.messageEncoder.encodeError(
-        error instanceof Error ? error.message : String(error),
-        payload.message_id
-      );
-      await this.router.sendMessage(errorMessage);
     }
   }
 
@@ -234,27 +157,21 @@ export class MaicraftClient {
     try {
       this.logger.info("启动 Maicraft 客户端...");
 
-      // 启动 Router（不等待连接完成）
-      await this.router.run();
-
       // 尝试连接 Minecraft，如果失败则记录错误但不崩溃
       try {
+        this.stateManager.setStatus('connecting');
         await this.minecraftClient.connect();
         this.logger.info("Minecraft 连接成功");
       } catch (error) {
         this.logger.error("Minecraft 连接失败，但程序将继续运行:", error);
         // 不抛出错误，让程序继续运行
+        this.stateManager.setStatus('unavailable');
       }
 
       this.isRunning = true;
       this.logger.info("Maicraft 客户端启动成功");
 
-      // 发送初始状态（如果连接成功）
-      if (this.minecraftClient.isConnectedToServer()) {
-        const initialState = this.stateManager.getGameState();
-        const initialMessage = this.messageEncoder.encodeGameState(initialState);
-        await this.router.sendMessage(initialMessage);
-      }
+      // 不再向上游广播初始状态（由 MCP 查询）。
     } catch (error) {
       this.logger.error("启动客户端时发生错误:", error);
       throw error;
@@ -274,7 +191,6 @@ export class MaicraftClient {
 
       // 断开连接
       await this.minecraftClient.disconnect();
-      await this.router.stop();
 
       this.isRunning = false;
       this.logger.info("Maicraft 客户端已停止");
@@ -369,5 +285,18 @@ export class MaicraftClient {
    */
   clearActionQueue(): void {
     this.actionExecutor.clearQueue();
+  }
+
+  // ---- Expose internal components for MCP integration ----
+  getMinecraftClient(): MinecraftClient {
+    return this.minecraftClient;
+  }
+
+  getStateManager(): StateManager {
+    return this.stateManager;
+  }
+
+  getActionExecutor(): ActionExecutor {
+    return this.actionExecutor;
   }
 }

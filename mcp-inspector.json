@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "maicraft-dev": {
+      "type": "stdio",
+      "command": "tsx",
+      "args": ["src/main.ts", "./config.yaml"],
+      "env": {
+        "MCP_STDIO_MODE": "1"
+      }
+    },
+    "maicraft-dist": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["dist/main.js", "./config.yaml"],
+      "env": {
+        "MCP_STDIO_MODE": "1"
+      }
+    }
+  }
+}
+

@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface';
+import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
 import minecraftData from 'minecraft-data';
 
 interface MineBlockParams extends BaseActionParams {

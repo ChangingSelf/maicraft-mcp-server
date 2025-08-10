@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface';
+import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
 
 interface ChatParams extends BaseActionParams {
   message: string;

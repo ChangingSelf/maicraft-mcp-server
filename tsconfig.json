@@ -8,7 +8,9 @@
     "outDir": "./dist",                   // 输出目录
     "rootDir": "./src",                   // 源代码目录
     "moduleResolution": "node",           // 模块解析方式
-    "sourceMap": true                     // 生成 Source Map
+    "sourceMap": true,                    // 生成 Source Map
+    "types": ["node"]
   },
-  "include": ["src/**/*"]                // 包含的文件路径
+  "include": ["src/**/*"],                // 包含的文件路径
+  "exclude": ["__tests__/**/*"]
 }

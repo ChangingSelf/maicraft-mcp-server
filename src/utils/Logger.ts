@@ -10,6 +10,9 @@ export interface LoggerOptions {
   prefix?: string;
   timestamp?: boolean;
   colors?: boolean;
+  // When true, always write logs to stderr. Useful for MCP stdio servers to avoid
+  // corrupting stdout which is reserved for protocol frames.
+  useStderr?: boolean;
 }
 
 /**
@@ -20,12 +23,15 @@ export class Logger {
   private prefix: string;
   private timestamp: boolean;
   private colors: boolean;
+  private useStderr: boolean;
 
   constructor(prefix: string = '', options: LoggerOptions = {}) {
     this.level = options.level ?? LogLevel.INFO;
     this.prefix = prefix;
     this.timestamp = options.timestamp ?? true;
     this.colors = options.colors ?? true;
+    // Default to stderr when MCP stdio mode is enabled to prevent stdout pollution
+    this.useStderr = options.useStderr ?? (process.env.MCP_STDIO_MODE === '1');
   }
 
   /**
@@ -104,6 +110,12 @@ export class Logger {
     const message = args.length > 0 ? args.join(' ') : '';
 
     // 根据级别选择输出方法
+    if (this.useStderr) {
+      // MCP stdio-safe: all logs go to stderr
+      console.error(prefix, message);
+      return;
+    }
+
     switch (level) {
       case 'DEBUG':
         console.debug(prefix, message);

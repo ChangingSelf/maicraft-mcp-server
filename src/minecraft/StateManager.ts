@@ -16,6 +16,7 @@ export interface GameState {
   nearbyPlayers: PlayerInfo[];
   nearbyEntities: EntityInfo[];
   recentEvents: GameEvent[];
+  status: 'ready' | 'connecting' | 'unavailable';
 }
 
 export interface StateManagerOptions {
@@ -55,6 +56,7 @@ export class StateManager {
   setBot(bot: Bot): void {
     this.bot = bot;
     this.logger.info('StateManager 已绑定机器人实例');
+    this.gameState.status = 'ready';
   }
 
   /**
@@ -65,7 +67,9 @@ export class StateManager {
     
     // 保持历史记录在限制范围内
     if (this.eventHistory.length > this.options.maxEventHistory) {
-      this.eventHistory = this.eventHistory.slice(0, this.options.maxEventHistory);
+      // 仅保留最新的 N 条事件
+      const max = this.options.maxEventHistory;
+      this.eventHistory = this.eventHistory.slice(-max);
     }
 
     // 更新游戏状态
@@ -84,10 +88,30 @@ export class StateManager {
   }
 
   /**
+   * 列出最近的事件（可选过滤）
+   */
+  listEvents(type?: string, sinceMs?: number, limit: number = 50): GameEvent[] {
+    const filtered = this.eventHistory.filter((evt) => {
+      if (type && evt.type !== type) return false;
+      if (sinceMs && evt.timestamp < sinceMs) return false;
+      return true;
+    });
+    // 返回按时间倒序排列的最近事件
+    return filtered
+      .slice() // 浅拷贝
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, Math.max(1, Math.min(limit || 50, 500)));
+  }
+
+  /**
    * 停止状态管理器
    */
   stop(): void {
     this.logger.info('StateManager 已停止');
+  }
+
+  setStatus(status: 'ready' | 'connecting' | 'unavailable'): void {
+    this.gameState.status = status;
   }
 
   /**
@@ -107,7 +131,8 @@ export class StateManager {
       dimension: 'overworld',
       nearbyPlayers: [],
       nearbyEntities: [],
-      recentEvents: []
+      recentEvents: [],
+      status: 'unavailable'
     };
   }
 
