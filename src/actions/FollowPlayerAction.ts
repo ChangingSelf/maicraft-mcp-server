@@ -1,6 +1,7 @@
 import { Bot } from 'mineflayer';
 import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
+import pathfinder from 'mineflayer-pathfinder';
 
 interface FollowPlayerParams extends BaseActionParams {
   /** 目标玩家名称 */
@@ -21,7 +22,7 @@ export class FollowPlayerAction extends BaseAction<FollowPlayerParams> {
   schema = z.object({
     player: z.string().describe('目标玩家名称 (字符串)'),
     distance: z.number().int().positive().optional().describe('跟随距离 (数字，可选，默认 3)'),
-    timeout: z.number().int().positive().optional().describe('超时时间 (秒，可选，默认 60)'),
+    timeout: z.number().int().positive().optional().describe('超时时间 (秒，可选，默认 5)'),
   });
 
   // 校验和参数描述由基类通过 schema 自动提供
@@ -34,7 +35,7 @@ export class FollowPlayerAction extends BaseAction<FollowPlayerParams> {
       }
 
       const followDistance = params.distance ?? 3;
-      const timeoutSec = params.timeout ?? 60;
+      const timeoutSec = params.timeout ?? 5;
       const playerName = params.player;
 
       const targetPlayer = bot.players[playerName];
@@ -42,9 +43,11 @@ export class FollowPlayerAction extends BaseAction<FollowPlayerParams> {
         return this.createErrorResult(`未找到玩家 ${playerName}，请确保其在附近`, 'PLAYER_NOT_FOUND');
       }
 
-      // 动态导入 GoalFollow
-      const pathfinderModule = await import('mineflayer-pathfinder');
-      const GoalFollow = pathfinderModule.goals.GoalFollow;
+      // 获取 GoalFollow
+      const { GoalFollow } = pathfinder.goals;
+      if (!GoalFollow) {
+        return this.createErrorResult('mineflayer-pathfinder goals 未加载', 'PATHFINDER_NOT_LOADED');
+      }
 
       return await new Promise<any>((resolve) => {
         let followInterval: NodeJS.Timeout | null = null;

@@ -2,6 +2,7 @@ import { Bot } from 'mineflayer';
 import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
 import minecraftData from 'minecraft-data';
 import { z } from 'zod';
+import pathfinder from 'mineflayer-pathfinder';
 
 interface MineBlockParams extends BaseActionParams {
   /** 方块名称，例如 "dirt" */
@@ -26,10 +27,13 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
 
   async execute(bot: Bot, params: MineBlockParams): Promise<any> {
     try {
+      this.logger.info(`开始挖掘方块: ${params.name}, 数量: ${params.count ?? 1}`);
+      
       const mcData = minecraftData(bot.version);
       const blockByName = mcData.blocksByName[params.name];
 
       if (!blockByName) {
+        this.logger.error(`未找到名为 ${params.name} 的方块`);
         return this.createErrorResult(`未找到名为 ${params.name} 的方块`, 'BLOCK_NOT_FOUND');
       }
 
@@ -43,6 +47,7 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       });
 
       if (positions.length === 0) {
+        this.logger.warn(`附近未找到 ${params.name} 方块，请先探索其他区域`);
         return this.createErrorResult(`附近未找到 ${params.name} 方块，请先探索其他区域`, 'NO_BLOCK_NEARBY');
       }
 
@@ -51,13 +56,17 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
 
       // 优先使用 collectBlock 插件（若存在），否则逐个挖掘
       if (bot.collectBlock?.collect) {
+        this.logger.debug(`使用 collectBlock 插件挖掘 ${targets.length} 个方块`);
         await bot.collectBlock.collect(targets, { ignoreNoPath: true });
       } else {
+        this.logger.debug(`逐个挖掘 ${targets.length} 个方块`);
         for (const block of targets) {
           // 若没有 collectBlock 插件，则尝试移动到方块附近并直接挖掘
           if (bot.pathfinder?.goto) {
-            const pathfinder = await import('mineflayer-pathfinder');
             const { GoalNear } = pathfinder.goals;
+            if (!GoalNear) {
+              return this.createErrorResult('mineflayer-pathfinder goals 未加载', 'PATHFINDER_NOT_LOADED');
+            }
             const goal = new GoalNear(block.position.x, block.position.y, block.position.z, 1);
             await bot.pathfinder.goto(goal);
           }
@@ -65,11 +74,13 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
         }
       }
 
+      this.logger.info(`成功挖掘 ${targets.length} 个 ${params.name}`);
       return this.createSuccessResult(`已成功挖掘 ${targets.length} 个 ${params.name}`, { 
         name: params.name, 
         count: targets.length 
       });
     } catch (err) {
+      this.logger.error(`挖掘 ${params.name} 失败: ${err instanceof Error ? err.message : String(err)}`);
       return this.createExceptionResult(err, `挖掘 ${params.name} 失败`, 'MINE_FAILED');
     }
   }

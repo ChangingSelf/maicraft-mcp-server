@@ -2,6 +2,7 @@ import { Bot } from 'mineflayer';
 import minecraftData from 'minecraft-data';
 import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
+import pathfinder from 'mineflayer-pathfinder';
 
 interface SmeltItemParams extends BaseActionParams {
   /** 要熔炼的物品名称 */
@@ -47,8 +48,10 @@ export class SmeltItemAction extends BaseAction<SmeltItemParams> {
 
       // 移动到熔炉附近
       if (bot.pathfinder?.goto) {
-        const pathfinder = await import('mineflayer-pathfinder');
-        const GoalLookAtBlock = pathfinder.goals.GoalLookAtBlock;
+        const { GoalLookAtBlock } = pathfinder.goals;
+        if (!GoalLookAtBlock) {
+          return this.createErrorResult('mineflayer-pathfinder goals 未加载', 'PATHFINDER_NOT_LOADED');
+        }
         const goal = new GoalLookAtBlock(furnaceBlock.position, bot.world as any);
         await bot.pathfinder.goto(goal);
       }

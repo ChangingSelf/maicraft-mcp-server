@@ -1,5 +1,6 @@
 import { Bot } from 'mineflayer';
 import { z } from 'zod';
+import { Logger } from '../utils/Logger.js';
 
 /**
  * 动作参数基础接口
@@ -68,6 +69,17 @@ export interface McpToolSpec {
 export abstract class BaseAction<T extends BaseActionParams = BaseActionParams> implements GameAction<T> {
   abstract name: string;
   abstract description: string;
+  private _logger?: Logger;
+
+  /**
+   * 获取 logger 实例，延迟初始化
+   */
+  get logger(): Logger {
+    if (!this._logger) {
+      this._logger = new Logger(this.name);
+    }
+    return this._logger;
+  }
 
   /**
    * 参数校验器（可选，若提供将自动用于 validateParams 和 MCP schema 暴露）

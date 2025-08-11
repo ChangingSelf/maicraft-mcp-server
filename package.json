@@ -35,9 +35,11 @@
     "mineflayer-pathfinder": "^2.4.5",
     "mineflayer-pvp": "^1.3.2",
     "mineflayer-tool": "^1.2.0",
+    "vec3": "^0.1.10",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@modelcontextprotocol/inspector": "^0.16.2",
     "@types/jest": "^30.0.0",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^24.0.10",
@@ -49,8 +51,7 @@
     "rimraf": "^5.0.5",
     "ts-jest": "^29.1.2",
     "tsx": "^4.20.3",
-    "typescript": "^5.8.3",
-    "@modelcontextprotocol/inspector": "^0.16.2"
+    "typescript": "^5.8.3"
   },
   "engines": {
     "node": ">=18.0.0"

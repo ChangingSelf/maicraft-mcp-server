@@ -38,6 +38,9 @@ importers:
       mineflayer-tool:
         specifier: ^1.2.0
         version: 1.2.0
+      vec3:
+        specifier: ^0.1.10
+        version: 0.1.10
       zod:
         specifier: ^3.23.8
         version: 3.25.76

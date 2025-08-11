@@ -2,6 +2,7 @@ import { Bot } from 'mineflayer';
 import minecraftData from 'minecraft-data';
 import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
+import pathfinder from 'mineflayer-pathfinder';
 
 interface SwimToLandParams extends BaseActionParams {
   /** 最大搜索半径，默认 64 */
@@ -67,8 +68,10 @@ export class SwimToLandAction extends BaseAction<SwimToLandParams> {
       // 按距离排序
       positions.sort((a, b) => bot.entity.position.distanceTo(a) - bot.entity.position.distanceTo(b));
 
-      const pathfinder = await import('mineflayer-pathfinder');
-      const GoalNear = pathfinder.goals.GoalNear;
+      const { GoalNear } = pathfinder.goals;
+      if (!GoalNear) {
+        return this.createErrorResult('mineflayer-pathfinder goals 未加载', 'PATHFINDER_NOT_LOADED');
+      }
 
       const startTime = Date.now();
       for (const pos of positions) {

@@ -1,6 +1,7 @@
 import { Bot } from 'mineflayer';
 import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
+import pathfinder from 'mineflayer-pathfinder';
 
 interface KillMobParams extends BaseActionParams {
   /** 生物名称，例如 "cow" */
@@ -40,8 +41,10 @@ export class KillMobAction extends BaseAction<KillMobParams> {
       } else {
         // 使用 simple attack：靠近然后 swingArm（简化处理）
         if (bot.pathfinder?.goto) {
-                  const pathfinder = await import('mineflayer-pathfinder');
-        const { GoalNear } = pathfinder.goals;
+          const { GoalNear } = pathfinder.goals;
+          if (!GoalNear) {
+            return this.createErrorResult('mineflayer-pathfinder goals 未加载', 'PATHFINDER_NOT_LOADED');
+          }
           const goal = new GoalNear(targetEntity.position.x, targetEntity.position.y, targetEntity.position.z, 2);
           await bot.pathfinder.goto(goal);
         }
