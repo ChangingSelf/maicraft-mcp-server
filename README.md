@@ -6,6 +6,8 @@
 
 当然，也可以像普通MCP Server一样使用本项目。
 
+部分高级动作的实现参考自 [mineland](https://github.com/cocacola-lab/MineLand)
+
 ## 功能特性
 
 - 🤖 **Minecraft 机器人**：基于 Mineflayer 的 Minecraft 客户端
@@ -101,17 +103,37 @@ sequenceDiagram
 
 ## 快速开始
 
-### 1. 安装依赖
+### 方式一：使用 npx（推荐｜无需全局安装）
 
 ```bash
+# 直接运行（首次会自动拉取包）
+npx -y maicraft --init-config
+```
+
+### 方式二：从源码安装
+
+```bash
+# 克隆仓库
+git clone https://github.com/ChangingSelf/Maicraft.git
+cd Maicraft
+
+# 安装依赖
 pnpm install
 ```
 
 ### 2. 配置
 
-复制配置文件模板：
+#### 方式一：npx 用户
 
 ```bash
+# 复制配置文件模板到当前目录
+npx -y maicraft --init-config
+```
+
+#### 方式二：源码安装用户
+
+```bash
+# 复制配置文件模板
 cp config-template.yaml config.yaml
 ```
 
@@ -133,6 +155,21 @@ logging:
 
 ### 3. 启动
 
+#### 方式一：npx 用户
+
+```bash
+# 直接启动（读取当前目录的 config.yaml）
+npx -y maicraft
+
+# 指定配置文件路径
+npx -y maicraft /path/to/config.yaml
+
+# 或使用命令行参数覆盖部分配置（无需编辑文件）
+npx -y maicraft --host 127.0.0.1 --port 25565 --username MaiBot --auth offline --log-level INFO
+```
+
+#### 方式二：源码安装用户
+
 ```bash
 # 开发模式（读取 ./config.yaml）
 pnpm dev
@@ -144,6 +181,31 @@ pnpm start
 
 ### 4. 调试 MCP（图形界面）
 
+#### 方式一：npx 用户
+
+```bash
+# 需要先安装mcp-inspector
+npm install -g @modelcontextprotocol/inspector
+
+# 创建mcp-inspector.json配置文件
+cat > mcp-inspector.json << EOF
+{
+  "mcpServers": {
+    "maicraft": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "maicraft", "./config.yaml"]
+    }
+  }
+}
+EOF
+
+# 启动调试界面
+mcp-inspector --config mcp-inspector.json --server maicraft
+```
+
+#### 方式二：源码安装用户
+
 ```bash
 pnpm mcp:ui
 ```
@@ -151,6 +213,21 @@ pnpm mcp:ui
 打开浏览器中的 Inspector，验证工具、请求与响应。
 
 ### 5. 快速测试（命令行）
+
+#### 方式一：npx 用户
+
+```bash
+# 需要先安装mcp-inspector
+npm install -g @modelcontextprotocol/inspector
+
+# 列出已注册的工具
+mcp-inspector --cli --config mcp-inspector.json --server maicraft --method tools/list
+
+# 调用 query_state 进行烟囱测试
+mcp-inspector --cli --config mcp-inspector.json --server maicraft --method tools/call --tool-name query_state
+```
+
+#### 方式二：源码安装用户
 
 ```bash
 # 列出已注册的工具
@@ -268,7 +345,7 @@ Maicraft 支持多种工具过滤模式，推荐使用黑名单模式：
 ```yaml
 mcp:
   name: "Maicraft MCP"
-  version: "0.1.0"
+  version: "1.0.0"
   tools:
     # 方式1：黑名单模式（推荐）- 屏蔽指定工具，其他全部可用
     disabled:
@@ -295,7 +372,35 @@ mcp:
 
 ## 将 Maicraft 配置到第三方 MCP Client（JSON）
 
-以下是通用的 stdio 配置示例，请在你的 MCP Client 配置文件中加入：
+### 方式一：npx 用户
+
+```json
+{
+  "mcpServers": {
+    "maicraft": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "maicraft", "./config.yaml"]
+    }
+  }
+}
+```
+
+或者使用命令行参数覆盖配置
+
+```json
+{
+  "mcpServers": {
+    "maicraft": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "maicraft", "--host 127.0.0.1", "--port", "25565", "--username", "MaiBot", "--auth", "offline"]
+    }
+  }
+}
+```
+
+### 方式二：源码安装用户
 
 ```json
 {

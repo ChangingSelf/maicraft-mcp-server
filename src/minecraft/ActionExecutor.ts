@@ -3,7 +3,7 @@ import { ActionRegistry, GameAction, BaseActionParams, ActionResult, McpToolSpec
 import { Logger } from '../utils/Logger.js';
 import fs from 'fs';
 import path from 'path';
-import { pathToFileURL } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 // 动作信息接口
 export interface ActionInfo {
@@ -59,8 +59,15 @@ export class ActionExecutor implements ActionRegistry {
   async discoverAndRegisterActions(): Promise<McpToolSpec[]> {
     const discoveredTools: McpToolSpec[] = [];
     
-    // 同时支持开发与生产：优先 dist，其次 src
-    const candidateDirs = ['./dist/actions', './src/actions'];
+    // 同时支持开发与生产：基于当前模块目录定位
+    // - 生产运行：__dirname 指向 dist/minecraft → ../actions => dist/actions
+    // - 开发运行：__dirname 指向 src/minecraft  → ../actions => src/actions
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const resolvedActionsDir = path.resolve(__dirname, '../actions');
+
+    // 为了兼容某些非常规运行方式，附加一个基于 cwd 的后备扫描
+    const candidateDirs = [resolvedActionsDir, './dist/actions', './src/actions'];
 
     for (const dir of candidateDirs) {
       if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) continue;

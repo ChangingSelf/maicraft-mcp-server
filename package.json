@@ -1,9 +1,18 @@
 {
   "name": "maicraft",
-  "version": "0.1.0",
-  "private": true,
-  "description": "Minecraft × MCP 机器人服务：通过 MCP 工具查询状态/事件并执行基础动作",
+  "version": "1.0.0",
+  "description": "基于mineflayer构建的 Minecraft MCP Server，主要用于MaiBot直播Minecraft",
   "type": "module",
+  "main": "dist/main.js",
+  "bin": {
+    "maicraft": "dist/main.js"
+  },
+  "files": [
+    "dist/**/*",
+    "config-template.yaml",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/main.ts",
@@ -12,6 +21,10 @@
     "test:smoke": "pnpm run mcp:state",
     "lint": "eslint src/**/*.ts",
     "clean": "rimraf dist",
+    "prepublishOnly": "pnpm run clean && pnpm run build",
+    "publish:check": "npm pack --dry-run",
+    "publish:linux": "bash scripts/publish.sh",
+    "publish:windows": "powershell -ExecutionPolicy Bypass -File scripts/publish.ps1",
     "mcp:ui": "mcp-inspector --config mcp-inspector.json --server maicraft",
     "mcp:tools": "mcp-inspector --cli --config mcp-inspector.json --server maicraft --method tools/list",
     "mcp:state": "mcp-inspector --cli --config mcp-inspector.json --server maicraft --method tools/call --tool-name query_state"
@@ -20,10 +33,21 @@
     "minecraft",
     "mcp",
     "agent",
-    "mineflayer"
+    "mineflayer",
+    "model-context-protocol",
+    "bot",
+    "automation"
   ],
   "author": "ChangingSelf",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ChangingSelf/Maicraft"
+  },
+  "bugs": {
+    "url": "https://github.com/ChangingSelf/Maicraft/issues"
+  },
+  "homepage": "https://github.com/ChangingSelf/Maicraft#readme",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.2",
     "canvas": "^3.1.2",
@@ -56,8 +80,5 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "packageManager": "pnpm@10.6.5",
-  "bin": {
-    "maicraft": "dist/main.js"
-  }
+  "packageManager": "pnpm@10.6.5"
 }

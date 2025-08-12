@@ -1,0 +1,49 @@
+# 源代码文件
+src/
+*.ts
+*.tsx
+
+# 开发依赖和配置
+node_modules/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# 开发工具配置
+.vscode/
+.eslintrc*
+.prettierrc*
+jest.config.ts
+tsconfig*.json
+
+# 测试文件
+__tests__/
+*.test.ts
+*.spec.ts
+test/
+
+# 脚本
+scripts/
+
+# 日志和临时文件
+logs/
+*.log
+.DS_Store
+Thumbs.db
+
+# 本地配置文件
+config.yaml
+config.yml
+mcp-inspector.json
+
+# Git相关
+.git/
+.gitignore
+
+# 构建产物（会通过prepublishOnly重新生成）
+dist/
+
+# 其他
+.env
+.env.local
+.env.*.local
