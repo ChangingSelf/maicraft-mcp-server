@@ -133,16 +133,38 @@ async function main() {
   let config: ClientConfig;
   const configPath = getConfigPath(args);
   if (!configPath) {
-    tempLogger.error('未找到配置文件，请在当前目录提供 config.yaml 或 config.yml');
-    tempLogger.error('或运行 "npx -y maicraft --init-config" 初始化配置文件');
-    process.exit(1);
-  }
-  try {
-    const raw = fs.readFileSync(configPath, 'utf8');
-    config = yamlLoad(raw) as ClientConfig;
-  } catch (err) {
-    tempLogger.error('读取或解析配置文件失败:', err);
-    process.exit(1);
+    // 无配置文件时，尝试从 CLI 参数构建最小可运行配置
+    const missing: string[] = [];
+    if (!args.host) missing.push('--host');
+    if (typeof args.port !== 'number') missing.push('--port');
+    if (!args.username) missing.push('--username');
+    if (missing.length > 0) {
+      tempLogger.warn('未找到配置文件，将尝试使用命令行参数运行。');
+      tempLogger.error(`缺少必要参数: ${missing.join(', ')}`);
+      tempLogger.error('示例: npx -y maicraft --host 127.0.0.1 --port 25565 --username BotName');
+      process.exit(1);
+    }
+    config = {
+      minecraft: {
+        host: args.host!,
+        port: args.port!,
+        username: args.username!,
+        password: args.password,
+        auth: args.auth || 'offline',
+        version: args.version,
+      },
+      // 默认不限制事件、工具：保持空配置，由下游使用默认值放开
+      logging: { useStderr: true },
+      mcp: {},
+    } as ClientConfig;
+  } else {
+    try {
+      const raw = fs.readFileSync(configPath, 'utf8');
+      config = yamlLoad(raw) as ClientConfig;
+    } catch (err) {
+      tempLogger.error('读取或解析配置文件失败:', err);
+      process.exit(1);
+    }
   }
 
   if (args.host) config.minecraft.host = args.host;

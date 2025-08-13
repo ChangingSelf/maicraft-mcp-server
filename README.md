@@ -8,6 +8,29 @@
 
 部分高级动作的实现参考自 [mineland](https://github.com/cocacola-lab/MineLand)
 
+## 快速配置
+
+```json
+{
+  "mcpServers": {
+    "maicraft": {
+      "transport": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "maicraft",
+        "--host","127.0.0.1",
+        "--port","25565",
+        "--username","Mai",
+         "--auth", "offline"
+      ]
+    }
+  }
+}
+
+```
+
+
 ## 功能特性
 
 - 🤖 **Minecraft 机器人**：基于 Mineflayer 的 Minecraft 客户端

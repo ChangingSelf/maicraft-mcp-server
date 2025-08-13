@@ -58,7 +58,7 @@ export class MinecraftClient extends EventEmitter {
   };
   private logger: Logger;
   private isConnected = false;
-  private enabledEvents: Set<GameEventType> = new Set();
+  private enabledEvents: Set<GameEventType> = new Set(Object.values(GameEventType) as GameEventType[]);
   private lastPosition: Position | null = null;
   private moveThreshold = 1.0; // 移动距离阈值
   // 重连相关属性
