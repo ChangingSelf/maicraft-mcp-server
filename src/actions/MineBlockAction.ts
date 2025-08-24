@@ -1,8 +1,6 @@
 import { Bot } from 'mineflayer';
 import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
-import minecraftData from 'minecraft-data';
 import { z } from 'zod';
-import pathfinder from 'mineflayer-pathfinder';
 
 interface MineBlockParams extends BaseActionParams {
   /** 方块名称，例如 "dirt" */
@@ -29,56 +27,37 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
     try {
       this.logger.info(`开始挖掘方块: ${params.name}, 数量: ${params.count ?? 1}`);
       
-      const mcData = minecraftData(bot.version);
+      const mcData = bot.registry;
       const blockByName = mcData.blocksByName[params.name];
 
       if (!blockByName) {
         this.logger.error(`未找到名为 ${params.name} 的方块`);
         return this.createErrorResult(`未找到名为 ${params.name} 的方块`, 'BLOCK_NOT_FOUND');
       }
+      this.logger.info(`${blockByName}`)
 
       const count = params.count ?? 1;
 
       // 搜索附近目标方块
-      const positions = bot.findBlocks({
-        matching: [blockByName.id],
-        maxDistance: 48,
-        count
-      });
-
-      if (positions.length === 0) {
-        this.logger.warn(`附近未找到 ${params.name} 方块，请先探索其他区域`);
-        return this.createErrorResult(`附近未找到 ${params.name} 方块，请先探索其他区域`, 'NO_BLOCK_NEARBY');
-      }
-
-      // 收集目标 block 对象
-      const targets = positions.map((pos) => bot.blockAt(pos)).filter(Boolean) as any[];
-
-      // 优先使用 collectBlock 插件（若存在），否则逐个挖掘
-      if (bot.collectBlock?.collect) {
-        this.logger.debug(`使用 collectBlock 插件挖掘 ${targets.length} 个方块`);
-        await bot.collectBlock.collect(targets, { ignoreNoPath: true });
-      } else {
-        this.logger.debug(`逐个挖掘 ${targets.length} 个方块`);
-        for (const block of targets) {
-          // 若没有 collectBlock 插件，则尝试移动到方块附近并直接挖掘
-          if (bot.pathfinder?.goto) {
-            const { GoalNear } = pathfinder.goals;
-            if (!GoalNear) {
-              return this.createErrorResult('mineflayer-pathfinder goals 未加载', 'PATHFINDER_NOT_LOADED');
-            }
-            const goal = new GoalNear(block.position.x, block.position.y, block.position.z, 1);
-            await bot.pathfinder.goto(goal);
-          }
-          await bot.dig(block);
+      for (let i = 0; i < count; i++) {
+        const block = bot.findBlock({
+            matching: [blockByName.id],
+            maxDistance: 48,
+          });
+        if (!block) {
+          this.logger.warn(`已挖掘 ${i} 个 ${params.name} 方块，附近未找到第 ${i+1} 个，请先探索其他区域`);
+          return this.createErrorResult(`已挖掘 ${i} 个 ${params.name} 方块，附近未找到第 ${i+1} 个，请先探索其他区域`, 'NO_BLOCK_NEARBY');
         }
-      }
+        this.logger.info(`找到第 ${i+1} 个 ${params.name} 方块`);
 
-      this.logger.info(`成功挖掘 ${targets.length} 个 ${params.name}`);
-      return this.createSuccessResult(`已成功挖掘 ${targets.length} 个 ${params.name}`, { 
-        name: params.name, 
-        count: targets.length 
-      });
+        await bot.collectBlock.collect(block, { ignoreNoPath: false });//原版collectBlock插件存在问题
+        // await bot.tool.equipForBlock(block, {
+        //   requireHarvest: true,//如果没有合适的工具，则抛出异常
+        //   getFromChest: true,//允许从箱子中获取工具
+        //   maxTools: 10,//最多从箱子中获取的工具数量
+        // });
+        // await bot.dig(block);
+      }
     } catch (err) {
       this.logger.error(`挖掘 ${params.name} 失败: ${err instanceof Error ? err.message : String(err)}`);
       return this.createExceptionResult(err, `挖掘 ${params.name} 失败`, 'MINE_FAILED');

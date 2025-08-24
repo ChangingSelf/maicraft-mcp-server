@@ -5,7 +5,7 @@ import { GameEvent, GameEventType, PlayerInfo, Position } from './GameEvent.js';
 import { plugin as pvpPlugin } from 'mineflayer-pvp';
 import { pathfinder as pathfinderPlugin } from 'mineflayer-pathfinder';
 import { plugin as toolPlugin } from 'mineflayer-tool';
-import { plugin as collectblockPlugin } from 'mineflayer-collectblock';
+import { plugin as collectblockPlugin } from 'mineflayer-collectblock-colalab';
 
 export interface MinecraftClientOptions {
   host: string;
