@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 import pathfinder from 'mineflayer-pathfinder';
 
@@ -27,7 +27,7 @@ export class FollowPlayerAction extends BaseAction<FollowPlayerParams> {
 
   // 校验和参数描述由基类通过 schema 自动提供
 
-  async execute(bot: Bot, params: FollowPlayerParams): Promise<any> {
+  async execute(bot: Bot, params: FollowPlayerParams): Promise<ActionResult> {
     try {
       // 检查 pathfinder 插件
       if (!bot.pathfinder) {
@@ -49,7 +49,7 @@ export class FollowPlayerAction extends BaseAction<FollowPlayerParams> {
         return this.createErrorResult('mineflayer-pathfinder goals 未加载', 'PATHFINDER_NOT_LOADED');
       }
 
-      return await new Promise<any>((resolve) => {
+              return await new Promise<ActionResult>((resolve) => {
         let followInterval: NodeJS.Timeout | null = null;
         let timedOut = false;
 

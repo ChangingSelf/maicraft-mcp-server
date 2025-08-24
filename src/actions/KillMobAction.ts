@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 import pathfinder from 'mineflayer-pathfinder';
 
@@ -24,7 +24,7 @@ export class KillMobAction extends BaseAction<KillMobParams> {
 
   // 校验和参数描述由基类通过 schema 自动提供
 
-  async execute(bot: Bot, params: KillMobParams): Promise<any> {
+  async execute(bot: Bot, params: KillMobParams): Promise<ActionResult> {
     try {
       const timeoutMs = (params.timeout ?? 300) * 1000;
       const startTime = Date.now();

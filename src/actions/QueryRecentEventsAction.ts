@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 
 interface QueryRecentEventsParams extends BaseActionParams {
@@ -19,7 +19,7 @@ export class QueryRecentEventsAction extends BaseAction<QueryRecentEventsParams>
     includeDetails: z.boolean().optional().describe('是否包含详细事件信息'),
   });
 
-  async execute(bot: Bot, params: QueryRecentEventsParams): Promise<any> {
+  async execute(bot: Bot, params: QueryRecentEventsParams): Promise<ActionResult> {
     try {
       this.logger.info('查询最近事件信息');
       

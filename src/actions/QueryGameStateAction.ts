@@ -45,7 +45,8 @@ export class QueryGameStateAction extends BaseAction<QueryGameStateParams> {
 
       if (params.includeTime !== false) {
         const timeOfDay = bot.time.timeOfDay;
-        const worldAge = bot.time.worldAge;
+        // 注意：worldAge 可能在新版本中不可用
+        const worldAge = (bot.time as any).worldAge || 0;
         
         // 计算游戏内时间
         const hours = Math.floor((timeOfDay + 6000) / 1000) % 24;
@@ -73,9 +74,10 @@ export class QueryGameStateAction extends BaseAction<QueryGameStateParams> {
       if (params.includeWorldInfo !== false) {
         result.world = {
           levelType: bot.game.levelType,
-          worldType: bot.game.worldType,
-          reducedDebugInfo: bot.game.reducedDebugInfo,
-          viewDistance: bot.game.viewDistance
+          // 注意：以下属性可能在新版本中不可用
+          worldType: (bot.game as any).worldType || 'default',
+          reducedDebugInfo: (bot.game as any).reducedDebugInfo || false,
+          viewDistance: (bot.game as any).viewDistance || 10
         };
       }
 

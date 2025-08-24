@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 
 interface ChatParams extends BaseActionParams {
@@ -13,7 +13,7 @@ export class ChatAction extends BaseAction<ChatParams> {
     message: z.string().describe('要发送的聊天消息 (字符串)'),
   });
 
-  async execute(bot: Bot, params: ChatParams): Promise<any> {
+  async execute(bot: Bot, params: ChatParams): Promise<ActionResult> {
     try {
       this.logger.info(`发送聊天消息: ${params.message}`);
       await bot.chat(params.message);

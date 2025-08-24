@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 import { Vec3 } from 'vec3';
 import pathfinder from 'mineflayer-pathfinder';
@@ -19,7 +19,7 @@ export class CraftItemAction extends BaseAction<CraftItemParams> {
 
   // 校验与参数描述由基类通过 schema 自动提供
 
-  async execute(bot: Bot, params: CraftItemParams): Promise<any> {
+  async execute(bot: Bot, params: CraftItemParams): Promise<ActionResult> {
     try {
       this.logger.info(`开始合成物品: ${params.item}, 数量: ${params.count ?? 1}`);
       const count = params.count ?? 1;

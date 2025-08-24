@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import minecraftData from 'minecraft-data';
 import { z } from 'zod';
 import { Vec3 } from 'vec3';
@@ -28,7 +28,7 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
 
   // 校验和参数描述由基类通过 schema 自动生成
 
-  async execute(bot: Bot, params: PlaceBlockParams): Promise<any> {
+  async execute(bot: Bot, params: PlaceBlockParams): Promise<ActionResult> {
     try {
       // 检查 mcData
       const mcData = minecraftData(bot.version);

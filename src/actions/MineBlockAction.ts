@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 
 interface MineBlockParams extends BaseActionParams {
@@ -23,7 +23,7 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
 
   // 校验和 schema 描述由基类提供
 
-  async execute(bot: Bot, params: MineBlockParams): Promise<any> {
+  async execute(bot: Bot, params: MineBlockParams): Promise<ActionResult> {
     try {
       this.logger.info(`开始挖掘方块: ${params.name}, 数量: ${params.count ?? 1}`);
       
@@ -58,6 +58,12 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
         // });
         // await bot.dig(block);
       }
+
+      // 成功完成挖掘
+      return this.createSuccessResult(`成功挖掘了 ${count} 个 ${params.name} 方块`, { 
+        minedCount: count,
+        blockName: params.name 
+      });
     } catch (err) {
       this.logger.error(`挖掘 ${params.name} 失败: ${err instanceof Error ? err.message : String(err)}`);
       return this.createExceptionResult(err, `挖掘 ${params.name} 失败`, 'MINE_FAILED');

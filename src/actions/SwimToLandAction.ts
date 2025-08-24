@@ -1,6 +1,6 @@
 import { Bot } from 'mineflayer';
 import minecraftData from 'minecraft-data';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 import pathfinder from 'mineflayer-pathfinder';
 
@@ -27,7 +27,7 @@ export class SwimToLandAction extends BaseAction<SwimToLandParams> {
 
   // 校验与参数描述由基类通过 schema 自动提供
 
-  async execute(bot: Bot, params: SwimToLandParams): Promise<any> {
+  async execute(bot: Bot, params: SwimToLandParams): Promise<ActionResult> {
     try {
       const maxDist = params.maxDistance ?? 64;
       const timeoutSec = params.timeout ?? 60;

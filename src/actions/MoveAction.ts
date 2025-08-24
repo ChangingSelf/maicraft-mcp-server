@@ -1,5 +1,5 @@
 import { Bot } from 'mineflayer';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 import pathfinder from 'mineflayer-pathfinder';
 import { Vec3 } from 'vec3';
@@ -54,7 +54,7 @@ export class MoveAction extends BaseAction<MoveParams> {
     maxDistance: z.number().positive().optional().describe('最大移动距离 (数字，可选，默认 100)'),
   });
 
-  async execute(bot: Bot, params: MoveParams): Promise<any> {
+  async execute(bot: Bot, params: MoveParams): Promise<ActionResult> {
     try {
       // 检查 pathfinder 插件
       if (!bot.pathfinder) {

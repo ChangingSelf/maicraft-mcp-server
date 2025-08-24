@@ -1,6 +1,6 @@
 import { Bot } from 'mineflayer';
 import minecraftData from 'minecraft-data';
-import { BaseAction, BaseActionParams } from '../minecraft/ActionInterface.js';
+import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 import pathfinder from 'mineflayer-pathfinder';
 
@@ -24,7 +24,7 @@ export class UseChestAction extends BaseAction<UseChestParams> {
 
   // 校验和参数描述由基类通过 schema 自动提供
 
-  async execute(bot: Bot, params: UseChestParams): Promise<any> {
+  async execute(bot: Bot, params: UseChestParams): Promise<ActionResult> {
     try {
       const action = params.action.toLowerCase();
       const count = params.count ?? 1;

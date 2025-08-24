@@ -1,6 +1,7 @@
 import { Bot } from 'mineflayer';
 import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
+import { Vec3 } from 'vec3';
 
 interface QuerySurroundingsParams extends BaseActionParams {
   range?: number;
@@ -91,7 +92,7 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
           },
           distance: bot.entity.position.distanceTo(entity.position),
           health: entity.health,
-          maxHealth: entity.maxHealth
+          maxHealth: (entity as any).maxHealth || entity.health
         }))
         .sort((a, b) => a.distance - b.distance);
 
@@ -116,7 +117,7 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
               const blockZ = centerZ + z;
               
               try {
-                const block = bot.blockAt(new bot.vec3(blockX, blockY, blockZ));
+                const block = bot.blockAt(new Vec3(blockX, blockY, blockZ));
                 if (block && block.type !== 0) { // 不是空气方块
                   const distance = Math.sqrt(x * x + y * y + z * z);
                   nearbyBlocks.push({
