@@ -60,9 +60,7 @@ export interface InventoryItem {
 // 游戏事件基础接口
 export interface BaseGameEvent {
   type: string; // 事件类型标识
-  timestamp: number; // 时间戳（毫秒）
-  serverId: string; // 服务器唯一标识
-  playerName: string; // 机器人在服务器中的名称
+  gameTick: number; // 游戏刻（世界年龄）
 }
 
 // 具体事件类型

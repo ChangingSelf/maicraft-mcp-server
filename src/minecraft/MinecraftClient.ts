@@ -2,6 +2,7 @@ import { createBot, Bot } from 'mineflayer';
 import { EventEmitter } from 'events';
 import { Logger, LoggingConfig } from '../utils/Logger.js';
 import { GameEvent, GameEventType, PlayerInfo, Position } from './GameEvent.js';
+import { EventManager } from './EventManager.js';
 import { plugin as pvpPlugin } from 'mineflayer-pvp';
 import { pathfinder as pathfinderPlugin } from 'mineflayer-pathfinder';
 import { plugin as toolPlugin } from 'mineflayer-tool';
@@ -58,9 +59,7 @@ export class MinecraftClient extends EventEmitter {
   };
   private logger: Logger;
   private isConnected = false;
-  private enabledEvents: Set<GameEventType> = new Set(Object.values(GameEventType) as GameEventType[]);
-  private lastPosition: Position | null = null;
-  private moveThreshold = 1.0; // 移动距离阈值
+  private eventManager: EventManager; // 事件管理器
   // 重连相关属性
   private reconnectTimer: NodeJS.Timeout | null = null;
   private reconnectAttempts = 0;
@@ -80,6 +79,7 @@ export class MinecraftClient extends EventEmitter {
       ...options
     };
     this.logger = Logger.fromConfig('MinecraftClient', options.logging || {});
+    this.eventManager = new EventManager(1000); // 初始化事件管理器，最多存储1000个事件
   }
 
   /**
@@ -119,14 +119,17 @@ export class MinecraftClient extends EventEmitter {
         hideErrors: this.options.hideErrors
       });
 
+      // 在bot对象上设置client引用，以便动作类可以访问事件管理器
+      (this.bot as any).client = this;
+
       // 加载插件
       this.bot.loadPlugin(pvpPlugin);
       this.bot.loadPlugin(pathfinderPlugin);
       this.bot.loadPlugin(toolPlugin);
       this.bot.loadPlugin(collectblockPlugin);
 
-      // 设置事件监听器
-      this.setupEventListeners();
+      // 注册bot到事件管理器
+      this.eventManager.registerBot(this.bot);
 
       // 等待连接成功
       return new Promise((resolve, reject) => {
@@ -257,15 +260,14 @@ export class MinecraftClient extends EventEmitter {
    * 设置启用的事件类型
    */
   setEnabledEvents(events: GameEventType[]): void {
-    this.enabledEvents = new Set(events);
-    this.logger.info(`已设置启用的事件类型: ${events.join(', ')}`);
+    this.eventManager.setEnabledEvents(events);
   }
 
   /**
    * 设置玩家移动阈值
    */
   setMoveThreshold(threshold: number): void {
-    this.moveThreshold = threshold;
+    this.eventManager.setMoveThreshold(threshold);
   }
 
   /**
@@ -313,6 +315,15 @@ export class MinecraftClient extends EventEmitter {
   }
 
   /**
+   * 获取事件管理器
+   */
+  getEventManager(): EventManager {
+    return this.eventManager;
+  }
+
+
+
+  /**
    * 设置事件监听器
    */
   private setupEventListeners(): void {
@@ -347,202 +358,9 @@ export class MinecraftClient extends EventEmitter {
         this.startReconnect();
       }
     });
-
-    // 游戏事件监听
-    this.setupGameEventListeners();
   }
 
-  /**
-   * 设置游戏事件监听器
-   */
-  private setupGameEventListeners(): void {
-    if (!this.bot) return;
 
-    // 聊天事件
-    this.bot.on('messagestr', (message, messagePosition) => {
-      if (this.enabledEvents.has(GameEventType.CHAT)) {
-        this.emitGameEvent({
-          type: 'chat',
-          timestamp: Date.now(),
-          serverId: this.options.host,
-          playerName: this.bot!.username,
-          chatInfo: {
-            json: {},
-            text: message,
-            position: typeof messagePosition === 'number' ? messagePosition : 0
-          }
-        });
-      }
-    });
 
-    // 玩家加入事件
-    this.bot.on('playerJoined', (player) => {
-      if (this.enabledEvents.has(GameEventType.PLAYER_JOIN)) {
-        this.emitGameEvent({
-          type: 'playerJoin',
-          timestamp: Date.now(),
-          serverId: this.options.host,
-          playerName: this.bot!.username,
-          playerInfo: {
-            uuid: player.uuid,
-            username: player.username,
-            displayName: player.displayName?.toString(),
-            ping: player.ping,
-            gamemode: player.gamemode
-          }
-        });
-      }
-    });
 
-    // 玩家离开事件
-    this.bot.on('playerLeft', (player) => {
-      if (this.enabledEvents.has(GameEventType.PLAYER_LEAVE)) {
-        this.emitGameEvent({
-          type: 'playerLeave',
-          timestamp: Date.now(),
-          serverId: this.options.host,
-          playerName: this.bot!.username,
-          playerInfo: {
-            uuid: player.uuid,
-            username: player.username,
-            displayName: player.displayName?.toString(),
-            ping: player.ping,
-            gamemode: player.gamemode
-          }
-        });
-      }
-    });
-
-    // 实体生成事件
-    this.bot.on('entitySpawn', (entity) => {
-      if (this.enabledEvents.has(GameEventType.MOB_SPAWN) && entity.type === 'mob') {
-        this.emitGameEvent({
-          type: 'mobSpawn',
-          timestamp: Date.now(),
-          serverId: this.options.host,
-          playerName: this.bot!.username,
-          entity: {
-            id: entity.id,
-            type: entity.name || 'unknown',
-            name: entity.displayName?.toString(),
-            position: {
-              x: entity.position.x,
-              y: entity.position.y,
-              z: entity.position.z
-            },
-            health: entity.health,
-            maxHealth: entity.health // 使用 health 作为 maxHealth 的默认值
-          }
-        });
-      }
-    });
-
-    // 方块破坏事件
-    this.bot.on('blockUpdate', (oldBlock, newBlock) => {
-      if (oldBlock && newBlock && this.enabledEvents.has(GameEventType.BLOCK_BREAK) && newBlock.type === 0) {
-        this.emitGameEvent({
-          type: 'blockBreak',
-          timestamp: Date.now(),
-          serverId: this.options.host,
-          playerName: this.bot!.username,
-          block: {
-            type: oldBlock.type,
-            name: oldBlock.name,
-            position: {
-              x: oldBlock.position.x,
-              y: oldBlock.position.y,
-              z: oldBlock.position.z
-            }
-          }
-        });
-      } else if (oldBlock && newBlock && this.enabledEvents.has(GameEventType.BLOCK_PLACE) && oldBlock.type === 0) {
-        this.emitGameEvent({
-          type: 'blockPlace',
-          timestamp: Date.now(),
-          serverId: this.options.host,
-          playerName: this.bot!.username,
-          block: {
-            type: newBlock.type,
-            name: newBlock.name,
-            position: {
-              x: newBlock.position.x,
-              y: newBlock.position.y,
-              z: newBlock.position.z
-            }
-          }
-        });
-      }
-    });
-
-    // 玩家移动事件
-    this.bot.on('move', () => {
-      if (this.enabledEvents.has(GameEventType.PLAYER_MOVE)) {
-        const currentPosition = this.getCurrentPosition();
-        if (currentPosition && this.lastPosition) {
-          const distance = Math.sqrt(
-            Math.pow(currentPosition.x - this.lastPosition.x, 2) +
-            Math.pow(currentPosition.y - this.lastPosition.y, 2) +
-            Math.pow(currentPosition.z - this.lastPosition.z, 2)
-          );
-          
-          if (distance >= this.moveThreshold) {
-            const playerInfo = this.getCurrentPlayer();
-            if (playerInfo) {
-              this.emitGameEvent({
-                type: 'playerMove',
-                timestamp: Date.now(),
-                serverId: this.options.host,
-                playerName: this.bot!.username,
-                player: playerInfo,
-                oldPosition: this.lastPosition,
-                newPosition: currentPosition
-              });
-            }
-          }
-        }
-        this.lastPosition = currentPosition;
-      }
-    });
-
-    // 生命值更新事件
-    this.bot.on('health', () => {
-      if (this.enabledEvents.has(GameEventType.HEALTH_UPDATE)) {
-        this.emitGameEvent({
-          type: 'healthUpdate',
-          timestamp: Date.now(),
-          serverId: this.options.host,
-          playerName: this.bot!.username,
-          health: this.bot!.health,
-          food: this.bot!.food,
-          saturation: this.bot!.foodSaturation
-        });
-      }
-    });
-
-    // 经验更新事件
-    this.bot.on('experience', () => {
-      if (this.enabledEvents.has(GameEventType.EXPERIENCE_UPDATE)) {
-        this.emitGameEvent({
-          type: 'experienceUpdate',
-          timestamp: Date.now(),
-          serverId: this.options.host,
-          playerName: this.bot!.username,
-          experience: this.bot!.experience.points,
-          level: this.bot!.experience.level
-        });
-      }
-    });
-
-    // 天气变化事件（简化处理）
-    // 注意：mineflayer 的天气事件处理比较复杂，这里先简化处理
-    // 可以通过定期检查 bot.isRaining 和 bot.thunderState 来获取天气状态
-  }
-
-  /**
-   * 发出游戏事件
-   */
-  private emitGameEvent(event: GameEvent): void {
-    this.logger.debug(`游戏事件: ${event.type}`, event);
-    this.emit('gameEvent', event);
-  }
 } 

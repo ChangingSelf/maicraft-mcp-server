@@ -45,8 +45,13 @@ export class QueryGameStateAction extends BaseAction<QueryGameStateParams> {
 
       if (params.includeTime !== false) {
         const timeOfDay = bot.time.timeOfDay;
-        // 注意：worldAge 可能在新版本中不可用
-        const worldAge = (bot.time as any).worldAge || 0;
+        // 根据mineflayer API文档，使用正确的属性名
+        const worldAge = bot.time.age || 0;
+        const bigAge = bot.time.bigAge ? Number(bot.time.bigAge) : null;
+        const totalTime = bot.time.time || 0;
+        const bigTime = bot.time.bigTime ? Number(bot.time.bigTime) : null;
+        const day = bot.time.day || 0;
+        const moonPhase = bot.time.moonPhase || 0;
         
         // 计算游戏内时间
         const hours = Math.floor((timeOfDay + 6000) / 1000) % 24;
@@ -56,9 +61,14 @@ export class QueryGameStateAction extends BaseAction<QueryGameStateParams> {
         result.time = {
           timeOfDay,
           worldAge,
+          bigAge,
+          totalTime,
+          bigTime,
+          day,
+          moonPhase,
           timeString,
-          isDay: timeOfDay >= 0 && timeOfDay < 12000,
-          isNight: timeOfDay >= 12000 && timeOfDay < 24000
+          isDay: bot.time.isDay,
+          isNight: !bot.time.isDay
         };
       }
 
