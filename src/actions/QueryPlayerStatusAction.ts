@@ -25,7 +25,7 @@ export class QueryPlayerStatusAction extends BaseAction<QueryPlayerStatusParams>
       count: item.count,
       curDurability: item.maxDurability - item.durabilityUsed,
       maxDurability: item.maxDurability,
-      durabilityPercentage: Number(((item.maxDurability - item.durabilityUsed) / item.maxDurability * 100).toFixed(1)),
+      durabilityPercentage: Number(((item.maxDurability - item.durabilityUsed) / item.maxDurability * 100)?.toFixed(1)) ?? 0,
       enchantments: item.enchants,
     } : null;
   }
@@ -46,9 +46,9 @@ export class QueryPlayerStatusAction extends BaseAction<QueryPlayerStatusParams>
         username: bot.player.username,
         gamemode: gameModeMap[bot.player.gamemode],
         position: {
-          x: Number(bot.entity.position.x.toFixed(2)),
-          y: Number(bot.entity.position.y.toFixed(2)),
-          z: Number(bot.entity.position.z.toFixed(2))
+          x: Number(bot.entity.position.x?.toFixed(2) ?? 0),
+          y: Number(bot.entity.position.y?.toFixed(2) ?? 0),
+          z: Number(bot.entity.position.z?.toFixed(2) ?? 0)
         },
         biome: biome.name,
         health: {
@@ -68,7 +68,7 @@ export class QueryPlayerStatusAction extends BaseAction<QueryPlayerStatusParams>
           saturation: bot.foodSaturation,
           percentage: (bot.food / 20) * 100
         },
-        oxygen: Number(bot.oxygenLevel.toFixed(2)),
+        oxygen: Number(bot.oxygenLevel?.toFixed(2) ?? 0),
         armor: MinecraftUtils.getArmorValue(bot),
       
         isSleeping: bot.isSleeping,
