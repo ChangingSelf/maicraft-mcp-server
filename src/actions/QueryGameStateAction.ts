@@ -2,100 +2,66 @@ import { Bot } from 'mineflayer';
 import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 
-interface QueryGameStateParams extends BaseActionParams {
-  includeWeather?: boolean;
-  includeTime?: boolean;
-  includeDimension?: boolean;
-  includeWorldInfo?: boolean;
-}
-
-export class QueryGameStateAction extends BaseAction<QueryGameStateParams> {
+export class QueryGameStateAction extends BaseAction<BaseActionParams> {
   name = 'queryGameState';
-  description = '查询游戏状态信息，包括天气、时间、维度等';
-  schema = z.object({
-    includeWeather: z.boolean().optional().describe('是否包含天气信息'),
-    includeTime: z.boolean().optional().describe('是否包含时间信息'),
-    includeDimension: z.boolean().optional().describe('是否包含维度信息'),
-    includeWorldInfo: z.boolean().optional().describe('是否包含世界信息'),
-  });
+  description = '查询游戏状态信息，包括天气、时间、维度、世界信息、当前在线玩家等';
+  schema = z.object({});
 
-  async execute(bot: Bot, params: QueryGameStateParams): Promise<ActionResult> {
+  async execute(bot: Bot, params: BaseActionParams): Promise<ActionResult> {
     try {
       this.logger.info('查询游戏状态信息');
       
-      const result: any = {};
+      // 天气信息
+      let weather: string;
+      if (bot.thunderState > 0) {
+        weather = 'thunder';
+      } else if (bot.isRaining) {
+        weather = 'rain';
+      } else {
+        weather = 'clear';
+      } 
 
-      // 根据参数决定包含哪些信息
-      if (params.includeWeather !== false) {
-        let weather: string;
-        if (bot.thunderState > 0) {
-          weather = 'thunder';
-        } else if (bot.isRaining) {
-          weather = 'rain';
-        } else {
-          weather = 'clear';
-        }
-        
-        result.weather = {
-          current: weather,
-          isRaining: bot.isRaining,
-          thunderState: bot.thunderState
-        };
-      }
-
-      if (params.includeTime !== false) {
-        const timeOfDay = bot.time.timeOfDay;
-        // 根据mineflayer API文档，使用正确的属性名
-        const worldAge = bot.time.age || 0;
-        const bigAge = bot.time.bigAge ? Number(bot.time.bigAge) : null;
-        const totalTime = bot.time.time || 0;
-        const bigTime = bot.time.bigTime ? Number(bot.time.bigTime) : null;
-        const day = bot.time.day || 0;
-        const moonPhase = bot.time.moonPhase || 0;
-        
-        // 计算游戏内时间
-        const hours = Math.floor((timeOfDay + 6000) / 1000) % 24;
-        const minutes = Math.floor(((timeOfDay + 6000) % 1000) / 1000 * 60);
-        const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-        
-        result.time = {
-          timeOfDay,
-          worldAge,
-          bigAge,
-          totalTime,
-          bigTime,
-          day,
-          moonPhase,
-          timeString,
-          isDay: bot.time.isDay,
-          isNight: !bot.time.isDay
-        };
-      }
-
-      if (params.includeDimension !== false) {
-        result.dimension = {
-          name: bot.game.dimension || 'overworld',
-          difficulty: bot.game.difficulty,
-          gameMode: bot.game.gameMode,
-          hardcore: bot.game.hardcore
-        };
-      }
-
-      if (params.includeWorldInfo !== false) {
-        result.world = {
-          levelType: bot.game.levelType,
-          // 注意：以下属性可能在新版本中不可用
-          worldType: (bot.game as any).worldType || 'default',
-          reducedDebugInfo: (bot.game as any).reducedDebugInfo || false,
-          viewDistance: (bot.game as any).viewDistance || 10
-        };
-      }
+      const result = {
+        timeOfDay: bot.time.timeOfDay,
+        timeOfDayString: this.getTimeOfDayString(bot.time.timeOfDay),
+        worldAge: bot.time.age,
+        dayOfWorld: bot.time.day,
+        isDay: bot.time.isDay,
+        dimension: bot.game.dimension,
+        difficulty: bot.game.difficulty,
+        gameMode: bot.game.gameMode,
+        onlinePlayers: this.getSimplePlayerInfo(bot),
+        weather,
+      };
 
       this.logger.info('成功查询游戏状态信息');
       return this.createSuccessResult('成功查询游戏状态信息', result);
     } catch (error) {
       this.logger.error(`查询游戏状态失败: ${error instanceof Error ? error.message : String(error)}`);
       return this.createExceptionResult(error, '查询游戏状态失败', 'QUERY_GAME_STATE_FAILED');
+    }
+  }
+  getSimplePlayerInfo(bot: Bot) {
+    //目前只返回玩家名字
+    return Object.keys(bot.players);
+  }
+
+  private getTimeOfDayString(timeOfDay: number): string {
+    // 将时间刻度转换为0-24000范围内的值
+    const normalizedTime = timeOfDay % 24000;
+    
+    if (normalizedTime >= 0 && normalizedTime < 1000) {
+      return 'sunrise';
+    } else if (normalizedTime >= 1000 && normalizedTime < 6000) {
+      return 'morning';
+    } else if (normalizedTime >= 6000 && normalizedTime < 12000) {
+      return 'noon';
+    } else if (normalizedTime >= 12000 && normalizedTime < 13000) {
+      return 'sunset';
+    } else if (normalizedTime >= 13000 && normalizedTime < 18000) {
+      return 'night';
+    } else {
+      return 'midnight';
     }
   }
 }
