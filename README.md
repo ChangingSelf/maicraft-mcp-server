@@ -533,19 +533,170 @@ export const MyAction = defineAction({
 3. 对应的 MCP 工具会自动生成（工具名为动作名的 snake_case 形式）
 4. 例如：`MyAction` → `my_action` 工具
 
+### 动作开发最佳实践
+
+#### 1. 参数设计原则
+- 使用清晰的参数名称，避免缩写
+- 为可选参数提供合理的默认值
+- 使用 Zod schema 进行严格的参数校验
+- 在参数描述中提供示例和说明
+
+#### 2. 错误处理
+- 使用 `createErrorResult()` 返回业务逻辑错误
+- 使用 `createExceptionResult()` 返回异常错误
+- 提供有意义的错误代码和消息
+- 记录详细的调试日志
+
+#### 3. 返回值设计
+- 使用 `createSuccessResult()` 返回成功结果
+- 在返回数据中包含有用的状态信息
+- 保持返回格式的一致性
+
+#### 4. 依赖检查
+- 检查必要的插件是否已加载（如 pathfinder）
+- 验证目标对象是否存在（如方块、玩家、实体）
+- 确保背包中有必要的物品
+
+#### 5. 性能考虑
+- 设置合理的超时时间
+- 限制搜索范围（如 maxDistance）
+- 避免无限循环和长时间阻塞
+
 ### 可用的动作工具
 
 当前支持的动作工具：
 
-- `chat` - 发送聊天消息
-- `craft_item` - 合成物品
-- `smelt_item` - 熔炼物品
-- `use_chest` - 使用箱子
-- `swim_to_land` - 游向陆地
-- `kill_mob` - 击杀生物
-- `mine_block` - 挖掘方块
-- `place_block` - 放置方块
-- `follow_player` - 跟随玩家
+#### 基础交互动作
+- **`chat`** - 发送聊天消息
+  - 参数：`message` (字符串) - 要发送的聊天消息
+
+#### 移动与导航动作
+- **`move`** - 移动到指定位置
+  - 参数：
+    - `type` (字符串) - 移动类型：`coordinate` | `block` | `player` | `entity`
+    - `useAbsoluteCoords` (布尔值，可选) - 是否使用绝对坐标，默认 false
+    - `x`, `y`, `z` (数字，可选) - 目标坐标 (当 type 为 coordinate 时必需)
+    - `block` (字符串，可选) - 目标方块名称 (当 type 为 block 时必需)
+    - `player` (字符串，可选) - 目标玩家名称 (当 type 为 player 时必需)
+    - `entity` (字符串，可选) - 目标实体类型 (当 type 为 entity 时必需)
+    - `distance` (数字，可选) - 到达距离，默认 1
+    - `timeout` (数字，可选) - 超时时间(秒)，默认 60
+    - `maxDistance` (数字，可选) - 最大移动距离，默认 100
+
+- **`follow_player`** - 跟随指定玩家
+  - 参数：
+    - `player` (字符串) - 目标玩家名称
+    - `distance` (数字，可选) - 跟随距离(格)，默认 3
+    - `timeout` (数字，可选) - 超时时间(秒)，默认 5
+
+- **`swim_to_land`** - 游向最近的陆地
+  - 参数：
+    - `maxDistance` (数字，可选) - 最大搜索距离，默认 64
+    - `timeout` (数字，可选) - 超时时间(秒)，默认 60
+
+#### 方块操作动作
+- **`mine_block`** - 挖掘指定类型的方块
+  - 参数：
+    - `name` (字符串) - 方块名称，例如 "dirt", "stone", "coal_ore"
+    - `count` (数字，可选) - 需要挖掘的数量，默认 1
+
+- **`place_block`** - 在指定位置放置方块
+  - 参数：
+    - `x`, `y`, `z` (数字) - 目标位置坐标
+    - `block` (字符串) - 要放置的方块名称
+    - `face` (字符串，可选) - 放置面向：`up` | `down` | `north` | `south` | `east` | `west`
+    - `useAbsoluteCoords` (布尔值，可选) - 是否使用绝对坐标，默认 false
+
+#### 物品制作动作
+- **`craft_item`** - 合成指定物品
+  - 参数：
+    - `item` (字符串) - 要合成的物品名称
+    - `count` (数字，可选) - 合成数量，默认 1
+
+- **`smelt_item`** - 在熔炉中熔炼物品
+  - 参数：
+    - `item` (字符串) - 要熔炼的物品名称
+    - `fuel` (字符串) - 燃料物品名称
+    - `count` (数字，可选) - 熔炼数量，默认 1
+
+#### 存储与交互动作
+- **`use_chest`** - 与附近箱子交互，存取物品
+  - 参数：
+    - `action` (字符串) - 操作类型：`store` | `withdraw`
+    - `item` (字符串) - 物品名称
+    - `count` (数字，可选) - 数量，默认 1
+
+#### 战斗动作
+- **`kill_mob`** - 击杀指定名称的生物
+  - 参数：
+    - `mob` (字符串) - 目标生物名称，例如 "cow", "pig", "zombie"
+    - `timeout` (数字，可选) - 等待生物死亡的超时时间(秒)，默认 300
+
+### 动作使用示例
+
+#### 基础操作示例
+```json
+// 发送聊天消息
+{
+  "tool": "chat",
+  "arguments": {
+    "message": "Hello, Minecraft!"
+  }
+}
+
+// 挖掘石头
+{
+  "tool": "mine_block",
+  "arguments": {
+    "name": "stone",
+    "count": 5
+  }
+}
+
+// 移动到指定坐标
+{
+  "tool": "move",
+  "arguments": {
+    "type": "coordinate",
+    "x": 100,
+    "y": 64,
+    "z": 200,
+    "useAbsoluteCoords": true
+  }
+}
+```
+
+#### 高级操作示例
+```json
+// 合成工作台
+{
+  "tool": "craft_item",
+  "arguments": {
+    "item": "crafting_table",
+    "count": 1
+  }
+}
+
+// 熔炼铁矿石
+{
+  "tool": "smelt_item",
+  "arguments": {
+    "item": "iron_ore",
+    "fuel": "coal",
+    "count": 3
+  }
+}
+
+// 跟随玩家
+{
+  "tool": "follow_player",
+  "arguments": {
+    "player": "Steve",
+    "distance": 5,
+    "timeout": 30
+  }
+}
+```
 
 ## MCP 工具
 
@@ -556,7 +707,16 @@ export const MyAction = defineAction({
 
 ### 动作工具
 
-动作工具会根据 `src/actions/` 目录中的动作文件自动生成，工具名格式为动作名的 snake_case 形式。
+动作工具会根据 `src/actions/` 目录中的动作文件自动生成，工具名格式为动作名的 snake_case 形式。例如：
+- `MineBlockAction` → `mine_block` 工具
+- `PlaceBlockAction` → `place_block` 工具
+- `FollowPlayerAction` → `follow_player` 工具
+
+每个动作工具都会自动包含：
+- 基于 Zod schema 的参数校验
+- 完整的参数类型说明
+- 自动生成的工具描述
+- 统一的错误处理和返回格式
 
 ## 开发
 
