@@ -12,8 +12,6 @@ export class EventManager {
   private logger: Logger;
   private bot: Bot | null = null;
   private enabledEvents: Set<GameEventType> = new Set(Object.values(GameEventType) as GameEventType[]);
-  private lastPosition: { x: number; y: number; z: number } | null = null;
-  private moveThreshold = 1.0;
 
   constructor(maxEvents: number = 1000) {
     this.maxEvents = maxEvents;
@@ -60,8 +58,8 @@ export class EventManager {
       filteredEvents = filteredEvents.filter(event => event.gameTick >= sinceTick);
     }
 
-    // 按游戏刻倒序排序（最新的在前）
-    filteredEvents.sort((a, b) => b.gameTick - a.gameTick);
+    // 按游戏刻升序排序（最早的在前）
+    filteredEvents.sort((a, b) => a.gameTick - b.gameTick);
 
     // 限制返回数量
     const limitedEvents = filteredEvents.slice(0, limit);
@@ -155,13 +153,6 @@ export class EventManager {
   }
 
   /**
-   * 设置玩家移动阈值
-   */
-  setMoveThreshold(threshold: number): void {
-    this.moveThreshold = threshold;
-  }
-
-  /**
    * 注册mineflayer bot并设置事件监听器
    */
   registerBot(bot: Bot): void {
@@ -184,22 +175,21 @@ export class EventManager {
   private setupEventListeners(): void {
     if (!this.bot) return;
 
-    // 聊天事件
-    this.bot.on('messagestr', (message, messagePosition) => {
+    // 聊天事件 - "chat" (username, message, translate, jsonMsg, matches)
+    this.bot.on('chat', (username, message, translate, jsonMsg, matches) => {
       if (this.enabledEvents.has(GameEventType.CHAT)) {
         this.addEvent({
           type: 'chat',
           gameTick: this.getCurrentGameTick(),
           chatInfo: {
-            json: {},
             text: message,
-            position: typeof messagePosition === 'number' ? messagePosition : 0
+            username: username,
           }
         });
       }
     });
 
-    // 玩家加入事件
+    // 玩家加入事件 - "playerJoined" (player)
     this.bot.on('playerJoined', (player) => {
       if (this.enabledEvents.has(GameEventType.PLAYER_JOIN)) {
         this.addEvent({
@@ -216,115 +206,118 @@ export class EventManager {
       }
     });
 
-    // 玩家离开事件
-    this.bot.on('playerLeft', (player) => {
+    // 玩家离开事件 - "playerLeft" (entity)
+    this.bot.on('playerLeft', (entity) => {
       if (this.enabledEvents.has(GameEventType.PLAYER_LEAVE)) {
         this.addEvent({
           type: 'playerLeave',
           gameTick: this.getCurrentGameTick(),
           playerInfo: {
-            uuid: player.uuid,
-            username: player.username,
-            displayName: player.displayName?.toString(),
-            ping: player.ping,
-            gamemode: player.gamemode
+            uuid: entity.uuid,
+            username: entity.username,
+            displayName: entity.displayName?.toString(),
+            ping: entity.ping,
+            gamemode: entity.gamemode
           }
         });
       }
     });
 
-    // 实体生成事件
-    this.bot.on('entitySpawn', (entity) => {
-      if (this.enabledEvents.has(GameEventType.MOB_SPAWN) && entity.type === 'mob') {
+    // 玩家死亡事件 - "death" ()
+    this.bot.on('death', () => {
+      if (this.enabledEvents.has(GameEventType.PLAYER_DEATH)) {
         this.addEvent({
-          type: 'mobSpawn',
+          type: 'playerDeath',
           gameTick: this.getCurrentGameTick(),
-          entity: {
-            id: entity.id,
-            type: entity.name || 'unknown',
-            name: entity.displayName?.toString(),
-            position: {
-              x: entity.position.x,
-              y: entity.position.y,
-              z: entity.position.z
-            },
-            health: entity.health,
-            maxHealth: entity.health
+          player: {
+            uuid: this.bot!.player.uuid,
+            username: this.bot!.player.username,
+            displayName: this.bot!.player.displayName?.toString(),
+            ping: this.bot!.player.ping,
+            gamemode: this.bot!.player.gamemode
+          },
+          deathMessage: '玩家死亡'
+        });
+      }
+    });
+
+    // 玩家重生事件 - "spawn" ()
+    this.bot.on('spawn', () => {
+      if (this.enabledEvents.has(GameEventType.PLAYER_RESPAWN)) {
+        this.addEvent({
+          type: 'playerRespawn',
+          gameTick: this.getCurrentGameTick(),
+          player: {
+            uuid: this.bot!.player.uuid,
+            username: this.bot!.player.username,
+            displayName: this.bot!.player.displayName?.toString(),
+            ping: this.bot!.player.ping,
+            gamemode: this.bot!.player.gamemode
+          },
+          position: {
+            x: this.bot!.entity.position.x,
+            y: this.bot!.entity.position.y,
+            z: this.bot!.entity.position.z
           }
         });
       }
     });
 
-    // 方块破坏/放置事件
-    this.bot.on('blockUpdate', (oldBlock, newBlock) => {
-      if (oldBlock && newBlock && this.enabledEvents.has(GameEventType.BLOCK_BREAK) && newBlock.type === 0) {
-        this.addEvent({
-          type: 'blockBreak',
-          gameTick: this.getCurrentGameTick(),
-          block: {
-            type: oldBlock.type,
-            name: oldBlock.name,
-            position: {
-              x: oldBlock.position.x,
-              y: oldBlock.position.y,
-              z: oldBlock.position.z
-            }
-          }
-        });
-      } else if (oldBlock && newBlock && this.enabledEvents.has(GameEventType.BLOCK_PLACE) && oldBlock.type === 0) {
-        this.addEvent({
-          type: 'blockPlace',
-          gameTick: this.getCurrentGameTick(),
-          block: {
-            type: newBlock.type,
-            name: newBlock.name,
-            position: {
-              x: newBlock.position.x,
-              y: newBlock.position.y,
-              z: newBlock.position.z
-            }
-          }
-        });
-      }
-    });
-
-    // 玩家移动事件
-    this.bot.on('move', () => {
-      if (this.enabledEvents.has(GameEventType.PLAYER_MOVE)) {
-        const currentPosition = {
-          x: this.bot!.entity.position.x,
-          y: this.bot!.entity.position.y,
-          z: this.bot!.entity.position.z
-        };
-        
-        if (this.lastPosition) {
-          const distance = Math.sqrt(
-            Math.pow(currentPosition.x - this.lastPosition.x, 2) +
-            Math.pow(currentPosition.y - this.lastPosition.y, 2) +
-            Math.pow(currentPosition.z - this.lastPosition.z, 2)
-          );
-          
-          if (distance >= this.moveThreshold) {
-            this.addEvent({
-              type: 'playerMove',
-              gameTick: this.getCurrentGameTick(),
-              player: {
-                uuid: this.bot!.player.uuid,
-                username: this.bot!.player.username,
-                displayName: this.bot!.player.displayName?.toString(),
-                ping: this.bot!.player.ping,
-                gamemode: this.bot!.player.gamemode
-              },
-              oldPosition: this.lastPosition,
-              newPosition: currentPosition
-            });
-          }
+    // 天气变化事件 - "rain" () - 当下雨开始或停止时触发
+    this.bot.on('rain', () => {
+      if (this.enabledEvents.has(GameEventType.WEATHER_CHANGE)) {
+        // 根据当前天气状态确定天气类型
+        let weather: 'clear' | 'rain' | 'thunder';
+        if (this.bot!.thunderState > 0) {
+          weather = 'thunder';
+        } else if (this.bot!.isRaining) {
+          weather = 'rain';
+        } else {
+          weather = 'clear';
         }
-        this.lastPosition = currentPosition;
+        
+        this.addEvent({
+          type: 'weatherChange',
+          gameTick: this.getCurrentGameTick(),
+          weather: weather
+        });
       }
     });
 
-    // 生命值更新事件
+    // 玩家踢出事件 - "kicked" (reason, loggedIn)
+    this.bot.on('kicked', (reason, loggedIn) => {
+      if (this.enabledEvents.has(GameEventType.PLAYER_KICK)) {
+        this.addEvent({
+          type: 'playerKick',
+          gameTick: this.getCurrentGameTick(),
+          player: {
+            uuid: this.bot!.player.uuid,
+            username: this.bot!.player.username,
+            displayName: this.bot!.player.displayName?.toString(),
+            ping: this.bot!.player.ping,
+            gamemode: this.bot!.player.gamemode
+          },
+          reason: reason
+        });
+      }
+    });
+
+    // 重生点重置事件 - "spawnReset" ()
+    this.bot.on('spawnReset', () => {
+      if (this.enabledEvents.has(GameEventType.SPAWN_POINT_RESET)) {
+        this.addEvent({
+          type: 'spawnPointReset',
+          gameTick: this.getCurrentGameTick(),
+          position: {
+            x: this.bot!.entity.position.x,
+            y: this.bot!.entity.position.y,
+            z: this.bot!.entity.position.z
+          }
+        });
+      }
+    });
+
+    // 生命值更新事件 - "health" ()
     this.bot.on('health', () => {
       if (this.enabledEvents.has(GameEventType.HEALTH_UPDATE)) {
         this.addEvent({
@@ -337,14 +330,47 @@ export class EventManager {
       }
     });
 
-    // 经验更新事件
-    this.bot.on('experience', () => {
-      if (this.enabledEvents.has(GameEventType.EXPERIENCE_UPDATE)) {
+    // 实体受伤事件 - "entityHurt" (entity)
+    this.bot.on('entityHurt', (entity) => {
+      if (this.enabledEvents.has(GameEventType.ENTITY_HURT)) {
         this.addEvent({
-          type: 'experienceUpdate',
+          type: 'entityHurt',
           gameTick: this.getCurrentGameTick(),
-          experience: this.bot!.experience.points,
-          level: this.bot!.experience.level
+          entity: {
+            id: entity.id,
+            type: entity.name || 'unknown',
+            name: entity.displayName?.toString(),
+            position: {
+              x: entity.position.x,
+              y: entity.position.y,
+              z: entity.position.z
+            },
+            health: entity.health,
+            maxHealth: entity.health
+          },
+          damage: 0 // Mineflayer没有直接提供伤害值
+        });
+      }
+    });
+
+    // 实体死亡事件 - "entityDead" (entity)
+    this.bot.on('entityDead', (entity) => {
+      if (this.enabledEvents.has(GameEventType.ENTITY_DEATH)) {
+        this.addEvent({
+          type: 'entityDeath',
+          gameTick: this.getCurrentGameTick(),
+          entity: {
+            id: entity.id,
+            type: entity.name || 'unknown',
+            name: entity.displayName?.toString(),
+            position: {
+              x: entity.position.x,
+              y: entity.position.y,
+              z: entity.position.z
+            },
+            health: 0,
+            maxHealth: entity.health
+          }
         });
       }
     });
