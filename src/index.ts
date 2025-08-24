@@ -22,7 +22,7 @@ export { BaseAction } from "./minecraft/ActionInterface";
 
 // 游戏事件和状态
 export type { GameEvent } from "./minecraft/GameEvent.js";
-export type { GameState } from "./minecraft/StateManager.js";
+
 
 // 工具类与执行器已在前方导出
 

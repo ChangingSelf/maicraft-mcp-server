@@ -20,8 +20,6 @@ enabledEvents:
   - experienceUpdate
   - weatherChange
 
-maxMessageHistory: 100     # 本地最大事件缓存条数
-
 # 日志配置
 logging:
   level: INFO             # DEBUG | INFO | WARN | ERROR

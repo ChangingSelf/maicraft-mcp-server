@@ -48,16 +48,13 @@ graph LR
   A[main.ts 启动器] -->|读取| C[config.yaml]
   A --> L[Logger]
   A --> MC[MinecraftClient]
-  A --> SM[StateManager]
   A --> AE[ActionExecutor]
   A --> MCP[MaicraftMcpServer]
 
   MC -->|使用| B[mineflayer Bot]
   B -->|事件| MC
   MC -->|gameEvent| A
-  A -->|addEvent| SM
 
-  MCP -->|query_state / query_events| SM
   MCP -->|动作工具| AE
   MCP -->|连接/状态| MC
   AE -->|使用 Bot 执行动作| B
@@ -108,20 +105,17 @@ sequenceDiagram
   end
 ```
 
-### 时序：事件汇聚与状态更新
+### 时序：事件处理
 
 ```mermaid
 sequenceDiagram
   participant Bot as mineflayer Bot
   participant MC as MinecraftClient
   participant Main as main.ts
-  participant SM as StateManager
 
   Bot->>MC: 原始游戏事件
   MC->>MC: 过滤 enabledEvents
   MC-->>Main: gameEvent
-  Main->>SM: addEvent(event)
-  SM->>SM: 更新 GameState
 ```
 
 ## 快速开始

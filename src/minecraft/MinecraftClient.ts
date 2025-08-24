@@ -141,6 +141,7 @@ export class MinecraftClient extends EventEmitter {
           this.reconnectAttempts = 0;
           this.isReconnecting = false;
           this.stopReconnect(); // 连接成功后终止所有重连
+          
           this.logger.info('Minecraft 客户端连接成功');
           this.emit('connected');
           this.emit('ready');
@@ -280,6 +281,8 @@ export class MinecraftClient extends EventEmitter {
   isConnectedToServer(): boolean {
     return this.isConnected && this.bot !== null;
   }
+
+
 
   /**
    * 获取当前玩家信息

@@ -4,7 +4,6 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { randomUUID } from "crypto";
 import { Logger } from "../utils/Logger.js";
 import { MinecraftClient } from "../minecraft/MinecraftClient.js";
-import { StateManager } from "../minecraft/StateManager.js";
 import { ActionExecutor } from "../minecraft/ActionExecutor.js";
 // 动作与工具的自动发现通过 ActionExecutor 完成
 
@@ -19,7 +18,6 @@ export interface McpConfig {
 
 export interface McpServerDeps {
   minecraftClient: MinecraftClient;
-  stateManager: StateManager;
   actionExecutor: ActionExecutor;
   config: McpConfig;
 }
@@ -62,58 +60,8 @@ export class MaicraftMcpServer {
   }
 
   private registerQueryTools(): void {
-    // query_state
-    const queryStateHandler = async (input: any) => {
-      const requestId = randomUUID();
-      const start = Date.now();
-      try {
-        const bot = this.deps.minecraftClient.getBot();
-        if (!bot) return this.errorResult("service_unavailable", "Minecraft bot is not ready", requestId, start);
-        const state = this.deps.stateManager.getGameState();
-        const elapsed = Date.now() - start;
-        const json = { ok: true, data: state, request_id: requestId, elapsed_ms: elapsed };
-        this.logToolInvocation("query_state", requestId, {}, true, undefined, elapsed);
-        return { content: [{ type: "text", text: JSON.stringify(json) }], structuredContent: json };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        this.logToolInvocation("query_state", requestId, {}, false, "execution_error", Date.now() - start);
-        return this.errorResult("execution_error", message, requestId, start);
-      }
-    };
-    this.__handlers.set("query_state", queryStateHandler);
-    this.server.tool("query_state", "返回Minecraft bot的当前状态", queryStateHandler as any);
-
-    // query_events
-    const queryEventsHandler = async (input: any) => {
-      const requestId = randomUUID();
-      const start = Date.now();
-      try {
-        const type = input?.type;
-        const sinceMs = input?.since_ms;
-        const limit = input?.limit ?? 50;
-        if (limit <= 0) return this.errorResult("parameter_error", "limit must be positive", requestId, start);
-        const events = this.deps.stateManager.listEvents(type, sinceMs, limit);
-        const elapsed = Date.now() - start;
-        const json = { ok: true, data: events, request_id: requestId, elapsed_ms: elapsed };
-        this.logToolInvocation("query_events", requestId, { type, since_ms: sinceMs, limit }, true, undefined, elapsed);
-        return { content: [{ type: "text", text: JSON.stringify(json) }], structuredContent: json };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        this.logToolInvocation("query_events", requestId, input ?? {}, false, "execution_error", Date.now() - start);
-        return this.errorResult("execution_error", message, requestId, start);
-      }
-    };
-    this.__handlers.set("query_events", queryEventsHandler);
-    this.server.tool(
-      "query_events",
-      "返回最近的事件，可选过滤器。",
-      {
-        type: z.string().optional(),
-        since_ms: z.number().int().optional(),
-        limit: z.number().int().min(1).max(500).optional(),
-      },
-      queryEventsHandler as any
-    );
+    // query_state 和 query_events 已移除，使用对应的查询动作替代
+    // queryPlayerStatus, queryGameState, queryRecentEvents, querySurroundings
   }
 
   /**
@@ -151,7 +99,7 @@ export class MaicraftMcpServer {
           const start = Date.now();
           
           const params = typeof spec.mapInputToParams === 'function'
-            ? spec.mapInputToParams(input, { state: this.deps.stateManager })
+            ? spec.mapInputToParams(input, {})
             : (input ?? {});
           
           const actionName = spec.actionName || undefined;

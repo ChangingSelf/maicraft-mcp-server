@@ -52,6 +52,8 @@ export class ActionExecutor implements ActionRegistry {
     return Array.from(this.actions.keys());
   }
 
+
+
   /**
    * 自动发现并注册 `actions` 目录下的动作，同时收集 MCP 工具定义。
    * 支持在开发环境扫描 `src/actions`，生产环境扫描 `dist/actions`。
@@ -127,6 +129,7 @@ export class ActionExecutor implements ActionRegistry {
             if (!this.actions.has(action.name)) {
               this.register(action);
             }
+            
             // 收集 MCP 工具定义
             try {
               const fromInstance = (action as any).getMcpTools?.();
