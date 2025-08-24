@@ -1,6 +1,5 @@
 import { Bot } from 'mineflayer';
 import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
-import minecraftData from 'minecraft-data';
 import { z } from 'zod';
 import { Vec3 } from 'vec3';
 import pathfinder from 'mineflayer-pathfinder';
@@ -31,7 +30,7 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
   async execute(bot: Bot, params: PlaceBlockParams): Promise<ActionResult> {
     try {
       // 检查 mcData
-      const mcData = minecraftData(bot.version);
+      const mcData = bot.registry;
       if (!mcData) {
         return this.createErrorResult('mcData 未加载，请检查 mineflayer 版本', 'MCDATA_NOT_LOADED');
       }
@@ -74,6 +73,12 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
       const targetBlock = bot.blockAt(position);
       if (targetBlock && targetBlock.name !== 'air') {
         return this.createErrorResult(`目标位置已有方块: ${targetBlock.name}`, 'POSITION_OCCUPIED');
+      }
+
+      // 检查自己是否站在目标位置
+      const botPosition = bot.entity.position;
+      if (botPosition.distanceTo(position) < 1) {
+        return this.createErrorResult(`你自己已经站在目标位置，导致无法放置方块`, 'POSITION_OCCUPIED');
       }
 
       // 查找参照方块和放置方向
