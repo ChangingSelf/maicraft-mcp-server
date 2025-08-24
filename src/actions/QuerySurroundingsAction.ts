@@ -14,9 +14,9 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
   name = 'querySurroundings';
   description = '查询周围环境信息，包括附近玩家、实体、方块等';
   schema = z.object({
-    type: z.enum(['players', 'entities', 'blocks']).describe('要查询的环境信息类型（必填）：players(玩家)、entities(实体)、blocks(方块)'),
+    type: z.enum(['players', 'entities', 'blocks']).describe('要查询的环境信息类型（必填）：players、entities、blocks'),
     range: z.number().min(1).max(50).optional().describe('玩家、实体查询范围（1-50格），默认10格'),
-    blockRange: z.number().min(1).max(10).optional().describe('方块查询范围（1-10格），默认5格'),
+    blockRange: z.number().min(1).max(10).optional().describe('方块查询范围（1-10格），默认2格'),
     entityTypes: z.array(z.string()).optional().describe('实体类型过滤，可填多个（如：player, mob, animal等）'),
   });
 
@@ -25,7 +25,7 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
       this.logger.info(`查询周围环境信息 - 类型: ${params.type}`);
       
       const range = params.range || 10;
-      const blockRange = params.blockRange || 5;
+      const blockRange = params.blockRange || 2;
       const result: any = {};
 
       switch (params.type) {
@@ -41,11 +41,11 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
             })
             .map(player => ({
               username: player.username,
-              position: {
-                x: Number(player.entity.position.x.toFixed(2)),
-                y: Number(player.entity.position.y.toFixed(2)),
-                z: Number(player.entity.position.z.toFixed(2))
-              },
+              position: [
+                Number(player.entity.position.x.toFixed(2)),
+                Number(player.entity.position.y.toFixed(2)),
+                Number(player.entity.position.z.toFixed(2))
+              ],
               distance: Number(bot.entity.position.distanceTo(player.entity.position).toFixed(2))
             }))
             .sort((a, b) => a.distance - b.distance);
@@ -78,11 +78,11 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
             // id: entity.id,
             type: entity.type,
             name: entity.name || entity.type,
-            position: {
-              x: Number(entity.position.x.toFixed(2)),
-              y: Number(entity.position.y.toFixed(2)),
-              z: Number(entity.position.z.toFixed(2))
-            },
+            position: [
+              Number(entity.position.x.toFixed(2)),
+              Number(entity.position.y.toFixed(2)),
+              Number(entity.position.z.toFixed(2))
+            ],
             distance: Number(bot.entity.position.distanceTo(entity.position).toFixed(2)),
             health: Number((entity.health || 0).toFixed(2)),
             maxHealth: Number(((entity as any).maxHealth || entity.health || 0).toFixed(2))
@@ -97,10 +97,11 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
 
         case 'blocks':
           // 查询附近方块
-          const nearbyBlocks: any[] = [];
+          const blockMap: { [key: string]: { positions: number[][], count: number } } = {};
           const centerX = Math.floor(bot.entity.position.x);
           const centerY = Math.floor(bot.entity.position.y);
           const centerZ = Math.floor(bot.entity.position.z);
+          let totalBlockCount = 0;
 
           for (let x = -blockRange; x <= blockRange; x++) {
             for (let y = -blockRange; y <= blockRange; y++) {
@@ -111,17 +112,19 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
                 
                 try {
                   const block = bot.blockAt(new Vec3(blockX, blockY, blockZ));
-                  if (block && block.name !== 'air') { // 不是空气方块
-                    const distance = Math.sqrt(x * x + y * y + z * z);
-                    nearbyBlocks.push({
-                      name: block.name,
-                      position: {
-                        x: blockX,
-                        y: blockY,
-                        z: blockZ
-                      },
-                      distance: Number(distance.toFixed(2)),
-                    });
+                  if (block && block.name !== 'air') { // 排除空气方块
+                    const position = [blockX, blockY, blockZ];
+                    
+                    if (!blockMap[block.name]) {
+                      blockMap[block.name] = {
+                        positions: [],
+                        count: 0
+                      };
+                    }
+                    
+                    blockMap[block.name].positions.push(position);
+                    blockMap[block.name].count++;
+                    totalBlockCount++;
                   }
                 } catch (error) {
                   // 忽略无法访问的方块
@@ -130,11 +133,9 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
             }
           }
 
-          // 按距离排序并限制数量
-          nearbyBlocks.sort((a, b) => a.distance - b.distance);
           result.blocks = {
-            count: nearbyBlocks.length,
-            list: nearbyBlocks.slice(0, 100) // 限制返回数量
+            totalCount: totalBlockCount,
+            blockMap,
           };
           break;
 
