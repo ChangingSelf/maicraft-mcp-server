@@ -1,82 +1,101 @@
 import { Bot } from 'mineflayer';
 import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
+import { MinecraftUtils } from '../utils/MinecraftUtils.js';
 
 interface QueryPlayerStatusParams extends BaseActionParams {
-  includePosition?: boolean;
-  includeHealth?: boolean;
-  includeExperience?: boolean;
-  includeFood?: boolean;
   includeInventory?: boolean;
 }
 
 export class QueryPlayerStatusAction extends BaseAction<QueryPlayerStatusParams> {
   name = 'queryPlayerStatus';
-  description = '查询Bot自身的状态信息，包括位置、生命值、经验、食物等';
+  description = '查询Bot自身的状态信息，包括位置、生命值、经验、饱食度、物品栏、装备栏等';
   schema = z.object({
-    includePosition: z.boolean().optional().describe('是否包含位置信息'),
-    includeHealth: z.boolean().optional().describe('是否包含生命值信息'),
-    includeExperience: z.boolean().optional().describe('是否包含经验信息'),
-    includeFood: z.boolean().optional().describe('是否包含食物信息'),
-    includeInventory: z.boolean().optional().describe('是否包含背包信息'),
+    includeInventory: z.boolean().optional().default(false).describe('是否包含物品栏信息，默认不包含'),
   });
+
+  /**
+   * 获取指定装备槽位的物品信息
+   */
+  private getEquipmentItem(bot: Bot, slotName: string) {
+    const slot = bot.getEquipmentDestSlot(slotName);
+    const item = bot.inventory.slots[slot];
+    return item && item.name !== 'air' ? {
+      name: item.name,
+      count: item.count,
+      curDurability: item.maxDurability - item.durabilityUsed,
+      maxDurability: item.maxDurability,
+      durabilityPercentage: Number(((item.maxDurability - item.durabilityUsed) / item.maxDurability * 100).toFixed(1)),
+      enchantments: item.enchants,
+    } : null;
+  }
 
   async execute(bot: Bot, params: QueryPlayerStatusParams): Promise<ActionResult> {
     try {
       this.logger.info('查询Bot自身状态信息');
-      
-      const result: any = {
-        player: {
-          uuid: bot.player.uuid,
-          username: bot.player.username,
-          displayName: bot.player.displayName?.toString(),
-          ping: bot.player.ping,
-          gamemode: bot.player.gamemode
-        }
-      };
 
-      // 根据参数决定包含哪些信息
-      if (params.includePosition !== false) {
-        result.position = {
-          x: bot.entity.position.x,
-          y: bot.entity.position.y,
-          z: bot.entity.position.z
-        };
+      const gameModeMap: Record<number, string> = {
+        0: 'survival',
+        1: 'creative',
+        2: 'adventure',
+        3: 'spectator',
       }
 
-      if (params.includeHealth !== false) {
-        result.health = {
+      const biome = MinecraftUtils.getBiome(bot);
+      const result: any = {
+        username: bot.player.username,
+        gamemode: gameModeMap[bot.player.gamemode],
+        position: {
+          x: Number(bot.entity.position.x.toFixed(2)),
+          y: Number(bot.entity.position.y.toFixed(2)),
+          z: Number(bot.entity.position.z.toFixed(2))
+        },
+        biome: biome.name,
+        health: {
           current: bot.health,
           max: 20,
           percentage: (bot.health / 20) * 100
-        };
-      }
-
-      if (params.includeExperience !== false) {
-        result.experience = {
+        },
+        
+        experience: {
           points: bot.experience.points,
           level: bot.experience.level,
           progress: bot.experience.progress
-        };
-      }
-
-      if (params.includeFood !== false) {
-        result.food = {
+        },
+        food: {
           current: bot.food,
           max: 20,
           saturation: bot.foodSaturation,
           percentage: (bot.food / 20) * 100
-        };
-      }
+        },
+        oxygen: Number(bot.oxygenLevel.toFixed(2)),
+        armor: MinecraftUtils.getArmorValue(bot),
+      
+        isSleeping: bot.isSleeping,
+        
+        // 装备栏
+        equipment: {
+          head: this.getEquipmentItem(bot, 'head'),
+          chest: this.getEquipmentItem(bot, 'torso'),
+          legs: this.getEquipmentItem(bot, 'legs'),
+          feet: this.getEquipmentItem(bot, 'feet'),
+          offhand: this.getEquipmentItem(bot, 'off-hand')
+        },
+        
+      };
 
-      if (params.includeInventory !== false) {
-        result.inventory = bot.inventory.items().map(item => ({
-          type: item.type,
-          count: item.count,
-          name: item.name,
-          displayName: item.displayName,
-          slot: item.slot
-        }));
+      // 根据参数决定是否包含物品栏信息
+      if (params.includeInventory) {
+        result.inventory = {
+          fullSlotCount: (bot.inventory.inventoryEnd - bot.inventory.inventoryStart) - bot.inventory.emptySlotCount(),
+          emptySlotCount: bot.inventory.emptySlotCount(),
+          slotCount: (bot.inventory.inventoryEnd - bot.inventory.inventoryStart),
+          slots: bot.inventory.items().map(item => ({
+            slot: item.slot,
+            count: item.count,
+            name: item.name,
+          })),
+        };
       }
 
       this.logger.info('成功查询Bot状态信息');
