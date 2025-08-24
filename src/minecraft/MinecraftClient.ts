@@ -264,13 +264,6 @@ export class MinecraftClient extends EventEmitter {
   }
 
   /**
-   * 设置玩家移动阈值
-   */
-  setMoveThreshold(threshold: number): void {
-    this.eventManager.setMoveThreshold(threshold);
-  }
-
-  /**
    * 获取当前机器人实例
    */
   getBot(): Bot | null {
