@@ -95,7 +95,7 @@ export class MoveAction extends BaseAction<MoveParams> {
           }
           
           const mcData = bot.registry;
-          const blockByName = mcData.blocksByName[params.block?.toLocaleLowerCase()];
+          const blockByName = mcData.blocksByName[params.block];
           if (!blockByName) {
             return this.createErrorResult(`未找到名为 ${params.block} 的方块`, 'BLOCK_NOT_FOUND');
           }
