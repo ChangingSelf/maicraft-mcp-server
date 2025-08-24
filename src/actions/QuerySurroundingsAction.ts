@@ -6,8 +6,8 @@ import { Vec3 } from 'vec3';
 interface QuerySurroundingsParams extends BaseActionParams {
   range?: number;
   type: 'players' | 'entities' | 'blocks';
-  blockRange?: number;
   entityTypes?: string[];
+  useAbsoluteCoords?: boolean;
 }
 
 export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams> {
@@ -16,8 +16,8 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
   schema = z.object({
     type: z.enum(['players', 'entities', 'blocks']).describe('要查询的环境信息类型（必填）：players、entities、blocks'),
     range: z.number().min(1).max(50).optional().describe('玩家、实体查询范围（1-50格），默认10格'),
-    blockRange: z.number().min(1).max(10).optional().describe('方块查询范围（1-10格），默认2格'),
     entityTypes: z.array(z.string()).optional().describe('实体类型过滤，可填多个（如：player, mob, animal等）'),
+    useAbsoluteCoords: z.boolean().optional().describe('是否使用绝对坐标 (布尔值，可选，默认false为相对坐标)'),
   });
 
   async execute(bot: Bot, params: QuerySurroundingsParams): Promise<ActionResult> {
@@ -25,7 +25,8 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
       this.logger.info(`查询周围环境信息 - 类型: ${params.type}`);
       
       const range = params.range || 10;
-      const blockRange = params.blockRange || 2;
+      const blockRange = 1; // 固定为1，不允许传入参数
+      const useAbsoluteCoords = params.useAbsoluteCoords ?? false;
       const result: any = {};
 
       switch (params.type) {
@@ -41,10 +42,14 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
             })
             .map(player => ({
               username: player.username,
-              position: [
+              position: useAbsoluteCoords ? [
                 Number(player.entity.position.x.toFixed(2)),
                 Number(player.entity.position.y.toFixed(2)),
                 Number(player.entity.position.z.toFixed(2))
+              ] : [
+                Number((player.entity.position.x - bot.entity.position.x).toFixed(2)),
+                Number((player.entity.position.y - bot.entity.position.y).toFixed(2)),
+                Number((player.entity.position.z - bot.entity.position.z).toFixed(2))
               ],
               distance: Number(bot.entity.position.distanceTo(player.entity.position).toFixed(2))
             }))
@@ -78,10 +83,14 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
             // id: entity.id,
             type: entity.type,
             name: entity.name || entity.type,
-            position: [
+            position: useAbsoluteCoords ? [
               Number(entity.position.x.toFixed(2)),
               Number(entity.position.y.toFixed(2)),
               Number(entity.position.z.toFixed(2))
+            ] : [
+              Number((entity.position.x - bot.entity.position.x).toFixed(2)),
+              Number((entity.position.y - bot.entity.position.y).toFixed(2)),
+              Number((entity.position.z - bot.entity.position.z).toFixed(2))
             ],
             distance: Number(bot.entity.position.distanceTo(entity.position).toFixed(2)),
             health: Number((entity.health || 0).toFixed(2)),
@@ -113,7 +122,11 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
                 try {
                   const block = bot.blockAt(new Vec3(blockX, blockY, blockZ));
                   if (block && block.name !== 'air') { // 排除空气方块
-                    const position = [blockX, blockY, blockZ];
+                    const position = useAbsoluteCoords ? [blockX, blockY, blockZ] : [
+                      blockX - Math.floor(bot.entity.position.x),
+                      blockY - Math.floor(bot.entity.position.y),
+                      blockZ - Math.floor(bot.entity.position.z)
+                    ];
                     
                     if (!blockMap[block.name]) {
                       blockMap[block.name] = {
