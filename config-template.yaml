@@ -20,6 +20,18 @@ enabledEvents:
   - experienceUpdate
   - weatherChange
 
+# 不能破坏的方块列表配置
+# 机器人路径查找时会避免破坏这些方块
+blocksCantBreak:
+  - chest        # 箱子
+  - furnace      # 熔炉
+  - bed          # 床
+  - door         # 门
+  - trapdoor     # 活板门
+  - sign         # 告示牌
+  - torch        # 火把
+  - lantern      # 灯笼
+
 # 日志配置
 logging:
   level: INFO             # DEBUG | INFO | WARN | ERROR

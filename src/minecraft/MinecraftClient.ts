@@ -4,7 +4,7 @@ import { Logger, LoggingConfig } from '../utils/Logger.js';
 import { GameEvent, GameEventType, PlayerInfo, Position } from './GameEvent.js';
 import { EventManager } from './EventManager.js';
 import { plugin as pvpPlugin } from 'mineflayer-pvp';
-import { pathfinder as pathfinderPlugin } from 'mineflayer-pathfinder';
+import { pathfinder as pathfinderPlugin, Movements } from 'mineflayer-pathfinder';
 import { plugin as toolPlugin } from 'mineflayer-tool';
 import { plugin as collectblockPlugin } from 'mineflayer-collectblock-colalab';
 
@@ -23,6 +23,8 @@ export interface MinecraftClientOptions {
   maxReconnectAttempts?: number;
   enableReconnect?: boolean;
   logging?: LoggingConfig;
+  // 不能破坏的方块列表配置
+  blocksCantBreak?: string[];
 }
 
 export interface MinecraftClientEvents {
@@ -148,6 +150,33 @@ export class MinecraftClient extends EventEmitter {
           this.logger.info('Minecraft 客户端连接成功');
           this.emit('connected');
           this.emit('ready');
+
+          // 设置默认移动参数
+          const defaultMove = new Movements(this.bot!);
+          // defaultMove.canDig = false;
+          // defaultMove.digCost = 5;//提高破坏方块成本，降低路上破坏方块的可能性
+          
+          // 设置不能破坏的方块列表
+          const blocksCantBreakIds = new Set<number>();
+          const defaultBlocks = ['chest', 'furnace']; // 默认不能破坏的方块
+          const blockNames = this.options.blocksCantBreak || defaultBlocks;
+          
+          this.logger.info(`配置移动过程中不能破坏的方块列表: ${blockNames.join(', ')}`);
+          
+          for (const blockName of blockNames) {
+            const block = this.bot!.registry.blocksByName[blockName];
+            if (block) {
+              blocksCantBreakIds.add(block.id);
+              this.logger.debug(`已添加移动过程中不能破坏的方块: ${blockName} (ID: ${block.id})`);
+            } else {
+              this.logger.warn(`未知的方块名称: ${blockName}`);
+            }
+          }
+          
+          defaultMove.blocksCantBreak = blocksCantBreakIds;
+          this.bot!.pathfinder.setMovements(defaultMove);
+
+
           resolve();
         });
 

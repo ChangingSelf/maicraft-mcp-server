@@ -14,6 +14,8 @@ export interface ClientConfig {
   enabledEvents?: string[];
   maxMessageHistory?: number;
   logging?: LoggingConfig;
+  // 不能破坏的方块列表配置
+  blocksCantBreak?: string[];
   // Optional MCP-specific block; kept here to simplify typing in main
   mcp?: {
     name?: string;

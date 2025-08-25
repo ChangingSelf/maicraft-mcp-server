@@ -194,6 +194,7 @@ async function main() {
   const minecraftClient = new MinecraftClient({
     ...config.minecraft,
     logging: config.logging,
+    blocksCantBreak: config.blocksCantBreak,
   });
   const actionExecutor = new ActionExecutor();
 

@@ -289,8 +289,59 @@ enabledEvents:
   - blockBreak           # 方块破坏
   - blockPlace           # 方块放置
 
+# 不能破坏的方块列表配置
+# 机器人路径查找时会避免破坏这些方块
+blocksCantBreak:
+  - chest        # 箱子
+  - furnace      # 熔炉
+  - bed          # 床
+  - door         # 门
+  - trapdoor     # 活板门
+  - sign         # 告示牌
+  - torch        # 火把
+  - lantern      # 灯笼
+
 maxMessageHistory: 100   # 事件历史缓存数量
 ```
+
+### 路径查找配置
+
+#### 不能破坏的方块列表
+
+`blocksCantBreak` 配置项用于指定机器人在路径查找时不能破坏的方块列表。当机器人需要移动到某个位置时，它会避免破坏这些重要的方块。
+
+```yaml
+# 不能破坏的方块列表配置
+blocksCantBreak:
+  - chest        # 箱子
+  - furnace      # 熔炉
+  - bed          # 床
+  - door         # 门
+  - trapdoor     # 活板门
+  - sign         # 告示牌
+  - torch        # 火把
+  - lantern      # 灯笼
+```
+
+**配置说明：**
+- 如果不配置此选项，将使用默认列表：`['chest', 'furnace']`
+- 可以设置为空数组 `[]` 来允许破坏所有方块
+- 方块名称使用 Minecraft 的英文名称（如 `chest`、`furnace` 等）
+- 如果配置了未知的方块名称，会在日志中显示警告信息
+
+**常见方块名称参考：**
+- `chest` - 箱子
+- `furnace` - 熔炉
+- `crafting_table` - 工作台
+- `bed` - 床
+- `door` - 门
+- `trapdoor` - 活板门
+- `sign` - 告示牌
+- `torch` - 火把
+- `lantern` - 灯笼
+- `anvil` - 铁砧
+- `enchanting_table` - 附魔台
+- `brewing_stand` - 酿造台
 
 ### 日志系统配置
 
