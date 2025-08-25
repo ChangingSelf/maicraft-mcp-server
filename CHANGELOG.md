@@ -1,0 +1,87 @@
+# 更新日志
+
+## [1.2.3] - 2025-08-25
+
+### 优化
+- 优化 MoveAction 和 SmeltItemAction 类
+- 移除超时参数并调整默认值
+
+## [1.2.1] - 2025-08-25
+
+### 优化
+- 优化 QueryPlayerStatusAction 类中的耐久度和位置计算逻辑
+- 确保在获取属性时处理可靠性
+
+## [1.2.0] - 2025-08-24
+
+### 新增功能
+- 新增 QueryRecipeAction 类，支持查询指定物品的合成配方及所需材料
+- 优化配方转换逻辑并增强错误处理
+
+### 重构
+- 更新 PlaceBlockAction 类，使用 bot.registry 替代 minecraftData
+- 新增检查玩家是否站在目标位置的逻辑
+- 更新 QuerySurroundingsAction 类，移除 blockRange 参数
+- 新增 useAbsoluteCoords 选项以支持绝对坐标
+- 调整查询参数默认值，优化方块查询逻辑，改进位置数据结构
+- 重构 QuerySurroundingsAction 类，简化查询参数
+- 新增查询类型支持（玩家、实体、方块），优化日志输出
+
+### 移除
+- 移除玩家移动阈值设置方法
+
+## [1.1.0] - 2025-08-24
+
+### 新增功能
+- 更新事件管理器，新增玩家死亡、重生、踢出、重生点重置、天气变化、实体受伤和死亡事件的支持
+- 增强 QueryPlayerStatusAction 类，新增装备栏和生物群系信息查询功能
+- 更新状态信息描述，优化物品栏信息
+- 精简 QueryGameStateAction 类，移除冗余参数
+- 增强游戏状态查询功能，新增在线玩家信息和时间描述
+- 新增事件管理器，支持游戏事件的存储、管理与查询
+- 更新相关动作以集成事件管理功能
+
+### 重构
+- 更新多个动作的 execute 方法返回类型为 ActionResult，以增强类型安全性
+- 移除 StateManager 类及相关逻辑
+- 新增多个查询动作以替代状态管理功能
+
+### 文档
+- 在 README 中新增动作开发最佳实践及基础交互动作的详细说明
+
+### 依赖更新
+- 将 mineflayer-collectblock 替换为 mineflayer-collectblock-colalab
+- 调整相关配置
+
+## [1.0.1] - 2025-08-13
+
+### 新增功能
+- 新增 MoveAction 类，支持多种移动方式（坐标、方块、玩家、实体）
+- 增强参数校验与错误处理
+
+### 重构
+- 重构 PlaceBlockAction 以支持方块名称和绝对坐标
+- 增强参数校验与错误处理
+
+### 修复
+- 修复 MoveAction 中方块名称的处理逻辑，移除不必要的 toLocaleLowerCase 调用
+- 升级 mineflayer 版本，解决："Don't know how to get the enchants from an item"
+- 修复动作的一些导入方式导致的 bug
+- 更新 README 文档中的 execute 函数描述，修正 Promise 类型的显示格式
+
+### 配置
+- 在 package.json 中新增 pnpm 配置，指定仅构建依赖项 canvas 和 esbuild
+- 完善 README 文档中的快速配置示例
+- 优化配置文件处理逻辑
+
+### 发布准备
+- 为发布到 npm 做准备
+
+---
+
+## 版本说明
+
+- **主版本号**：重大功能更新或架构变更
+- **次版本号**：新功能添加
+- **修订版本号**：Bug 修复和性能优化
+
