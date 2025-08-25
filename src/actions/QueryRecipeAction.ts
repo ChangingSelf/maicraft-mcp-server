@@ -36,10 +36,10 @@ export class QueryRecipeAction extends BaseAction<QueryRecipeParams> {
       // 如果有 metadata，尝试找到对应的变体
       if (metadata !== undefined && item.variations) {
         const variation = item.variations.find((v: any) => v.metadata === metadata);
-        if (variation) return variation.displayName;
+        if (variation) return variation.name;
       }
       
-      return item.displayName || item.name;
+      return item.name || item.displayName;
     } else if (typeof recipeItem === 'object' && recipeItem !== null) {
       if (recipeItem.id === null || recipeItem.id === -1) return 'empty';
       
@@ -49,16 +49,16 @@ export class QueryRecipeAction extends BaseAction<QueryRecipeParams> {
       // 如果有 metadata，尝试找到对应的变体
       if (recipeItem.metadata !== undefined && recipeItem.metadata !== null && item.variations) {
         const variation = item.variations.find((v: any) => v.metadata === recipeItem.metadata);
-        if (variation) return variation.displayName;
+        if (variation) return variation.name;
       }
       
-      return item.displayName || item.name;
+      return item.name || item.displayName;
     } else if (typeof recipeItem === 'number') {
       if (recipeItem === -1) return 'empty';
       
       const item = mcData.items[recipeItem];
       if (!item) return `unknown_item_${recipeItem}`;
-      return item.displayName || item.name;
+      return item.name || item.displayName;
     }
     
     return 'empty';
