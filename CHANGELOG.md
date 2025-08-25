@@ -11,6 +11,7 @@
 - 将原来的 `SmeltItemAction` 删除，使用新的熔炼动作组合
 - 删除 `FollowPlayerAction`，因为它已经被 `MoveAction` 上位替代
 - 更新 README 文档，添加新熔炼动作的使用说明和示例
+- 区分了 `CraftItemAction` 对没有配方和材料不足的返回值
 
 ## [1.2.5] - 2025-08-25
 

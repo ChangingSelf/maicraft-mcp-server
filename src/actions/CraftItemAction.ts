@@ -130,9 +130,14 @@ export class CraftItemAction extends BaseAction<CraftItemParams> {
       }
 
       // 4) 拿配方并尝试合成
-      const recipe = bot.recipesFor(itemByName.id, null, count, craftingTableBlock ?? null)?.[0];
+      let recipe = bot.recipesFor(itemByName.id, null, count, craftingTableBlock ?? null)?.[0];
       if (!recipe) {
-        return this.createErrorResult(`无法找到 ${params.item} 的合成配方或者背包里的合成材料不足`, 'RECIPE_NOT_FOUND');
+        recipe = bot.recipesAll(itemByName.id, null, craftingTableBlock ?? null)?.[0];
+        if (!recipe) {
+          return this.createErrorResult(`无法找到 ${params.item} 的合成配方`, 'RECIPE_NOT_FOUND');
+        }
+
+        return this.createErrorResult("背包里的合成材料不足", 'NO_ENOUGH_INGREDIENTS');
       }
 
       await bot.craft(recipe, count, craftingTableBlock ?? null);
