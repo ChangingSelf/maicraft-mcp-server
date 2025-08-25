@@ -23,8 +23,7 @@ interface MoveParams extends BaseActionParams {
   entity?: string;
   /** 到达距离，默认 1 */
   distance?: number;
-  /** 超时时间 (秒)，默认 60 */
-  timeout?: number;
+
   /** 最大移动距离，默认 100 */
   maxDistance?: number;
 }
@@ -50,8 +49,8 @@ export class MoveAction extends BaseAction<MoveParams> {
     player: z.string().optional().describe('目标玩家名称 (当 type 为 player 时必需)'),
     entity: z.string().optional().describe('目标实体类型 (当 type 为 entity 时必需)，例如cow,pig,zombie等'),
     distance: z.number().positive().optional().describe('到达距离 (数字，可选，默认 1)'),
-    timeout: z.number().int().positive().optional().describe('超时时间 (秒，可选，默认 60)'),
-    maxDistance: z.number().positive().optional().describe('最大移动距离 (数字，可选，默认 100)'),
+
+    maxDistance: z.number().positive().optional().describe('最大移动距离 (数字，可选，默认 200)'),
   });
 
   async execute(bot: Bot, params: MoveParams): Promise<ActionResult> {
@@ -62,9 +61,8 @@ export class MoveAction extends BaseAction<MoveParams> {
       }
 
       const distance = params.distance ?? 1;
-      const timeoutSec = params.timeout ?? 60;
       const useAbsoluteCoords = params.useAbsoluteCoords ?? false;
-      const maxDistance = params.maxDistance ?? 100;
+      const maxDistance = params.maxDistance ?? 200;
 
       let targetX: number, targetY: number, targetZ: number;
       let targetDescription: string;
@@ -155,7 +153,7 @@ export class MoveAction extends BaseAction<MoveParams> {
           return this.createErrorResult(`不支持的移动类型: ${params.type}`, 'INVALID_MOVE_TYPE');
       }
 
-      this.logger.info(`开始移动到 ${targetDescription}，距离: ${distance}，超时: ${timeoutSec}s`);
+      this.logger.info(`开始移动到 ${targetDescription}，距离: ${distance}`);
 
       // 检查是否已经在目标位置
       const targetPosition = new Vec3(targetX, targetY, targetZ);
@@ -186,16 +184,8 @@ export class MoveAction extends BaseAction<MoveParams> {
 
       const goal = new GoalNear(targetX, targetY, targetZ, distance);
       
-      // 设置超时
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error(`移动到 ${targetDescription} 超时 (${timeoutSec}s)`)), timeoutSec * 1000);
-      });
-
       try {
-        await Promise.race([
-          bot.pathfinder.goto(goal),
-          timeoutPromise
-        ]);
+        await bot.pathfinder.goto(goal);
 
         // 验证是否成功到达
         const finalDistance = bot.entity.position.distanceTo(targetPosition);
@@ -212,9 +202,6 @@ export class MoveAction extends BaseAction<MoveParams> {
            return this.createErrorResult(`移动到 ${targetDescription} 失败，最终距离: ${finalDistance.toFixed(2)}`, 'MOVE_FAILED');
          }
       } catch (error) {
-        if (error instanceof Error && error.message.includes('超时')) {
-          return this.createErrorResult(error.message, 'MOVE_TIMEOUT');
-        }
         throw error;
       }
     } catch (error) {

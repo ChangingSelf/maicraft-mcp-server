@@ -151,7 +151,7 @@ export class MaicraftMcpServer {
         this.logToolInvocation(name, requestId, params, false, "service_unavailable", Date.now() - start);
         return this.errorResult("service_unavailable", "Minecraft bot is not ready", requestId, start);
       }
-      const result = await this.deps.actionExecutor.execute(name, bot, params as any, 30_000);
+      const result = await this.deps.actionExecutor.execute(name, bot, params as any, 600_000);
       const mappedError = !result.success && result.error === 'TIMEOUT' ? 'execution_timeout' : (result.success ? undefined : result.error ?? 'execution_error');
       const content = {
         ok: Boolean(result.success),

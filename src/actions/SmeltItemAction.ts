@@ -11,6 +11,8 @@ interface SmeltItemParams extends BaseActionParams {
   fuel: string;
   /** 熔炼数量，默认 1 */
   count?: number;
+  /** 熔炼等待时间（秒），默认 60 */
+  waitTime?: number;
 }
 
 /**
@@ -23,6 +25,7 @@ export class SmeltItemAction extends BaseAction<SmeltItemParams> {
     item: z.string().describe('要熔炼的物品 (字符串)'),
     fuel: z.string().describe('燃料物品 (字符串)'),
     count: z.number().int().min(1).optional().describe('熔炼数量 (数字，可选，默认 1)'),
+    waitTime: z.number().int().min(1).optional().describe('熔炼等待时间（秒，可选，默认 60）'),
   });
 
   // 校验和参数描述由基类通过 schema 自动提供
@@ -30,6 +33,7 @@ export class SmeltItemAction extends BaseAction<SmeltItemParams> {
   async execute(bot: Bot, params: SmeltItemParams): Promise<ActionResult> {
     try {
       const count = params.count ?? 1;
+      const waitTime = params.waitTime ?? 60;
       const mcData = minecraftData(bot.version);
       const itemMeta = mcData.itemsByName[params.item];
       const fuelMeta = mcData.itemsByName[params.fuel];
@@ -76,7 +80,7 @@ export class SmeltItemAction extends BaseAction<SmeltItemParams> {
 
         // 放入原料并等待输出
         await furnace.putInput(itemMeta.id, null, 1);
-        await bot.waitForTicks(12 * 20); // 等待 12 秒左右
+        await bot.waitForTicks(waitTime * 20); // 等待指定时间
         if (!furnace.outputItem()) {
           return this.createErrorResult(`无法熔炼 ${params.item}，可能不是有效配方`, 'INVALID_INPUT');
         }

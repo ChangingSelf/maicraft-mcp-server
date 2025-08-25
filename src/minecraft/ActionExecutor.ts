@@ -29,7 +29,7 @@ interface QueuedAction {
  */
 export class ActionExecutor implements ActionRegistry {
   private actions: Map<string, GameAction> = new Map();
-  private defaultTimeout = 300000; // 5分钟默认超时
+  private defaultTimeout = 600000; // 10分钟默认超时
   private actionQueue: QueuedAction[] = [];
   private isProcessingQueue = false;
   private maxConcurrentActions = 1; // 当前限制为串行执行
