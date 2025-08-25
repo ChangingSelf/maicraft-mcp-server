@@ -74,7 +74,8 @@ export class QueryRecipeAction extends BaseAction<QueryRecipeParams> {
       const ingredients: { [name: string]: number } = {};
       
       // 统计形状中的物品数量
-      for (const row of shapedRecipe.inShape) {
+      const shape = shapedRecipe.inShape ?? [];
+      for (const row of shape) {
         for (const item of row) {
           if (item !== null) {
             const itemName = this.getItemName(mcData, item);
@@ -92,7 +93,8 @@ export class QueryRecipeAction extends BaseAction<QueryRecipeParams> {
       const ingredients: { [name: string]: number } = {};
       
       // 统计无形状配方中的物品数量
-      for (const item of shapelessRecipe.ingredients) {
+      const ingredientsList = shapelessRecipe.ingredients ?? [];
+      for (const item of ingredientsList) {
         const itemName = this.getItemName(mcData, item);
         if (itemName !== 'empty') {
           ingredients[itemName] = (ingredients[itemName] || 0) + 1;
@@ -148,8 +150,10 @@ export class QueryRecipeAction extends BaseAction<QueryRecipeParams> {
 
       // 转换配方为简化格式
       const simplifiedRecipes = recipes.map(recipe => this.convertRecipeToSimplified(mcData, recipe));
-      
-      return this.createSuccessResult(`找到 ${params.item} 的合成配方:`, simplifiedRecipes);
+      return this.createSuccessResult(`找到 ${params.item} 的合成配方:`, {
+        recipes: simplifiedRecipes,
+        tips: '不同材质的物品一般也能用同样的方法合成，例如不同材质木板都可以合成木棍'
+      });
     } catch (error) {
       return this.createExceptionResult(error, '查询配方失败', 'QUERY_FAILED');
     }
