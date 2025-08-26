@@ -21,7 +21,7 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
     y: z.number().int().describe('目标位置Y坐标 (整数)'),
     z: z.number().int().describe('目标位置Z坐标 (整数)'),
     block: z.string().describe('要放置的方块名称 (字符串)'),
-    face: z.string().optional().describe('放置面向 (字符串，可选): up(上方), down(下方), north(北方), south(南方), east(东方), west(西方)'),
+    face: z.string().optional().describe('放置面向 (字符串，可选): +y, -y, +z, -z, +x, -x'),
     useRelativeCoords: z.boolean().optional().describe('是否使用相对坐标 (布尔值，可选，默认false为绝对坐标)'),
   });
 
@@ -81,12 +81,12 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
 
       // 查找参照方块和放置方向
       const faceVectors = [
-        new Vec3(0, 1, 0),   // up
-        new Vec3(0, -1, 0),  // down
-        new Vec3(1, 0, 0),   // east
-        new Vec3(-1, 0, 0),  // west
-        new Vec3(0, 0, 1),   // south
-        new Vec3(0, 0, -1),  // north
+        new Vec3(0, 1, 0),   // +y
+        new Vec3(0, -1, 0),  // -y
+        new Vec3(1, 0, 0),   // +x
+        new Vec3(-1, 0, 0),  // -x
+        new Vec3(0, 0, 1),   // +z
+        new Vec3(0, 0, -1),  // -z
       ];
 
       let referenceBlock: any = null;
@@ -95,15 +95,15 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
       // 如果指定了face参数，优先使用指定的方向
       if (params.face) {
         const faceMap: { [key: string]: Vec3 } = {
-          'up': new Vec3(0, 1, 0),
-          'down': new Vec3(0, -1, 0),
-          'east': new Vec3(1, 0, 0),
-          'west': new Vec3(-1, 0, 0),
-          'south': new Vec3(0, 0, 1),
-          'north': new Vec3(0, 0, -1),
+          '+y': new Vec3(0, 1, 0),
+          '-y': new Vec3(0, -1, 0),
+          '+x': new Vec3(1, 0, 0),
+          '-x': new Vec3(-1, 0, 0),
+          '+z': new Vec3(0, 0, 1),
+          '-z': new Vec3(0, 0, -1),
         };
         
-        const specifiedFace = faceMap[params.face.toLowerCase()];
+        const specifiedFace = faceMap[params.face];
         if (specifiedFace) {
           const block = bot.blockAt(position.minus(specifiedFace));
           if (block && block.name !== 'air') {

@@ -644,7 +644,7 @@ export const MyAction = defineAction({
   - 参数：
     - `name` (字符串) - 方块名称，例如 "dirt", "stone", "coal_ore"
     - `count` (数字，可选) - 需要挖掘的数量，默认 1
-    - `direction` (字符串，可选) - 挖掘方向：`up` | `down` | `north` | `south` | `east` | `west`，不指定时在附近搜索
+    - `direction` (字符串，可选) - 挖掘方向：`+y` | `-y` | `+z` | `-z` | `+x` | `-x`（坐标轴方向），不指定时在附近搜索
     - `maxDistance` (数字，可选) - 搜索距离，默认 48
     - `bypassAllCheck` (布尔值，可选) - 是否绕过所有检查直接挖掘，默认 false
 
@@ -652,7 +652,7 @@ export const MyAction = defineAction({
   - 参数：
     - `x`, `y`, `z` (数字) - 目标位置坐标
     - `block` (字符串) - 要放置的方块名称
-    - `face` (字符串，可选) - 放置面向：`up` | `down` | `north` | `south` | `east` | `west`
+    - `face` (字符串，可选) - 放置面向：`+y` | `-y` | `+z` | `-z` | `+x` | `-x`（坐标轴方向）
     - `useAbsoluteCoords` (布尔值，可选) - 是否使用绝对坐标，默认 false
 
 #### 物品制作动作
@@ -713,23 +713,23 @@ export const MyAction = defineAction({
   }
 }
 
-// 向上挖掘石头
+// 向Y轴正方向挖掘石头
 {
   "tool": "mine_block",
   "arguments": {
     "name": "stone",
     "count": 3,
-    "direction": "up"
+    "direction": "+y"
   }
 }
 
-// 向北方挖掘煤炭
+// 向Z轴负方向挖掘煤炭
 {
   "tool": "mine_block",
   "arguments": {
     "name": "coal_ore",
     "count": 2,
-    "direction": "north",
+    "direction": "-z",
     "maxDistance": 20
   }
 }

@@ -10,8 +10,8 @@ interface MineBlockParams extends BaseActionParams {
   count?: number;
   /** 是否绕过所有检查，直接挖掘 */
   bypassAllCheck?: boolean;
-  /** 挖掘方向，可选值：up, down, north, south, east, west。不指定时在附近搜索 */
-  direction?: 'up' | 'down' | 'north' | 'south' | 'east' | 'west';
+  /** 挖掘方向，可选值：+y, -y, +z, -z, +x, -x。不指定时在附近搜索 */
+  direction?: '+y' | '-y' | '+z' | '-z' | '+x' | '-x';
   /** 搜索距离，默认 48 */
   maxDistance?: number;
 }
@@ -32,7 +32,7 @@ interface MineBlockParams extends BaseActionParams {
  * 方向选择说明：
  * - 指定 direction 参数时，将在指定方向的相对位置搜索目标方块
  * - 不指定 direction 时，在附近搜索（原有行为）
- * - 支持的方向：up, down, north, south, east, west
+ * - 支持的方向：+y, -y, +z, -z, +x, -x（坐标轴方向）
  * - 搜索策略：在指定范围内寻找距离机器人最近的方块，避免挖掘最深层方块
  */
 export class MineBlockAction extends BaseAction<MineBlockParams> {
@@ -42,7 +42,7 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
     name: z.string().describe('方块名称 (字符串)'),
     count: z.number().int().min(1).optional().describe('挖掘数量 (数字，可选，默认 1)'),
     bypassAllCheck: z.boolean().optional().describe('是否绕过所有检查，直接挖掘，默认false'),
-    direction: z.enum(['up', 'down', 'north', 'south', 'east', 'west']).optional().describe('挖掘方向 (up | down | north | south | east | west，可选)'),
+    direction: z.enum(['+y', '-y', '+z', '-z', '+x', '-x']).optional().describe('挖掘方向 (+y | -y | +z | -z | +x | -x，可选，默认附近搜索)'),
     maxDistance: z.number().int().min(1).max(100).optional().describe('搜索距离 (数字，可选，默认 48，最大100格)'),
   });
 
@@ -149,27 +149,27 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
     let endZ = startZ;
     
     switch (direction) {
-      case 'up':
+      case '+y':
         startY = Math.floor(botPos.y) + 1;
         endY = startY + searchRange;
         break;
-      case 'down':
+      case '-y':
         startY = Math.floor(botPos.y) - searchRange;
         endY = Math.floor(botPos.y) - 1;
         break;
-      case 'north':
-        startZ = Math.floor(botPos.z) - searchRange;
-        endZ = Math.floor(botPos.z) - 1;
-        break;
-      case 'south':
+      case '+z':
         startZ = Math.floor(botPos.z) + 1;
         endZ = startZ + searchRange;
         break;
-      case 'east':
+      case '-z':
+        startZ = Math.floor(botPos.z) - searchRange;
+        endZ = Math.floor(botPos.z) - 1;
+        break;
+      case '+x':
         startX = Math.floor(botPos.x) + 1;
         endX = startX + searchRange;
         break;
-      case 'west':
+      case '-x':
         startX = Math.floor(botPos.x) - searchRange;
         endX = Math.floor(botPos.x) - 1;
         break;
@@ -207,12 +207,12 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
    */
   private getDirectionText(direction: string): string {
     const directionMap: Record<string, string> = {
-      'up': '上方',
-      'down': '下方',
-      'north': '北方',
-      'south': '南方',
-      'east': '东方',
-      'west': '西方'
+      '+y': 'Y轴正方向',
+      '-y': 'Y轴负方向',
+      '+z': 'Z轴正方向',
+      '-z': 'Z轴负方向',
+      '+x': 'X轴正方向',
+      '-x': 'X轴负方向'
     };
     return directionMap[direction] || direction;
   }
