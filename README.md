@@ -644,6 +644,9 @@ export const MyAction = defineAction({
   - 参数：
     - `name` (字符串) - 方块名称，例如 "dirt", "stone", "coal_ore"
     - `count` (数字，可选) - 需要挖掘的数量，默认 1
+    - `direction` (字符串，可选) - 挖掘方向：`up` | `down` | `north` | `south` | `east` | `west`，不指定时在附近搜索
+    - `maxDistance` (数字，可选) - 搜索距离，默认 48
+    - `bypassAllCheck` (布尔值，可选) - 是否绕过所有检查直接挖掘，默认 false
 
 - **`place_block`** - 在指定位置放置方块
   - 参数：
@@ -707,6 +710,27 @@ export const MyAction = defineAction({
   "arguments": {
     "name": "stone",
     "count": 5
+  }
+}
+
+// 向上挖掘石头
+{
+  "tool": "mine_block",
+  "arguments": {
+    "name": "stone",
+    "count": 3,
+    "direction": "up"
+  }
+}
+
+// 向北方挖掘煤炭
+{
+  "tool": "mine_block",
+  "arguments": {
+    "name": "coal_ore",
+    "count": 2,
+    "direction": "north",
+    "maxDistance": 20
   }
 }
 
