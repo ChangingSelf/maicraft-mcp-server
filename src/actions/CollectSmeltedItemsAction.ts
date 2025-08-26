@@ -7,7 +7,7 @@ import pathfinder from 'mineflayer-pathfinder';
 interface CollectSmeltedItemsParams extends BaseActionParams {
   /** 要收集的熔炼产物名称（可选，如果不指定则收集所有产物） */
   item?: string;
-  /** 熔炉位置坐标（可选，如果不指定则寻找最近的熔炉） */
+  /** 熔炉位置坐标（整数，可选，如果不指定则寻找最近的熔炉） */
   x?: number;
   y?: number;
   z?: number;
@@ -24,9 +24,9 @@ export class CollectSmeltedItemsAction extends BaseAction<CollectSmeltedItemsPar
   description = '从熔炉中收集已熔炼完成的物品，不指定就寻找最近的熔炉';
   schema = z.object({
     item: z.string().optional().describe('要收集的熔炼产物名称 (字符串，可选，不指定则收集所有产物)'),
-    x: z.number().optional().describe('熔炉X坐标 (数字，可选)'),
-    y: z.number().optional().describe('熔炉Y坐标 (数字，可选)'),
-    z: z.number().optional().describe('熔炉Z坐标 (数字，可选)'),
+    x: z.number().int().optional().describe('熔炉X坐标 (整数，可选)'),
+    y: z.number().int().optional().describe('熔炉Y坐标 (整数，可选)'),
+    z: z.number().int().optional().describe('熔炉Z坐标 (整数，可选)'),
     useAbsoluteCoords: z.boolean().optional().describe('是否使用绝对坐标 (布尔值，可选，默认false)'),
   });
 
@@ -45,9 +45,9 @@ export class CollectSmeltedItemsAction extends BaseAction<CollectSmeltedItemsPar
         } else {
           const botPos = bot.entity.position;
           position = new Vec3(
-            botPos.x + params.x,
-            botPos.y + params.y,
-            botPos.z + params.z
+            Math.floor(botPos.x) + params.x,
+            Math.floor(botPos.y) + params.y,
+            Math.floor(botPos.z) + params.z
           );
         }
         

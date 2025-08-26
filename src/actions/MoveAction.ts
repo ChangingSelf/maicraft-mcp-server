@@ -9,11 +9,11 @@ interface MoveParams extends BaseActionParams {
   type: 'coordinate' | 'block' | 'player' | 'entity';
   /** 是否使用绝对坐标，默认 false (相对坐标) */
   useAbsoluteCoords?: boolean;
-  /** 目标坐标 X (当 type 为 coordinate 时必需) */
+  /** 目标坐标 X (整数，当 type 为 coordinate 时必需) */
   x?: number;
-  /** 目标坐标 Y (当 type 为 coordinate 时必需) */
+  /** 目标坐标 Y (整数，当 type 为 coordinate 时必需) */
   y?: number;
-  /** 目标坐标 Z (当 type 为 coordinate 时必需) */
+  /** 目标坐标 Z (整数，当 type 为 coordinate 时必需) */
   z?: number;
   /** 目标方块名称 (当 type 为 block 时必需) */
   block?: string;
@@ -42,9 +42,9 @@ export class MoveAction extends BaseAction<MoveParams> {
   schema = z.object({
     type: z.enum(['coordinate', 'block', 'player', 'entity']).describe('移动类型 (coordinate | block | player | entity)'),
     useAbsoluteCoords: z.boolean().optional().describe('是否使用绝对坐标 (布尔值，可选，默认 false)'),
-    x: z.number().optional().describe('目标坐标 X (当 type 为 coordinate 时必需)'),
-    y: z.number().optional().describe('目标坐标 Y (当 type 为 coordinate 时必需)'),
-    z: z.number().optional().describe('目标坐标 Z (当 type 为 coordinate 时必需)'),
+    x: z.number().int().optional().describe('目标坐标 X (整数，当 type 为 coordinate 时必需)'),
+    y: z.number().int().optional().describe('目标坐标 Y (整数，当 type 为 coordinate 时必需)'),
+    z: z.number().int().optional().describe('目标坐标 Z (整数，当 type 为 coordinate 时必需)'),
     block: z.string().optional().describe('目标方块名称 (当 type 为 block 时必需)'),
     player: z.string().optional().describe('目标玩家名称 (当 type 为 player 时必需)'),
     entity: z.string().optional().describe('目标实体类型 (当 type 为 entity 时必需)，例如cow,pig,zombie等'),
@@ -79,10 +79,11 @@ export class MoveAction extends BaseAction<MoveParams> {
             targetY = params.y;
             targetZ = params.z;
           } else {
-            // 相对坐标：基于当前位置
-            targetX = bot.entity.position.x + params.x;
-            targetY = bot.entity.position.y + params.y;
-            targetZ = bot.entity.position.z + params.z;
+            // 相对坐标：基于当前位置，确保方块坐标为整数
+            const botPos = bot.entity.position;
+            targetX = Math.floor(botPos.x) + params.x;
+            targetY = Math.floor(botPos.y) + params.y;
+            targetZ = Math.floor(botPos.z) + params.z;
           }
           targetDescription = `坐标 (${targetX}, ${targetY}, ${targetZ})`;
           break;
