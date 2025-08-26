@@ -11,8 +11,8 @@ interface CollectSmeltedItemsParams extends BaseActionParams {
   x?: number;
   y?: number;
   z?: number;
-  /** 是否使用绝对坐标，默认 false */
-  useAbsoluteCoords?: boolean;
+  /** 是否使用相对坐标，默认 false */
+  useRelativeCoords?: boolean;
 }
 
 /**
@@ -27,7 +27,7 @@ export class CollectSmeltedItemsAction extends BaseAction<CollectSmeltedItemsPar
     x: z.number().int().optional().describe('熔炉X坐标 (整数，可选)'),
     y: z.number().int().optional().describe('熔炉Y坐标 (整数，可选)'),
     z: z.number().int().optional().describe('熔炉Z坐标 (整数，可选)'),
-    useAbsoluteCoords: z.boolean().optional().describe('是否使用绝对坐标 (布尔值，可选，默认false)'),
+    useRelativeCoords: z.boolean().optional().describe('是否使用相对坐标 (布尔值，可选，默认false)'),
   });
 
   async execute(bot: Bot, params: CollectSmeltedItemsParams): Promise<ActionResult> {
@@ -40,15 +40,15 @@ export class CollectSmeltedItemsAction extends BaseAction<CollectSmeltedItemsPar
         const { Vec3 } = await import('vec3');
         let position;
         
-        if (params.useAbsoluteCoords) {
-          position = new Vec3(params.x, params.y, params.z);
-        } else {
+        if (params.useRelativeCoords) {
           const botPos = bot.entity.position;
           position = new Vec3(
             Math.floor(botPos.x) + params.x,
             Math.floor(botPos.y) + params.y,
             Math.floor(botPos.z) + params.z
           );
+        } else {
+          position = new Vec3(params.x, params.y, params.z);
         }
         
         furnaceBlock = bot.blockAt(position);

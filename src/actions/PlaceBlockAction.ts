@@ -10,7 +10,7 @@ interface PlaceBlockParams extends BaseActionParams {
   z: number;
   block: string;
   face?: string;
-  useAbsoluteCoords?: boolean;
+  useRelativeCoords?: boolean;
 }
 
 export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
@@ -22,7 +22,7 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
     z: z.number().int().describe('目标位置Z坐标 (整数)'),
     block: z.string().describe('要放置的方块名称 (字符串)'),
     face: z.string().optional().describe('放置面向 (字符串，可选): up(上方), down(下方), north(北方), south(南方), east(东方), west(西方)'),
-    useAbsoluteCoords: z.boolean().optional().describe('是否使用绝对坐标 (布尔值，可选，默认false为相对坐标)'),
+    useRelativeCoords: z.boolean().optional().describe('是否使用相对坐标 (布尔值，可选，默认false为绝对坐标)'),
   });
 
   // 校验和参数描述由基类通过 schema 自动生成
@@ -52,12 +52,9 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
         return this.createErrorResult(`背包中没有 ${params.block}`, 'ITEM_NOT_IN_INVENTORY');
       }
 
-      // 根据useAbsoluteCoords参数确定坐标类型
+      // 根据useRelativeCoords参数确定坐标类型
       let position: Vec3;
-      if (params.useAbsoluteCoords) {
-        // 绝对坐标
-        position = new Vec3(params.x, params.y, params.z);
-      } else {
+      if (params.useRelativeCoords) {
         // 相对坐标（相对于bot当前位置）
         const botPos = bot.entity.position;
         position = new Vec3(
@@ -65,6 +62,9 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
           Math.floor(botPos.y) + params.y,
           Math.floor(botPos.z) + params.z
         );
+      } else {
+        // 绝对坐标
+        position = new Vec3(params.x, params.y, params.z);
       }
 
       // 检查目标位置是否已经有方块
@@ -157,7 +157,7 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
           position: { x: position.x, y: position.y, z: position.z },
           referenceBlock: referenceBlock.name,
           face: params.face || 'auto',
-          useAbsoluteCoords: params.useAbsoluteCoords || false
+          useRelativeCoords: params.useRelativeCoords || false
         });
 
       } catch (error) {

@@ -7,7 +7,7 @@ interface QuerySurroundingsParams extends BaseActionParams {
   range?: number;
   type: 'players' | 'entities' | 'blocks';
   entityTypes?: string[];
-  useAbsoluteCoords?: boolean;
+  useRelativeCoords?: boolean;
 }
 
 export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams> {
@@ -17,7 +17,7 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
     type: z.enum(['players', 'entities', 'blocks']).describe('要查询的环境信息类型（必填）：players、entities、blocks'),
     range: z.number().min(1).max(50).optional().describe('玩家、实体查询范围（1-50格），默认10格'),
     entityTypes: z.array(z.string()).optional().describe('实体类型过滤，可填多个（如：player, mob, animal等）'),
-    useAbsoluteCoords: z.boolean().optional().describe('是否使用绝对坐标 (布尔值，可选，默认false为相对坐标)'),
+    useRelativeCoords: z.boolean().optional().describe('是否使用相对坐标 (布尔值，可选，默认false为绝对坐标)'),
   });
 
   async execute(bot: Bot, params: QuerySurroundingsParams): Promise<ActionResult> {
@@ -26,7 +26,7 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
       
       const range = params.range || 10;
       const blockRange = 1; // 固定为1，不允许传入参数
-      const useAbsoluteCoords = params.useAbsoluteCoords ?? false;
+      const useRelativeCoords = params.useRelativeCoords ?? false;
       const result: any = {};
 
       switch (params.type) {
@@ -42,15 +42,15 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
             })
             .map(player => ({
               username: player.username,
-              position: useAbsoluteCoords ? [
-                Number(player.entity.position.x.toFixed(2)),
-                Number(player.entity.position.y.toFixed(2)),
-                Number(player.entity.position.z.toFixed(2))
-              ] : [
-                Number((player.entity.position.x - bot.entity.position.x).toFixed(2)),
-                Number((player.entity.position.y - bot.entity.position.y).toFixed(2)),
-                Number((player.entity.position.z - bot.entity.position.z).toFixed(2))
-              ],
+                          position: useRelativeCoords ? [
+              Number((player.entity.position.x - bot.entity.position.x).toFixed(2)),
+              Number((player.entity.position.y - bot.entity.position.y).toFixed(2)),
+              Number((player.entity.position.z - bot.entity.position.z).toFixed(2))
+            ] : [
+              Number(player.entity.position.x.toFixed(2)),
+              Number(player.entity.position.y.toFixed(2)),
+              Number(player.entity.position.z.toFixed(2))
+            ],
               distance: Number(bot.entity.position.distanceTo(player.entity.position).toFixed(2))
             }))
             .sort((a, b) => a.distance - b.distance);
@@ -83,14 +83,14 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
             // id: entity.id,
             type: entity.type,
             name: entity.name || entity.type,
-            position: useAbsoluteCoords ? [
-              Number(entity.position.x.toFixed(2)),
-              Number(entity.position.y.toFixed(2)),
-              Number(entity.position.z.toFixed(2))
-            ] : [
+            position: useRelativeCoords ? [
               Number((entity.position.x - bot.entity.position.x).toFixed(2)),
               Number((entity.position.y - bot.entity.position.y).toFixed(2)),
               Number((entity.position.z - bot.entity.position.z).toFixed(2))
+            ] : [
+              Number(entity.position.x.toFixed(2)),
+              Number(entity.position.y.toFixed(2)),
+              Number(entity.position.z.toFixed(2))
             ],
             distance: Number(bot.entity.position.distanceTo(entity.position).toFixed(2)),
             health: Number((entity.health || 0).toFixed(2)),
@@ -122,11 +122,11 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
                 try {
                   const block = bot.blockAt(new Vec3(blockX, blockY, blockZ));
                   if (block && block.name !== 'air') { // 排除空气方块
-                    const position = useAbsoluteCoords ? [blockX, blockY, blockZ] : [
+                    const position = useRelativeCoords ? [
                       blockX - Math.floor(bot.entity.position.x),
                       blockY - Math.floor(bot.entity.position.y),
                       blockZ - Math.floor(bot.entity.position.z)
-                    ];
+                    ] : [blockX, blockY, blockZ];
                     
                     if (!blockMap[block.name]) {
                       blockMap[block.name] = {
