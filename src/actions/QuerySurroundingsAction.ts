@@ -5,6 +5,7 @@ import { Vec3 } from 'vec3';
 
 interface QuerySurroundingsParams extends BaseActionParams {
   range?: number;
+  blockRange?: number;
   type: 'players' | 'entities' | 'blocks';
   entityTypes?: string[];
   useRelativeCoords?: boolean;
@@ -16,6 +17,7 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
   schema = z.object({
     type: z.enum(['players', 'entities', 'blocks']).describe('要查询的环境信息类型（必填）：players、entities、blocks'),
     range: z.number().min(1).max(50).optional().describe('玩家、实体查询范围（1-50格），默认10格'),
+    blockRange: z.number().min(1).max(5).optional().describe('方块查询范围（1-5格），默认2格'),
     entityTypes: z.array(z.string()).optional().describe('实体类型过滤，可填多个（如：player, mob, animal等）'),
     useRelativeCoords: z.boolean().optional().describe('是否使用相对坐标 (布尔值，可选，默认false为绝对坐标)'),
   });
@@ -25,7 +27,7 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
       this.logger.info(`查询周围环境信息 - 类型: ${params.type}`);
       
       const range = params.range || 10;
-      const blockRange = 1; // 固定为1，不允许传入参数
+      const blockRange = params.blockRange || 2; // 默认值为2
       const useRelativeCoords = params.useRelativeCoords ?? false;
       const result: any = {};
 
