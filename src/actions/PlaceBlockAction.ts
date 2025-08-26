@@ -17,9 +17,9 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
   name = 'placeBlock';
   description = '在指定位置放置方块';
   schema = z.object({
-    x: z.number().describe('目标位置X坐标 (数字)'),
-    y: z.number().describe('目标位置Y坐标 (数字)'),
-    z: z.number().describe('目标位置Z坐标 (数字)'),
+    x: z.number().int().describe('目标位置X坐标 (整数)'),
+    y: z.number().int().describe('目标位置Y坐标 (整数)'),
+    z: z.number().int().describe('目标位置Z坐标 (整数)'),
     block: z.string().describe('要放置的方块名称 (字符串)'),
     face: z.string().optional().describe('放置面向 (字符串，可选): up(上方), down(下方), north(北方), south(南方), east(东方), west(西方)'),
     useAbsoluteCoords: z.boolean().optional().describe('是否使用绝对坐标 (布尔值，可选，默认false为相对坐标)'),
@@ -52,8 +52,6 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
         return this.createErrorResult(`背包中没有 ${params.block}`, 'ITEM_NOT_IN_INVENTORY');
       }
 
-      const itemCount = item.count;
-      
       // 根据useAbsoluteCoords参数确定坐标类型
       let position: Vec3;
       if (params.useAbsoluteCoords) {
@@ -63,9 +61,9 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
         // 相对坐标（相对于bot当前位置）
         const botPos = bot.entity.position;
         position = new Vec3(
-          botPos.x + params.x,
-          botPos.y + params.y,
-          botPos.z + params.z
+          Math.floor(botPos.x) + params.x,
+          Math.floor(botPos.y) + params.y,
+          Math.floor(botPos.z) + params.z
         );
       }
 
@@ -153,12 +151,7 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
         // 放置方块
         await bot.placeBlock(referenceBlock, faceVector);
 
-        // 检查是否成功放置
-        const newItem = bot.inventory.findInventoryItem(itemByName.id, null, false);
-        if (newItem && newItem.count === itemCount) {
-          return this.createErrorResult(`放置 ${params.block} 失败，请尝试其他位置`, 'PLACE_FAILED');
-        }
-
+        // 只要没有抛出错误，就认为放置成功
         return this.createSuccessResult(`成功放置 ${params.block}`, { 
           block: params.block, 
           position: { x: position.x, y: position.y, z: position.z },
@@ -168,18 +161,6 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
         });
 
       } catch (error) {
-        // 检查物品数量是否减少来判断是否成功放置
-        const newItem = bot.inventory.findInventoryItem(itemByName.id, null, false);
-        if (newItem && newItem.count < itemCount) {
-          return this.createSuccessResult(`成功放置 ${params.block}`, { 
-            block: params.block, 
-            position: { x: position.x, y: position.y, z: position.z },
-            referenceBlock: referenceBlock.name,
-            face: params.face || 'auto',
-            useAbsoluteCoords: params.useAbsoluteCoords || false
-          });
-        }
-        
         return this.createExceptionResult(error, `放置 ${params.block} 失败`, 'PLACE_FAILED');
       }
 
