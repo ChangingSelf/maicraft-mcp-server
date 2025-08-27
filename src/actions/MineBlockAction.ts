@@ -22,6 +22,8 @@ interface MineBlockParams extends BaseActionParams {
   z?: number;
   /** 是否使用相对坐标 (布尔值，可选，默认false为绝对坐标) */
   useRelativeCoords?: boolean;
+  /** 是否只挖掘不收集，默认false（会移动到方块位置并收集掉落物） */
+  digOnly?: boolean;
 }
 
 /**
@@ -40,12 +42,13 @@ interface MineBlockParams extends BaseActionParams {
  * - 至少需要提供以下参数之一：name、坐标(x,y,z)、direction
  * 
  * 安全机制说明：
- * - 默认使用collectBlock插件进行挖掘，包含安全检查
+ * - 默认使用collectBlock插件进行挖掘，包含安全检查和自动收集
  * - 当遇到"Block is not safe to break!"错误时，可能的原因：
  *   1. 方块上方有会掉落的方块（如沙子、沙砾）
  *   2. 方块上方有实体
  *   3. 方块周围有液体
  * - 可以通过bypassAllCheck参数绕过安全检查
+ * - 可以通过digOnly参数实现只挖掘不收集（不会移动到方块位置）
  * 
  * 方向选择说明：
  * - 搜索模式：指定 direction 参数时，将在指定方向的相对位置搜索目标方块
@@ -64,10 +67,15 @@ interface MineBlockParams extends BaseActionParams {
  * - 从机器人当前位置开始，朝着指定方向逐个挖掘方块
  * - 不限制方块类型，挖掘路径上的所有方块
  * - 如果某个位置没有方块，会跳过并继续下一个位置
+ * 
+ * 收集行为说明：
+ * - 默认情况下（digOnly=false）：使用collectBlock插件，会移动到方块位置并收集掉落物
+ * - 当digOnly=true时：只进行挖掘操作，不会移动到方块位置，也不会收集掉落物
+ * - digOnly模式适用于远程挖掘或不需要收集掉落物的场景
  */
 export class MineBlockAction extends BaseAction<MineBlockParams> {
   name = 'mineBlock';
-  description = '挖掘方块，支持三种模式：按名称搜索、精准坐标指定、方向挖掘';
+  description = '挖掘方块，支持三种模式：按名称搜索、精准坐标指定、方向挖掘，可选择只挖掘不收集';
   schema = z.object({
     name: z.string().optional().describe('方块名称 (字符串，当提供坐标时可选，用于验证方块类型)'),
     count: z.number().int().min(1).optional().describe('挖掘数量 (数字，可选，默认 1)'),
@@ -78,6 +86,7 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
     y: z.number().int().optional().describe('目标坐标 Y (整数，当指定坐标时必需)'),
     z: z.number().int().optional().describe('目标坐标 Z (整数，当指定坐标时必需)'),
     useRelativeCoords: z.boolean().optional().describe('是否使用相对坐标 (布尔值，可选，默认false为绝对坐标)'),
+    digOnly: z.boolean().optional().describe('是否只挖掘不收集，默认false（会移动到方块位置并收集掉落物）'),
   });
 
   // 校验和 schema 描述由基类提供
@@ -88,6 +97,7 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       const bypassAllCheck = params.bypassAllCheck ?? false;
       const maxDistance = params.maxDistance ?? 48;
       const useRelativeCoords = params.useRelativeCoords ?? false;
+      const digOnly = params.digOnly ?? false;
       
       // 检查是否提供了坐标参数
       const hasCoordinates = params.x !== undefined && params.y !== undefined && params.z !== undefined;
@@ -121,13 +131,13 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       // 根据参数组合选择挖掘策略
       if (hasCoordinates) {
         // 精准坐标挖掘模式
-        successCount = await this.mineAtCoordinates(bot, params, blockByName, count, bypassAllCheck, useRelativeCoords);
+        successCount = await this.mineAtCoordinates(bot, params, blockByName, count, bypassAllCheck, useRelativeCoords, digOnly);
       } else if (hasDirection && !hasName) {
         // 方向挖掘模式：朝着指定方向挖掘指定数量的方块
-        successCount = await this.mineInDirection(bot, params, count, bypassAllCheck, maxDistance);
+        successCount = await this.mineInDirection(bot, params, count, bypassAllCheck, maxDistance, digOnly);
       } else {
         // 搜索挖掘模式（原有逻辑）- 此时 blockByName 一定不为 null
-        successCount = await this.mineBySearch(bot, params, blockByName!, count, bypassAllCheck, maxDistance);
+        successCount = await this.mineBySearch(bot, params, blockByName!, count, bypassAllCheck, maxDistance, digOnly);
       }
 
       // 成功完成挖掘
@@ -265,7 +275,8 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
     blockByName: any, 
     count: number, 
     bypassAllCheck: boolean, 
-    useRelativeCoords: boolean
+    useRelativeCoords: boolean,
+    digOnly: boolean
   ): Promise<number> {
     const botPos = bot.entity.position;
     let targetX = params.x!;
@@ -301,10 +312,10 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
     
     // 挖掘指定数量的方块（在坐标模式下，通常只挖掘一个）
     for (let i = 0; i < count; i++) {
-      if (bypassAllCheck) {
-        // 绕过安全检查，直接使用bot.dig()
-        this.logger.info(`绕过安全检查，直接挖掘方块`);
-        await this.digBlockDirectly(bot, targetBlock);
+      if (bypassAllCheck || digOnly) {
+        // 绕过安全检查或只挖掘不收集，直接使用bot.dig()
+        this.logger.info(`${bypassAllCheck ? '绕过安全检查' : '只挖掘不收集'}，直接挖掘方块`);
+        await this.digBlockDirectly(bot, targetBlock, digOnly);
       } else {
         // 使用collectBlock插件（包含安全检查）
         try {
@@ -333,7 +344,8 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
     params: MineBlockParams, 
     count: number, 
     bypassAllCheck: boolean, 
-    maxDistance: number
+    maxDistance: number,
+    digOnly: boolean
   ): Promise<number> {
     let successCount = 0;
     const botPos = bot.entity.position;
@@ -378,10 +390,10 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       } else {
         this.logger.info(`挖掘第 ${i+1} 个方块: ${block.name} 在位置 (${currentX}, ${currentY}, ${currentZ})`);
         
-        if (bypassAllCheck) {
-          // 绕过安全检查，直接使用bot.dig()
-          this.logger.info(`绕过安全检查，直接挖掘方块`);
-          await this.digBlockDirectly(bot, block);
+        if (bypassAllCheck || digOnly) {
+          // 绕过安全检查或只挖掘不收集，直接使用bot.dig()
+          this.logger.info(`${bypassAllCheck ? '绕过安全检查' : '只挖掘不收集'}，直接挖掘方块`);
+          await this.digBlockDirectly(bot, block, digOnly);
         } else {
           // 使用collectBlock插件（包含安全检查）
           try {
@@ -435,7 +447,8 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
     blockByName: any, 
     count: number, 
     bypassAllCheck: boolean, 
-    maxDistance: number
+    maxDistance: number,
+    digOnly: boolean
   ): Promise<number> {
     let successCount = 0;
     
@@ -463,10 +476,10 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       const directionText = params.direction ? `在${this.getDirectionText(params.direction)}方向` : '';
       this.logger.info(`找到第 ${i+1} 个 ${params.name} 方块${directionText}，位置: ${block.position.x}, ${block.position.y}, ${block.position.z}`);
 
-      if (bypassAllCheck) {
-        // 绕过安全检查，直接使用bot.dig()
-        this.logger.info(`绕过安全检查，直接挖掘方块`);
-        await this.digBlockDirectly(bot, block);
+      if (bypassAllCheck || digOnly) {
+        // 绕过安全检查或只挖掘不收集，直接使用bot.dig()
+        this.logger.info(`${bypassAllCheck ? '绕过安全检查' : '只挖掘不收集'}，直接挖掘方块`);
+        await this.digBlockDirectly(bot, block, digOnly);
       } else {
         // 使用collectBlock插件（包含安全检查）
         try {
@@ -489,9 +502,21 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
   /**
    * 直接挖掘方块，绕过安全检查
    */
-  private async digBlockDirectly(bot: Bot, block: any): Promise<void> {
-    // 装备合适的工具
-    await bot.tool.equipForBlock(block);
+  private async digBlockDirectly(bot: Bot, block: any, digOnly: boolean): Promise<void> {
+    // 装备合适的工具，使用与collectBlock插件相同的配置
+    const equipToolOptions = {
+      requireHarvest: true,
+      getFromChest: false,
+      maxTools: 2,
+    };
+    
+    await bot.tool.equipForBlock(block, equipToolOptions);
+    
+    // 在digOnly模式下，不检查工具是否合适，直接挖掘
+    // 在非digOnly模式下，检查是否有合适的工具
+    if (!digOnly && !block.canHarvest(bot.heldItem ? bot.heldItem.type : bot.heldItem)) {
+      throw new Error(`没有合适的工具来挖掘 ${block.name}！`);
+    }
     
     // 直接挖掘
     await bot.dig(block);
