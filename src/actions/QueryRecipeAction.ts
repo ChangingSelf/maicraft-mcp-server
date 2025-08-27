@@ -66,6 +66,27 @@ export class QueryRecipeAction extends BaseAction<QueryRecipeParams> {
   }
 
   /**
+   * 获取配方物品的数量
+   */
+  private getItemCount(recipeItem: any): number {
+    if (Array.isArray(recipeItem)) {
+      // 数组格式 [id, metadata]，默认数量为1
+      return 1;
+    } else if (typeof recipeItem === 'object' && recipeItem !== null) {
+      // 对象格式，检查count字段
+      if (recipeItem.count !== undefined && recipeItem.count !== null) {
+        // count: -1 表示任意数量，我们将其视为1
+        return recipeItem.count === -1 ? 1 : recipeItem.count;
+      }
+      return 1; // 默认数量为1
+    } else if (typeof recipeItem === 'number') {
+      return 1; // 数字ID，默认数量为1
+    }
+    
+    return 0;
+  }
+
+  /**
    * 将原始配方转换为简化格式
    */
   private convertRecipeToSimplified(mcData: any, recipe: any, requiresCraftingTable: boolean): SimplifiedRecipe {
@@ -82,13 +103,14 @@ export class QueryRecipeAction extends BaseAction<QueryRecipeParams> {
           if (item !== null) {
             const itemName = this.getItemName(mcData, item);
             if (itemName !== 'empty') {
-              ingredients[itemName] = (ingredients[itemName] || 0) + 1;
+              const count = this.getItemCount(item);
+              ingredients[itemName] = (ingredients[itemName] || 0) + count;
             }
           }
         }
       }
-    } else {
-      // ShapelessRecipe
+    } else if ('ingredients' in recipe) {
+      // ShapelessRecipe 或其他有ingredients的配方
       const shapelessRecipe = recipe as any;
       
       // 统计无形状配方中的物品数量
@@ -96,7 +118,8 @@ export class QueryRecipeAction extends BaseAction<QueryRecipeParams> {
       for (const item of ingredientsList) {
         const itemName = this.getItemName(mcData, item);
         if (itemName !== 'empty') {
-          ingredients[itemName] = (ingredients[itemName] || 0) + 1;
+          const count = this.getItemCount(item);
+          ingredients[itemName] = (ingredients[itemName] || 0) + count;
         }
       }
     }
@@ -143,21 +166,48 @@ export class QueryRecipeAction extends BaseAction<QueryRecipeParams> {
         return this.createErrorResult(`未找到名为 ${params.item} 的物品`, 'ITEM_NOT_FOUND');
       }
 
-      // 查询所有配方（包括需要工作台和不需要工作台的）
+      // 查询配方数据
       const recipesWithoutTable = bot.recipesAll(itemByName.id, null, false) || [];
       const recipesWithTable = bot.recipesAll(itemByName.id, null, true) || [];
       
+      // recipesFor (如果存在)
+      let recipesForResult: any[] = [];
+      if (typeof bot.recipesFor === 'function') {
+        recipesForResult = bot.recipesFor(itemByName.id, null, null, null) || [];
+      }
+      
+      // 直接从mcData查询原始配方
+      const rawRecipes = mcData.recipes[itemByName.id] || [];
+      
       const allRecipes: SimplifiedRecipe[] = [];
       
-      // 添加不需要工作台的配方
-      recipesWithoutTable.forEach(recipe => {
-        allRecipes.push(this.convertRecipeToSimplified(mcData, recipe, false));
-      });
-      
-      // 添加需要工作台的配方
-      recipesWithTable.forEach(recipe => {
-        allRecipes.push(this.convertRecipeToSimplified(mcData, recipe, true));
-      });
+      // 优先使用原始mcData配方
+      if (rawRecipes.length > 0) {
+        rawRecipes.forEach((rawRecipe: any) => {
+          try {
+            const simplified = this.convertRawRecipeToSimplified(mcData, rawRecipe, false);
+            allRecipes.push(simplified);
+          } catch (error) {
+            this.logger.error(`转换原始配方失败:`, error);
+          }
+        });
+      } else {
+        // 如果原始配方不可用，才使用mineflayer的配方
+        recipesWithoutTable.forEach(recipe => {
+          const simplified = this.convertRecipeToSimplified(mcData, recipe, false);
+          allRecipes.push(simplified);
+        });
+        
+        recipesWithTable.forEach(recipe => {
+          const simplified = this.convertRecipeToSimplified(mcData, recipe, true);
+          allRecipes.push(simplified);
+        });
+        
+        recipesForResult.forEach(recipe => {
+          const simplified = this.convertRecipeToSimplified(mcData, recipe, false);
+          allRecipes.push(simplified);
+        });
+      }
 
       if (allRecipes.length === 0) {
         return this.createErrorResult(`未找到 ${params.item} 的任何合成配方`, 'RECIPE_NOT_FOUND');
@@ -178,6 +228,49 @@ export class QueryRecipeAction extends BaseAction<QueryRecipeParams> {
     } catch (error) {
       return this.createExceptionResult(error, '查询配方失败', 'QUERY_FAILED');
     }
+  }
+
+  /**
+   * 将原始mcData配方转换为简化格式
+   */
+  private convertRawRecipeToSimplified(mcData: any, rawRecipe: any, requiresCraftingTable: boolean): SimplifiedRecipe {
+    let ingredients: { [name: string]: number } = {};
+    
+    // 处理ingredients数组
+    if (rawRecipe.ingredients && Array.isArray(rawRecipe.ingredients)) {
+      for (const ingredient of rawRecipe.ingredients) {
+        if (typeof ingredient === 'number') {
+          // 直接是物品ID
+          const item = mcData.items[ingredient];
+          if (item) {
+            const itemName = item.name || item.displayName;
+            ingredients[itemName] = (ingredients[itemName] || 0) + 1;
+          }
+        } else if (Array.isArray(ingredient)) {
+          // 数组格式 [id, metadata]
+          const [id, metadata] = ingredient;
+          if (id !== null && id !== -1) {
+            const item = mcData.items[id];
+            if (item) {
+              let itemName = item.name || item.displayName;
+              
+              // 如果有metadata，尝试找到对应的变体
+              if (metadata !== undefined && item.variations) {
+                const variation = item.variations.find((v: any) => v.metadata === metadata);
+                if (variation) itemName = variation.name;
+              }
+              
+              ingredients[itemName] = (ingredients[itemName] || 0) + 1;
+            }
+          }
+        }
+      }
+    }
+    
+    return {
+      ingredients: Object.entries(ingredients).map(([name, count]) => ({ name, count })),
+      requiresCraftingTable
+    };
   }
 
   /**
