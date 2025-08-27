@@ -7,6 +7,7 @@ import pathfinder from 'mineflayer-pathfinder';
 interface CraftItemParams extends BaseActionParams {
   item: string;
   count?: number;
+  preferredMaterials?: string[];
 }
 
 export class CraftItemAction extends BaseAction<CraftItemParams> {
@@ -15,9 +16,104 @@ export class CraftItemAction extends BaseAction<CraftItemParams> {
   schema = z.object({
     item: z.string().describe('要合成的物品名称 (字符串)'),
     count: z.number().int().min(1).optional().describe('合成数量 (数字，可选，默认为1)'),
+    preferredMaterials: z.array(z.string()).optional().describe('偏好的材料列表，按优先级排序 (字符串数组，可选)'),
   });
 
   // 校验与参数描述由基类通过 schema 自动提供
+
+  /**
+   * 分析配方中使用的材料
+   */
+  private analyzeRecipeMaterials(mcData: any, recipe: any): string[] {
+    const materials: string[] = [];
+    
+    if ('inShape' in recipe) {
+      // ShapedRecipe
+      const shapedRecipe = recipe as any;
+      const shape = shapedRecipe.inShape ?? [];
+      for (const row of shape) {
+        for (const item of row) {
+          if (item !== null) {
+            const itemName = this.getItemName(mcData, item);
+            if (itemName !== 'empty' && !materials.includes(itemName)) {
+              materials.push(itemName);
+            }
+          }
+        }
+      }
+    } else {
+      // ShapelessRecipe
+      const shapelessRecipe = recipe as any;
+      const ingredientsList = shapelessRecipe.ingredients ?? [];
+      for (const item of ingredientsList) {
+        const itemName = this.getItemName(mcData, item);
+        if (itemName !== 'empty' && !materials.includes(itemName)) {
+          materials.push(itemName);
+        }
+      }
+    }
+    
+    return materials;
+  }
+
+  /**
+   * 获取物品名称
+   */
+  private getItemName(mcData: any, item: any): string {
+    if (!item) return 'empty';
+    
+    // 如果是数字ID，查找对应的物品
+    if (typeof item === 'number') {
+      const itemData = mcData.items[item];
+      return itemData ? itemData.name : 'unknown';
+    }
+    
+    // 如果已经是物品对象
+    if (item.id !== undefined) {
+      const itemData = mcData.items[item.id];
+      return itemData ? itemData.name : 'unknown';
+    }
+    
+    return 'unknown';
+  }
+
+  /**
+   * 根据用户偏好对配方进行排序
+   */
+  private sortRecipesByPreference(mcData: any, recipes: any[], preferredMaterials: string[]): any[] {
+    if (!preferredMaterials || preferredMaterials.length === 0) {
+      return recipes;
+    }
+
+    return recipes.sort((a, b) => {
+      const materialsA = this.analyzeRecipeMaterials(mcData, a);
+      const materialsB = this.analyzeRecipeMaterials(mcData, b);
+      
+      // 计算每个配方中偏好材料的最高优先级
+      const scoreA = this.calculatePreferenceScore(materialsA, preferredMaterials);
+      const scoreB = this.calculatePreferenceScore(materialsB, preferredMaterials);
+      
+      // 分数越高优先级越高（降序排列）
+      return scoreB - scoreA;
+    });
+  }
+
+  /**
+   * 计算配方中偏好材料的优先级分数
+   */
+  private calculatePreferenceScore(materials: string[], preferredMaterials: string[]): number {
+    let score = 0;
+    
+    for (let i = 0; i < preferredMaterials.length; i++) {
+      const preferred = preferredMaterials[i].toLowerCase().replace(/\s+/g, '_');
+      if (materials.some(material => material.toLowerCase().includes(preferred))) {
+        // 优先级越高分数越高（第一个偏好材料得分最高）
+        score += preferredMaterials.length - i;
+      }
+    }
+    
+    return score;
+  }
 
   async execute(bot: Bot, params: CraftItemParams): Promise<ActionResult> {
     try {
@@ -129,18 +225,56 @@ export class CraftItemAction extends BaseAction<CraftItemParams> {
         await bot.pathfinder.goto(goal);
       }
 
-      // 4) 拿配方并尝试合成
-      let recipe = bot.recipesFor(itemByName.id, null, count, craftingTableBlock ?? null)?.[0];
-      if (!recipe) {
-        recipe = bot.recipesAll(itemByName.id, null, craftingTableBlock ?? null)?.[0];
-        if (!recipe) {
-          return this.createErrorResult(`无法找到 ${params.item} 的合成配方`, 'RECIPE_NOT_FOUND');
+      // 4) 获取所有配方并尝试合成
+      const allRecipes = bot.recipesAll(itemByName.id, null, craftingTableBlock ?? null);
+      if (!allRecipes || allRecipes.length === 0) {
+        return this.createErrorResult(`无法找到 ${params.item} 的合成配方`, 'RECIPE_NOT_FOUND');
+      }
+      
+      // 根据用户偏好对配方进行排序
+      const sortedRecipes = this.sortRecipesByPreference(mcData, allRecipes, params.preferredMaterials || []);
+      
+      // 优先尝试有足够材料的配方（按偏好排序）
+      const availableRecipes = bot.recipesFor(itemByName.id, null, count, craftingTableBlock ?? null);
+      const sortedAvailableRecipes = this.sortRecipesByPreference(mcData, availableRecipes, params.preferredMaterials || []);
+      
+      // 记录偏好材料信息
+      if (params.preferredMaterials && params.preferredMaterials.length > 0) {
+        this.logger.info(`用户偏好材料: ${params.preferredMaterials.join(', ')}`);
+      }
+      
+      let recipe = null;
+      
+      // 先尝试有足够材料的配方（按偏好排序）
+      for (const potentialRecipe of sortedAvailableRecipes) {
+        try {
+          await bot.craft(potentialRecipe, count, craftingTableBlock ?? null);
+          recipe = potentialRecipe;
+          break;
+        } catch (craftErr) {
+          this.logger.debug(`可用配方合成失败，尝试下一个`);
+          continue;
         }
-
+      }
+      
+      // 如果没有可用配方或可用配方都失败了，尝试所有配方（按偏好排序）
+      if (!recipe) {
+        for (const potentialRecipe of sortedRecipes) {
+          try {
+            await bot.craft(potentialRecipe, count, craftingTableBlock ?? null);
+            recipe = potentialRecipe;
+            break;
+          } catch (craftErr) {
+            this.logger.debug(`配方材料不足，尝试下一个配方`);
+            continue;
+          }
+        }
+      }
+      
+      // 如果所有配方都尝试过了还是不行，返回材料不足错误
+      if (!recipe) {
         return this.createErrorResult("背包里的合成材料不足", 'NO_ENOUGH_INGREDIENTS');
       }
-
-      await bot.craft(recipe, count, craftingTableBlock ?? null);
 
       this.logger.info(`成功合成 ${params.item} × ${count}`);
       return this.createSuccessResult(`成功合成 ${params.item} × ${count}`, { item: params.item, count });
