@@ -14,11 +14,23 @@ interface MineBlockParams extends BaseActionParams {
   direction?: '+y' | '-y' | '+z' | '-z' | '+x' | '-x';
   /** 搜索距离，默认 48 */
   maxDistance?: number;
+  /** 目标坐标 X (整数，当指定坐标时必需) */
+  x?: number;
+  /** 目标坐标 Y (整数，当指定坐标时必需) */
+  y?: number;
+  /** 目标坐标 Z (整数，当指定坐标时必需) */
+  z?: number;
+  /** 是否使用相对坐标 (布尔值，可选，默认false为绝对坐标) */
+  useRelativeCoords?: boolean;
 }
 
 /**
- * MineBlockAction - 按名称在附近寻找并挖掘若干方块。
+ * MineBlockAction - 按名称在附近寻找并挖掘若干方块，支持精准坐标指定。
  * 逻辑主要参照 MineLand 的 high_level_action/mineBlock.js。
+ * 
+ * 挖掘模式说明：
+ * - 搜索模式：当不提供坐标参数时，在附近或指定方向搜索目标方块
+ * - 坐标模式：当提供 x, y, z 坐标参数时，精准挖掘指定位置的方块
  * 
  * 安全机制说明：
  * - 默认使用collectBlock插件进行挖掘，包含安全检查
@@ -26,24 +38,33 @@ interface MineBlockParams extends BaseActionParams {
  *   1. 方块上方有会掉落的方块（如沙子、沙砾）
  *   2. 方块上方有实体
  *   3. 方块周围有液体
- * - 可以通过bypassSafetyCheck参数绕过安全检查
- * - 可以通过autoFallback参数在安全检查失败时自动尝试直接挖掘
+ * - 可以通过bypassAllCheck参数绕过安全检查
  * 
- * 方向选择说明：
+ * 方向选择说明（仅搜索模式）：
  * - 指定 direction 参数时，将在指定方向的相对位置搜索目标方块
  * - 不指定 direction 时，在附近搜索（原有行为）
  * - 支持的方向：+y, -y, +z, -z, +x, -x（坐标轴方向）
  * - 搜索策略：在指定范围内寻找距离机器人最近的方块，避免挖掘最深层方块
+ * 
+ * 坐标模式说明：
+ * - 提供 x, y, z 参数时启用精准坐标挖掘
+ * - useRelativeCoords 参数控制坐标类型：true为相对坐标，false为绝对坐标
+ * - 相对坐标基于机器人当前位置计算
+ * - 会验证目标位置的方块类型是否匹配期望的方块名称
  */
 export class MineBlockAction extends BaseAction<MineBlockParams> {
   name = 'mineBlock';
-  description = '挖掘指定类型的方块（按名称），支持方向选择';
+  description = '挖掘指定类型的方块（按名称），支持方向选择和精准坐标指定';
   schema = z.object({
     name: z.string().describe('方块名称 (字符串)'),
     count: z.number().int().min(1).optional().describe('挖掘数量 (数字，可选，默认 1)'),
     bypassAllCheck: z.boolean().optional().describe('是否绕过所有检查，直接挖掘，默认false'),
     direction: z.enum(['+y', '-y', '+z', '-z', '+x', '-x']).optional().describe('挖掘方向 (+y | -y | +z | -z | +x | -x，可选，默认附近搜索)'),
     maxDistance: z.number().int().min(1).max(100).optional().describe('搜索距离 (数字，可选，默认 48，最大100格)'),
+    x: z.number().int().optional().describe('目标坐标 X (整数，当指定坐标时必需)'),
+    y: z.number().int().optional().describe('目标坐标 Y (整数，当指定坐标时必需)'),
+    z: z.number().int().optional().describe('目标坐标 Z (整数，当指定坐标时必需)'),
+    useRelativeCoords: z.boolean().optional().describe('是否使用相对坐标 (布尔值，可选，默认false为绝对坐标)'),
   });
 
   // 校验和 schema 描述由基类提供
@@ -53,8 +74,12 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       const count = params.count ?? 1;
       const bypassAllCheck = params.bypassAllCheck ?? false;
       const maxDistance = params.maxDistance ?? 48;
+      const useRelativeCoords = params.useRelativeCoords ?? false;
       
-      this.logger.info(`开始挖掘方块: ${params.name}, 数量: ${count}, 绕过所有检查: ${bypassAllCheck}, 方向: ${params.direction || '附近搜索'}`);
+      // 检查是否提供了坐标参数
+      const hasCoordinates = params.x !== undefined && params.y !== undefined && params.z !== undefined;
+      
+      this.logger.info(`开始挖掘方块: ${params.name}, 数量: ${count}, 绕过所有检查: ${bypassAllCheck}, 方向: ${params.direction || '附近搜索'}, 坐标模式: ${hasCoordinates ? '精准坐标' : '搜索模式'}`);
       
       const mcData = bot.registry;
       const blockByName = mcData.blocksByName[params.name];
@@ -68,57 +93,24 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       let successCount = 0;
       let fallbackCount = 0;
 
-      // 搜索目标方块
-      for (let i = 0; i < count; i++) {
-        let block;
-        
-        if (params.direction) {
-          // 按指定方向搜索
-          block = this.findBlockInDirection(bot, blockByName.id, params.direction, maxDistance);
-        } else {
-          // 在附近搜索（原有行为）
-          block = bot.findBlock({
-            matching: [blockByName.id],
-            maxDistance: maxDistance,
-          });
-        }
-        
-        if (!block) {
-          const directionText = params.direction ? `在${this.getDirectionText(params.direction)}方向` : '附近';
-          this.logger.warn(`已挖掘 ${successCount} 个 ${params.name} 方块，${directionText}未找到第 ${i+1} 个，请先探索其他区域`);
-          return this.createErrorResult(`已挖掘 ${successCount} 个 ${params.name} 方块，${directionText}未找到第 ${i+1} 个，请先探索其他区域`, 'NO_BLOCK_NEARBY');
-        }
-        
-        const directionText = params.direction ? `在${this.getDirectionText(params.direction)}方向` : '';
-        this.logger.info(`找到第 ${i+1} 个 ${params.name} 方块${directionText}，位置: ${block.position.x}, ${block.position.y}, ${block.position.z}`);
-
-        if (bypassAllCheck) {
-          // 绕过安全检查，直接使用bot.dig()
-          this.logger.info(`绕过安全检查，直接挖掘方块`);
-          await this.digBlockDirectly(bot, block);
-        } else {
-          // 使用collectBlock插件（包含安全检查）
-          try {
-            await bot.collectBlock.collect(block, { 
-              ignoreNoPath: false,
-              count
-            });
-          } catch (collectError) {
-            throw collectError;
-          }
-        }
-        
-        successCount++;
-        this.logger.info(`成功挖掘第 ${i+1} 个 ${params.name} 方块`);
+      // 根据是否提供坐标选择挖掘策略
+      if (hasCoordinates) {
+        // 精准坐标挖掘模式
+        successCount = await this.mineAtCoordinates(bot, params, blockByName, count, bypassAllCheck, useRelativeCoords);
+      } else {
+        // 搜索挖掘模式（原有逻辑）
+        successCount = await this.mineBySearch(bot, params, blockByName, count, bypassAllCheck, maxDistance);
       }
 
       // 成功完成挖掘
       const directionText = params.direction ? `在${this.getDirectionText(params.direction)}方向` : '';
-      const resultMessage = `成功挖掘了 ${successCount} 个 ${params.name} 方块${directionText}`;
+      const coordinateText = hasCoordinates ? `在坐标 (${params.x}, ${params.y}, ${params.z})` : '';
+      const resultMessage = `成功挖掘了 ${successCount} 个 ${params.name} 方块${directionText}${coordinateText}`;
       const resultData = { 
         minedCount: successCount,
         blockName: params.name,
         direction: params.direction,
+        coordinates: hasCoordinates ? { x: params.x, y: params.y, z: params.z, useRelativeCoords } : undefined,
         fallbackCount: fallbackCount
       };
       
@@ -215,6 +207,134 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       '-x': 'X轴负方向'
     };
     return directionMap[direction] || direction;
+  }
+
+  /**
+   * 精准坐标挖掘模式
+   */
+  private async mineAtCoordinates(
+    bot: Bot, 
+    params: MineBlockParams, 
+    blockByName: any, 
+    count: number, 
+    bypassAllCheck: boolean, 
+    useRelativeCoords: boolean
+  ): Promise<number> {
+    const botPos = bot.entity.position;
+    let targetX = params.x!;
+    let targetY = params.y!;
+    let targetZ = params.z!;
+    
+    // 如果是相对坐标，需要加上机器人当前位置
+    if (useRelativeCoords) {
+      targetX = Math.floor(botPos.x) + targetX;
+      targetY = Math.floor(botPos.y) + targetY;
+      targetZ = Math.floor(botPos.z) + targetZ;
+    }
+    
+    this.logger.info(`准备挖掘坐标 (${targetX}, ${targetY}, ${targetZ}) 的方块，相对坐标模式: ${useRelativeCoords}`);
+    
+    // 获取目标位置的方块
+    const targetBlock = bot.blockAt(new Vec3(targetX, targetY, targetZ));
+    
+    if (!targetBlock) {
+      this.logger.error(`目标坐标 (${targetX}, ${targetY}, ${targetZ}) 没有方块`);
+      throw new Error(`目标坐标 (${targetX}, ${targetY}, ${targetZ}) 没有方块`);
+    }
+    
+    // 检查方块类型是否匹配
+    if (targetBlock.type !== blockByName.id) {
+      this.logger.error(`目标坐标 (${targetX}, ${targetY}, ${targetZ}) 的方块类型是 ${targetBlock.name}，不是期望的 ${params.name}`);
+      throw new Error(`目标坐标 (${targetX}, ${targetY}, ${targetZ}) 的方块类型是 ${targetBlock.name}，不是期望的 ${params.name}`);
+    }
+    
+    this.logger.info(`找到目标方块: ${targetBlock.name} 在坐标 (${targetX}, ${targetY}, ${targetZ})`);
+    
+    let successCount = 0;
+    
+    // 挖掘指定数量的方块（在坐标模式下，通常只挖掘一个）
+    for (let i = 0; i < count; i++) {
+      if (bypassAllCheck) {
+        // 绕过安全检查，直接使用bot.dig()
+        this.logger.info(`绕过安全检查，直接挖掘方块`);
+        await this.digBlockDirectly(bot, targetBlock);
+      } else {
+        // 使用collectBlock插件（包含安全检查）
+        try {
+          await bot.collectBlock.collect(targetBlock, { 
+            ignoreNoPath: false,
+            count: 1
+          });
+        } catch (collectError) {
+          throw collectError;
+        }
+      }
+      
+      successCount++;
+      this.logger.info(`成功挖掘第 ${i+1} 个 ${params.name} 方块在坐标 (${targetX}, ${targetY}, ${targetZ})`);
+    }
+    
+    return successCount;
+  }
+
+  /**
+   * 搜索挖掘模式（原有逻辑）
+   */
+  private async mineBySearch(
+    bot: Bot, 
+    params: MineBlockParams, 
+    blockByName: any, 
+    count: number, 
+    bypassAllCheck: boolean, 
+    maxDistance: number
+  ): Promise<number> {
+    let successCount = 0;
+    
+    // 搜索目标方块
+    for (let i = 0; i < count; i++) {
+      let block;
+      
+      if (params.direction) {
+        // 按指定方向搜索
+        block = this.findBlockInDirection(bot, blockByName.id, params.direction, maxDistance);
+      } else {
+        // 在附近搜索（原有行为）
+        block = bot.findBlock({
+          matching: [blockByName.id],
+          maxDistance: maxDistance,
+        });
+      }
+      
+      if (!block) {
+        const directionText = params.direction ? `在${this.getDirectionText(params.direction)}方向` : '附近';
+        this.logger.warn(`已挖掘 ${successCount} 个 ${params.name} 方块，${directionText}未找到第 ${i+1} 个，请先探索其他区域`);
+        throw new Error(`已挖掘 ${successCount} 个 ${params.name} 方块，${directionText}未找到第 ${i+1} 个，请先探索其他区域`);
+      }
+      
+      const directionText = params.direction ? `在${this.getDirectionText(params.direction)}方向` : '';
+      this.logger.info(`找到第 ${i+1} 个 ${params.name} 方块${directionText}，位置: ${block.position.x}, ${block.position.y}, ${block.position.z}`);
+
+      if (bypassAllCheck) {
+        // 绕过安全检查，直接使用bot.dig()
+        this.logger.info(`绕过安全检查，直接挖掘方块`);
+        await this.digBlockDirectly(bot, block);
+      } else {
+        // 使用collectBlock插件（包含安全检查）
+        try {
+          await bot.collectBlock.collect(block, { 
+            ignoreNoPath: false,
+            count: 1
+          });
+        } catch (collectError) {
+          throw collectError;
+        }
+      }
+      
+      successCount++;
+      this.logger.info(`成功挖掘第 ${i+1} 个 ${params.name} 方块`);
+    }
+    
+    return successCount;
   }
 
   /**
