@@ -8,6 +8,7 @@ interface CraftItemParams extends BaseActionParams {
   item: string;
   count?: number;
   preferredMaterials?: string[];
+  without_crafting_table?: boolean;
 }
 
 export class CraftItemAction extends BaseAction<CraftItemParams> {
@@ -17,6 +18,7 @@ export class CraftItemAction extends BaseAction<CraftItemParams> {
     item: z.string().describe('要合成的物品名称 (字符串)'),
     count: z.number().int().min(1).optional().describe('合成数量 (数字，可选，默认为1)'),
     preferredMaterials: z.array(z.string()).optional().describe('偏好的材料列表，按优先级排序 (字符串数组，可选)'),
+    without_crafting_table: z.boolean().optional().describe('是否强制不使用工作台 (布尔值，可选，默认false)'),
   });
 
   // 校验与参数描述由基类通过 schema 自动提供
@@ -153,70 +155,77 @@ export class CraftItemAction extends BaseAction<CraftItemParams> {
         return this.createErrorResult(`未找到名为 ${params.item} 的物品`, 'ITEM_NOT_FOUND');
       }
 
-      // 1) 尝试寻找附近工作台
-      let craftingTableBlock: any = bot.findBlock({
-        matching: mcData.blocksByName.crafting_table.id,
-        maxDistance: 48
-      });
+      // 1) 根据 without_crafting_table 参数决定是否使用工作台
+      let craftingTableBlock: any = null;
+      
+      if (!params.without_crafting_table) {
+        // 尝试寻找附近工作台
+        craftingTableBlock = bot.findBlock({
+          matching: mcData.blocksByName.crafting_table.id,
+          maxDistance: 48
+        });
 
-      // 2) 判断是否需要工作台
-      const recipeWithoutTable = bot.recipesFor(itemByName.id, null, 1, null)?.[0];
+        // 2) 判断是否需要工作台
+        const recipeWithoutTable = bot.recipesFor(itemByName.id, null, 1, null)?.[0];
 
-      // 若未找到工作台且必须使用工作台
-      if (!craftingTableBlock && !recipeWithoutTable) {
-        // 检查背包是否有工作台
-        const craftingTableItem = bot.inventory.findInventoryItem(mcData.itemsByName.crafting_table.id, null, false);
+        // 若未找到工作台且必须使用工作台
+        if (!craftingTableBlock && !recipeWithoutTable) {
+          // 检查背包是否有工作台
+          const craftingTableItem = bot.inventory.findInventoryItem(mcData.itemsByName.crafting_table.id, null, false);
 
-        if (craftingTableItem) {
-          try {
-            // 尝试放置工作台
-            if (bot.pathfinder?.goto) {
-              // 使用 pathfinder 移动到目标放置点附近
-              const {GoalNear} = pathfinder.goals;
-              if (!GoalNear) {
-                return this.createErrorResult('mineflayer-pathfinder goals 未加载', 'PATHFINDER_NOT_LOADED');
+          if (craftingTableItem) {
+            try {
+              // 尝试放置工作台
+              if (bot.pathfinder?.goto) {
+                // 使用 pathfinder 移动到目标放置点附近
+                const {GoalNear} = pathfinder.goals;
+                if (!GoalNear) {
+                  return this.createErrorResult('mineflayer-pathfinder goals 未加载', 'PATHFINDER_NOT_LOADED');
+                }
+
+                const placePos = bot.entity.position.offset(1, 0, 0);
+                const goal = new GoalNear(placePos.x, placePos.y, placePos.z, 1);
+                await bot.pathfinder.goto(goal);
               }
 
-              const placePos = bot.entity.position.offset(1, 0, 0);
-              const goal = new GoalNear(placePos.x, placePos.y, placePos.z, 1);
-              await bot.pathfinder.goto(goal);
-            }
+              await bot.equip(craftingTableItem, 'hand');
 
-            await bot.equip(craftingTableItem, 'hand');
+              // 寻找参照方块放置
+              const faceVectors = [
+                new Vec3(0, 1, 0), new Vec3(0, -1, 0), new Vec3(1, 0, 0), new Vec3(-1, 0, 0), new Vec3(0, 0, 1), new Vec3(0, 0, -1)
+              ];
 
-            // 寻找参照方块放置
-            const faceVectors = [
-              new Vec3(0, 1, 0), new Vec3(0, -1, 0), new Vec3(1, 0, 0), new Vec3(-1, 0, 0), new Vec3(0, 0, 1), new Vec3(0, 0, -1)
-            ];
-
-            let referenceBlock: any = null;
-            let faceVector: any = null;
-            for (const v of faceVectors) {
-              const block = bot.blockAt(bot.entity.position.minus(v));
-              if (block && block.name !== 'air') {
-                referenceBlock = block;
-                faceVector = v;
-                break;
+              let referenceBlock: any = null;
+              let faceVector: any = null;
+              for (const v of faceVectors) {
+                const block = bot.blockAt(bot.entity.position.minus(v));
+                if (block && block.name !== 'air') {
+                  referenceBlock = block;
+                  faceVector = v;
+                  break;
+                }
               }
-            }
 
-            if (referenceBlock && faceVector) {
-              await bot.placeBlock(referenceBlock, faceVector);
-              // 重新获取工作台方块
-              craftingTableBlock = bot.findBlock({
-                matching: mcData.blocksByName.crafting_table.id,
-                maxDistance: 5
-              });
+              if (referenceBlock && faceVector) {
+                await bot.placeBlock(referenceBlock, faceVector);
+                // 重新获取工作台方块
+                craftingTableBlock = bot.findBlock({
+                  matching: mcData.blocksByName.crafting_table.id,
+                  maxDistance: 5
+                });
+              }
+            } catch (placeErr) {
+              // 放置失败忽略，继续尝试无工作台配方
+              this.logger.warn('放置工作台失败', placeErr);
             }
-          } catch (placeErr) {
-            // 放置失败忽略，继续尝试无工作台配方
-            this.logger.warn('放置工作台失败', placeErr);
           }
         }
+      } else {
+        this.logger.info('用户指定不使用工作台进行合成');
       }
 
-      // 3) 如果已找到工作台且路径插件可用，走过去
-      if (craftingTableBlock && bot.pathfinder?.goto) {
+      // 3) 如果已找到工作台且路径插件可用，走过去（仅在未指定 without_crafting_table 时）
+      if (!params.without_crafting_table && craftingTableBlock && bot.pathfinder?.goto) {
         const { GoalNear } = pathfinder.goals;
         if (!GoalNear) {
           return this.createErrorResult('mineflayer-pathfinder goals 未加载', 'PATHFINDER_NOT_LOADED');
@@ -227,6 +236,16 @@ export class CraftItemAction extends BaseAction<CraftItemParams> {
 
       // 4) 获取所有配方并尝试合成
       const allRecipes = bot.recipesAll(itemByName.id, null, craftingTableBlock ?? null);
+      
+      // 如果用户指定不使用工作台，但物品需要工作台且没有可用配方
+      if (params.without_crafting_table && (!allRecipes || allRecipes.length === 0)) {
+        // 检查是否有需要工作台的配方（使用 true 表示需要工作台）
+        const recipesWithTable = bot.recipesAll(itemByName.id, null, true);
+        if (recipesWithTable && recipesWithTable.length > 0) {
+          return this.createErrorResult(`${params.item} 需要工作台才能合成，但用户指定不使用工作台`, 'CRAFTING_TABLE_REQUIRED');
+        }
+      }
+      
       if (!allRecipes || allRecipes.length === 0) {
         return this.createErrorResult(`无法找到 ${params.item} 的合成配方`, 'RECIPE_NOT_FOUND');
       }
