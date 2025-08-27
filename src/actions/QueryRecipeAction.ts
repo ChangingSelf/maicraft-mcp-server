@@ -5,21 +5,22 @@ import { Recipe, RecipeItem } from 'minecraft-data';
 
 interface QueryRecipeParams extends BaseActionParams {
   item: string;
-  useCraftingTable: boolean;
 }
 
-// 简化的配方格式，直接是材料数组
-type SimplifiedRecipe = Array<{
-  name: string;
-  count: number;
-}>;
+// 简化的配方格式，包含工作台需求标记
+type SimplifiedRecipe = {
+  ingredients: Array<{
+    name: string;
+    count: number;
+  }>;
+  requiresCraftingTable: boolean;
+};
 
 export class QueryRecipeAction extends BaseAction<QueryRecipeParams> {
   name = 'queryRecipe';
   description = '查询指定物品的合成配方所需的材料及数量，返回数组中每一组材料都可以合成目标物品';
   schema = z.object({
     item: z.string().describe('要查询配方的物品名称 (字符串)'),
-    useCraftingTable: z.boolean().optional().describe('是否使用合成台 (布尔值，可选，默认false)'),
   });
 
   /**
@@ -67,11 +68,12 @@ export class QueryRecipeAction extends BaseAction<QueryRecipeParams> {
   /**
    * 将原始配方转换为简化格式
    */
-  private convertRecipeToSimplified(mcData: any, recipe: any): SimplifiedRecipe {
+  private convertRecipeToSimplified(mcData: any, recipe: any, requiresCraftingTable: boolean): SimplifiedRecipe {
+    let ingredients: { [name: string]: number } = {};
+    
     if ('inShape' in recipe) {
       // ShapedRecipe
       const shapedRecipe = recipe as any;
-      const ingredients: { [name: string]: number } = {};
       
       // 统计形状中的物品数量
       const shape = shapedRecipe.inShape ?? [];
@@ -85,12 +87,9 @@ export class QueryRecipeAction extends BaseAction<QueryRecipeParams> {
           }
         }
       }
-      
-      return Object.entries(ingredients).map(([name, count]) => ({ name, count }));
     } else {
       // ShapelessRecipe
       const shapelessRecipe = recipe as any;
-      const ingredients: { [name: string]: number } = {};
       
       // 统计无形状配方中的物品数量
       const ingredientsList = shapelessRecipe.ingredients ?? [];
@@ -100,9 +99,12 @@ export class QueryRecipeAction extends BaseAction<QueryRecipeParams> {
           ingredients[itemName] = (ingredients[itemName] || 0) + 1;
         }
       }
-      
-      return Object.entries(ingredients).map(([name, count]) => ({ name, count }));
     }
+    
+    return {
+      ingredients: Object.entries(ingredients).map(([name, count]) => ({ name, count })),
+      requiresCraftingTable
+    };
   }
 
   async execute(bot: Bot, params: QueryRecipeParams): Promise<ActionResult> {
@@ -141,21 +143,79 @@ export class QueryRecipeAction extends BaseAction<QueryRecipeParams> {
         return this.createErrorResult(`未找到名为 ${params.item} 的物品`, 'ITEM_NOT_FOUND');
       }
 
-      // 查询配方
-      const recipes = bot.recipesAll(itemByName.id, null, params.useCraftingTable ?? false);
+      // 查询所有配方（包括需要工作台和不需要工作台的）
+      const recipesWithoutTable = bot.recipesAll(itemByName.id, null, false) || [];
+      const recipesWithTable = bot.recipesAll(itemByName.id, null, true) || [];
       
-      if (!recipes || recipes.length === 0) {
-        return this.createErrorResult(`未找到 ${params.item} 在${(params.useCraftingTable??false) ? '使用工作台时' : '不使用工作台时'}的合成配方`, 'RECIPE_NOT_FOUND');
+      const allRecipes: SimplifiedRecipe[] = [];
+      
+      // 添加不需要工作台的配方
+      recipesWithoutTable.forEach(recipe => {
+        allRecipes.push(this.convertRecipeToSimplified(mcData, recipe, false));
+      });
+      
+      // 添加需要工作台的配方
+      recipesWithTable.forEach(recipe => {
+        allRecipes.push(this.convertRecipeToSimplified(mcData, recipe, true));
+      });
+
+      if (allRecipes.length === 0) {
+        return this.createErrorResult(`未找到 ${params.item} 的任何合成配方`, 'RECIPE_NOT_FOUND');
       }
 
-      // 转换配方为简化格式
-      const simplifiedRecipes = recipes.map(recipe => this.convertRecipeToSimplified(mcData, recipe));
+      // 去重配方（基于材料组合和工作台需求）
+      const uniqueRecipes = this.removeDuplicateRecipes(allRecipes);
+
       return this.createSuccessResult(`找到 ${params.item} 的合成配方:`, {
-        recipes: simplifiedRecipes,
+        recipes: uniqueRecipes,
+        summary: {
+          total: uniqueRecipes.length,
+          withoutTable: uniqueRecipes.filter(r => !r.requiresCraftingTable).length,
+          withTable: uniqueRecipes.filter(r => r.requiresCraftingTable).length
+        },
         tips: '不同材质的物品一般也能用同样的方法合成，例如不同材质木板都可以合成木棍'
       });
     } catch (error) {
       return this.createExceptionResult(error, '查询配方失败', 'QUERY_FAILED');
     }
+  }
+
+  /**
+   * 去除重复的配方
+   * 当配料和数量完全一致时，优先保留不需要工作台的配方
+   */
+  private removeDuplicateRecipes(recipes: SimplifiedRecipe[]): SimplifiedRecipe[] {
+    // 先按材料组合分组
+    const recipeGroups = new Map<string, SimplifiedRecipe[]>();
+    
+    for (const recipe of recipes) {
+      // 创建配方的唯一标识（仅基于材料排序，不包含工作台需求）
+      const ingredientsKey = recipe.ingredients
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map(ing => `${ing.name}:${ing.count}`)
+        .join(',');
+      
+      if (!recipeGroups.has(ingredientsKey)) {
+        recipeGroups.set(ingredientsKey, []);
+      }
+      recipeGroups.get(ingredientsKey)!.push(recipe);
+    }
+    
+    // 对每个材料组合，优先选择不需要工作台的配方
+    const uniqueRecipes: SimplifiedRecipe[] = [];
+    
+    for (const [ingredientsKey, groupRecipes] of recipeGroups) {
+      // 找到不需要工作台的配方
+      const withoutTable = groupRecipes.find(r => !r.requiresCraftingTable);
+      // 如果存在不需要工作台的配方，优先使用它
+      if (withoutTable) {
+        uniqueRecipes.push(withoutTable);
+      } else {
+        // 如果不存在不需要工作台的配方，使用第一个（通常是需要工作台的）
+        uniqueRecipes.push(groupRecipes[0]);
+      }
+    }
+    
+    return uniqueRecipes;
   }
 }
