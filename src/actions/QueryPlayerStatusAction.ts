@@ -50,6 +50,18 @@ export class QueryPlayerStatusAction extends BaseAction<QueryPlayerStatusParams>
           y: Number(bot.entity.position.y?.toFixed(2) ?? 0),
           z: Number(bot.entity.position.z?.toFixed(2) ?? 0)
         },
+        velocity: {
+          x: Number(bot.entity.velocity.x?.toFixed(2) ?? 0),
+          y: Number(bot.entity.velocity.y?.toFixed(2) ?? 0),
+          z: Number(bot.entity.velocity.z?.toFixed(2) ?? 0)
+        },
+
+        blockAtEntityCursor: bot.blockAtEntityCursor(bot.entity),//玩家注视的方块
+        entityAtCursor: bot.entityAtCursor(),//玩家注视的实体
+        heldItem: bot.heldItem,//玩家手持物品
+        usingHeldItem: bot.usingHeldItem,//玩家是否正在使用手持物品
+
+        // 属性
         biome: biome.name,
         health: {
           current: bot.health,
@@ -72,6 +84,11 @@ export class QueryPlayerStatusAction extends BaseAction<QueryPlayerStatusParams>
         armor: MinecraftUtils.getArmorValue(bot),
       
         isSleeping: bot.isSleeping,
+        
+        onGround: bot.entity.onGround,
+        yaw: bot.entity.yaw,
+        pitch: bot.entity.pitch,
+        
         
         // 装备栏
         equipment: {
