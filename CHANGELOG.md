@@ -1,5 +1,12 @@
 # 更新日志
 
+## [1.5.0] - 2025-08-29
+
+- 新增动作：`QueryRawRecipeAction`，直接给出原始查询方法，仅作简单封装
+- 新增动作：`CraftWithRecipeAction`，直接使用配方进行合成
+- 新增动作：`QueryBlockAction`，查询方块信息和容器内容
+- `QueryPlayerStatusAction` 添加查询玩家俯仰角等信息
+
 ## [1.4.9] - 2025-08-28
 
 - `CraftItemAction` 添加强制不使用工作台选项
