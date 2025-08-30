@@ -21,9 +21,35 @@ interface UseChestParams extends BaseActionParams {
   z?: number;
 }
 
+// 新增：单个箱子信息接口
+interface ChestInfo {
+  location: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  contents: Array<{
+    name: string;
+    count: number;
+  }>;
+  operations: string[];
+  successCount: number;
+  errorCount: number;
+}
+
+// 新增：多箱子操作结果接口
+interface MultiChestResult {
+  totalChests: number;
+  totalSuccessCount: number;
+  totalErrorCount: number;
+  chests: ChestInfo[];
+  remainingItems: ItemWithCount[]; // 未能完全取出的物品
+  summary: string;
+}
+
 export class UseChestAction extends BaseAction<UseChestParams> {
   name = 'useChest';
-  description = '与箱子交互，默认存储操作，支持为每种物品指定不同数量，物品不足时会取完现有并提示还差多少';
+  description = '与箱子交互，默认存储操作，支持为每种物品指定不同数量。取出操作时，如果未指定特定箱子，会自动从附近多个箱子中取够所需物品，并返回所有相关箱子的内容信息';
   schema = z.object({
     action: z.enum(['store', 'withdraw']).optional().describe('操作类型 (store | withdraw，默认是 store)'),
     items: z.array(z.object({
@@ -34,10 +60,6 @@ export class UseChestAction extends BaseAction<UseChestParams> {
     y: z.number().int().optional().describe('箱子Y坐标 (整数，可选)'),
     z: z.number().int().optional().describe('箱子Z坐标 (整数，可选)'),
   });
-
-  // 校验和参数描述由基类通过 schema 自动提供
-
-
 
   /**
    * 验证物品是否存在并返回物品元数据
@@ -88,6 +110,44 @@ export class UseChestAction extends BaseAction<UseChestParams> {
       }
       return chestBlock;
     }
+  }
+
+  /**
+   * 查找多个箱子（按距离排序）
+   */
+  private findMultipleChests(bot: Bot, mcData: any, maxDistance: number = 32): any[] {
+    const chestBlocks: any[] = [];
+    const visitedPositions = new Set<string>();
+    
+    // 使用 findBlocks 方法查找所有箱子位置，然后按距离排序
+    const allChestPositions = bot.findBlocks({
+      matching: mcData.blocksByName.chest.id,
+      maxDistance: maxDistance,
+      count: 20 // 最多查找20个箱子
+    });
+    
+    // 按距离排序
+    allChestPositions.sort((a, b) => {
+      const distA = bot.entity.position.distanceTo(a);
+      const distB = bot.entity.position.distanceTo(b);
+      return distA - distB;
+    });
+    
+    // 去重并转换为方块对象
+    for (const pos of allChestPositions) {
+      if (chestBlocks.length >= 10) break; // 最多10个箱子
+      
+      const posKey = `${pos.x},${pos.y},${pos.z}`;
+      if (!visitedPositions.has(posKey)) {
+        visitedPositions.add(posKey);
+        const block = bot.blockAt(pos);
+        if (block) {
+          chestBlocks.push(block);
+        }
+      }
+    }
+    
+    return chestBlocks;
   }
 
   /**
@@ -198,7 +258,7 @@ export class UseChestAction extends BaseAction<UseChestParams> {
     itemMeta: any,
     count: number,
     results: string[]
-  ): Promise<{ success: boolean, shortage: number }> {
+  ): Promise<{ success: boolean, shortage: number, withdrawn: number }> {
     let withdrawCount = 0;
     let shortage = 0;
 
@@ -206,7 +266,7 @@ export class UseChestAction extends BaseAction<UseChestParams> {
       const chestItem = chest.containerItems().find((it: any) => it.type === itemMeta.id);
       if (!chestItem) {
         results.push(`箱子中没有 ${itemName}`);
-        return { success: false, shortage: count };
+        return { success: false, shortage: count, withdrawn: 0 };
       }
 
       withdrawCount = Math.min(count, chestItem.count);
@@ -214,12 +274,12 @@ export class UseChestAction extends BaseAction<UseChestParams> {
 
       await chest.withdraw(itemMeta.id, null, withdrawCount);
       results.push(`已取出 ${itemName} ${withdrawCount} 个`);
-      return { success: true, shortage };
+      return { success: true, shortage, withdrawn: withdrawCount };
     } catch (itemErr) {
       const errorMessage = itemErr instanceof Error ? itemErr.message : String(itemErr);
       const detailedError = `取出 ${itemName} 失败: ${errorMessage} (尝试取出 ${withdrawCount} 个)`;
       results.push(detailedError);
-      return { success: false, shortage };
+      return { success: false, shortage, withdrawn: 0 };
     }
   }
 
@@ -293,6 +353,183 @@ export class UseChestAction extends BaseAction<UseChestParams> {
     }
   }
 
+  /**
+   * 创建多箱子操作结果
+   */
+  private createMultiChestResult(
+    multiChestResult: MultiChestResult
+  ): ActionResult {
+    const { totalChests, totalSuccessCount, totalErrorCount, remainingItems, summary } = multiChestResult;
+
+    if (totalSuccessCount > 0 && remainingItems.length === 0) {
+      return {
+        success: true,
+        message: summary,
+        data: multiChestResult
+      };
+    } else if (totalSuccessCount > 0) {
+      return {
+        success: true,
+        message: `部分成功: ${summary}`,
+        data: multiChestResult
+      };
+    } else {
+      return {
+        success: false,
+        message: `所有操作失败: ${summary}`,
+        data: multiChestResult,
+        error: `ALL_OPERATIONS_FAILED: ${summary}`
+      };
+    }
+  }
+
+  /**
+   * 执行多箱子取出操作
+   */
+  private async performMultiChestWithdraw(
+    bot: Bot,
+    items: ItemWithCount[],
+    itemMetas: any[],
+    mcData: any
+  ): Promise<MultiChestResult> {
+    const chests: ChestInfo[] = [];
+    let totalSuccessCount = 0;
+    let totalErrorCount = 0;
+    
+    // 复制物品列表，用于跟踪剩余需求
+    const remainingItems = items.map(item => ({ ...item }));
+    
+    // 查找多个箱子
+    const chestBlocks = this.findMultipleChests(bot, mcData);
+    
+    if (chestBlocks.length === 0) {
+      throw new Error('附近没有找到任何箱子');
+    }
+
+    // 遍历每个箱子
+    for (const chestBlock of chestBlocks) {
+      const chestInfo: ChestInfo = {
+        location: {
+          x: chestBlock.position.x,
+          y: chestBlock.position.y,
+          z: chestBlock.position.z
+        },
+        contents: [],
+        operations: [],
+        successCount: 0,
+        errorCount: 0
+      };
+
+      try {
+        // 移动到箱子附近
+        await this.moveToChest(bot, chestBlock);
+        
+        // 打开箱子
+        const chest = await bot.openContainer(chestBlock);
+        
+        try {
+          // 获取箱子内容
+          chestInfo.contents = this.getChestContents(chest, mcData);
+          
+          // 尝试从这个箱子取出剩余需要的物品
+          for (let i = 0; i < remainingItems.length; i++) {
+            const item = remainingItems[i];
+            if (item.count <= 0) continue; // 已经取够了
+            
+            const { success, shortage, withdrawn } = await this.performWithdrawOperation(
+              chest,
+              item.name,
+              itemMetas[i],
+              item.count,
+              chestInfo.operations
+            );
+            
+            if (success && withdrawn > 0) {
+              chestInfo.successCount++;
+              totalSuccessCount++;
+              
+              // 更新剩余需求
+              item.count -= withdrawn;
+              
+              if (item.count <= 0) {
+                chestInfo.operations.push(`✅ 已完全取出 ${item.name}`);
+              }
+            } else {
+              chestInfo.errorCount++;
+              totalErrorCount++;
+            }
+          }
+          
+        } finally {
+          chest.close();
+        }
+        
+        chests.push(chestInfo);
+        
+        // 检查是否所有物品都已取够
+        const allItemsComplete = remainingItems.every(item => item.count <= 0);
+        if (allItemsComplete) {
+          break; // 提前结束，不需要继续查找其他箱子
+        }
+        
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        chestInfo.operations.push(`❌ 访问箱子失败: ${errorMessage}`);
+        chestInfo.errorCount++;
+        totalErrorCount++;
+        chests.push(chestInfo);
+      }
+    }
+    
+    // 过滤掉已完全取出的物品
+    const finalRemainingItems = remainingItems.filter(item => item.count > 0);
+    
+    // 生成摘要
+    const summary = this.generateMultiChestSummary(
+      chests.length,
+      totalSuccessCount,
+      totalErrorCount,
+      finalRemainingItems
+    );
+    
+    return {
+      totalChests: chests.length,
+      totalSuccessCount,
+      totalErrorCount,
+      chests,
+      remainingItems: finalRemainingItems,
+      summary
+    };
+  }
+
+  /**
+   * 生成多箱子操作摘要
+   */
+  private generateMultiChestSummary(
+    totalChests: number,
+    totalSuccessCount: number,
+    totalErrorCount: number,
+    remainingItems: ItemWithCount[]
+  ): string {
+    const parts: string[] = [];
+    
+    parts.push(`访问了 ${totalChests} 个箱子`);
+    parts.push(`成功操作: ${totalSuccessCount} 次`);
+    
+    if (totalErrorCount > 0) {
+      parts.push(`失败操作: ${totalErrorCount} 次`);
+    }
+    
+    if (remainingItems.length > 0) {
+      const remainingList = remainingItems.map(item => `${item.name}(${item.count})`).join(', ');
+      parts.push(`未能完全取出: ${remainingList}`);
+    } else {
+      parts.push('所有物品已完全取出');
+    }
+    
+    return parts.join('; ');
+  }
+
   async execute(bot: Bot, params: UseChestParams): Promise<ActionResult> {
     try {
       const action = (params.action ?? 'store').toLowerCase();
@@ -301,17 +538,18 @@ export class UseChestAction extends BaseAction<UseChestParams> {
       // 验证所有物品是否存在
       const { itemMetas, validItems } = this.validateItems(params.items, mcData);
 
-      // 找到指定箱子或最近箱子
+      // 如果是取出操作且没有指定特定箱子，则执行多箱子操作
+      if (action === 'withdraw' && params.x === undefined && params.y === undefined && params.z === undefined) {
+        const multiChestResult = await this.performMultiChestWithdraw(bot, validItems, itemMetas, mcData);
+        return this.createMultiChestResult(multiChestResult);
+      }
+
+      // 单箱子操作（原有逻辑）
       const chestBlock = this.findChest(bot, params, mcData);
-
-      // 移动到箱子附近
       await this.moveToChest(bot, chestBlock);
-
-      // 打开箱子并执行操作
       const chest = await bot.openContainer(chestBlock);
 
       try {
-        // 执行存储或取出操作
         const { results, successCount, totalErrors } = await this.performOperations(
           chest,
           action,
@@ -320,10 +558,7 @@ export class UseChestAction extends BaseAction<UseChestParams> {
           bot
         );
 
-        // 获取箱子内容信息
         const chestContents = this.getChestContents(chest, mcData);
-
-        // 创建并返回结果
         return this.createOperationResult(results, chestContents, chestBlock, successCount, totalErrors);
       } finally {
         chest.close();
