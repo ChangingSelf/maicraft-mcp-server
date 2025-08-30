@@ -3,6 +3,7 @@ import minecraftData from 'minecraft-data';
 import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 import pathfinder from 'mineflayer-pathfinder';
+import { MovementUtils } from '../utils/MovementUtils.js';
 
 interface CollectSmeltedItemsParams extends BaseActionParams {
   /** 要收集的熔炼产物名称（可选，如果不指定则收集所有产物） */
@@ -64,13 +65,19 @@ export class CollectSmeltedItemsAction extends BaseAction<CollectSmeltedItemsPar
       }
 
       // 移动到熔炉附近
-      if (bot.pathfinder?.goto) {
-        const { GoalLookAtBlock } = pathfinder.goals;
-        if (!GoalLookAtBlock) {
-          return this.createErrorResult('mineflayer-pathfinder goals 未加载', 'PATHFINDER_NOT_LOADED');
-        }
-        const goal = new GoalLookAtBlock(furnaceBlock.position, bot.world as any);
-        await bot.pathfinder.goto(goal);
+      // 使用统一的移动工具类移动到熔炉位置
+      const moveResult = await MovementUtils.moveToCoordinate(
+        bot,
+        furnaceBlock.position.x,
+        furnaceBlock.position.y,
+        furnaceBlock.position.z,
+        3, // 到达距离（稍微远一点，以便更好地看到熔炉）
+        32, // 最大移动距离
+        false // 不使用相对坐标
+      );
+
+      if (!moveResult.success) {
+        this.logger.warn(`移动到熔炉失败: ${moveResult.error}，尝试直接操作熔炉`);
       }
 
       // 打开熔炉

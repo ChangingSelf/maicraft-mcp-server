@@ -2,6 +2,7 @@ import { Bot } from 'mineflayer';
 import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 import { Vec3 } from 'vec3';
+import { MovementUtils } from '../utils/MovementUtils.js';
 import pathfinder from 'mineflayer-pathfinder';
 
 interface PlaceBlockParams extends BaseActionParams {
@@ -132,28 +133,30 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
 
       // 尝试放置方块
       try {
-        // 如果路径查找器可用，移动到目标位置
-        if (bot.pathfinder?.goto) {
-          try {
-            const { GoalNear } = pathfinder.goals;
-            if (GoalNear) {
-              const goal = new GoalNear(position.x, position.y, position.z, 4);
-              await bot.pathfinder.goto(goal);
-            }
-          } catch (pathError) {
-            this.logger.warn('移动到目标位置失败，尝试直接放置', pathError);
-          }
+        // 使用统一的移动工具类移动到目标位置
+        const moveResult = await MovementUtils.moveToCoordinate(
+          bot,
+          position.x,
+          position.y,
+          position.z,
+          4, // 到达距离
+          100, // 最大移动距离
+          false // 不使用相对坐标
+        );
+
+        if (!moveResult.success) {
+          this.logger.warn(`移动到目标位置失败: ${moveResult.error}，尝试直接放置`);
         }
 
         // 装备物品
         await bot.equip(item, 'hand');
-        
+
         // 放置方块
         await bot.placeBlock(referenceBlock, faceVector);
 
         // 只要没有抛出错误，就认为放置成功
-        return this.createSuccessResult(`成功放置 ${params.block}`, { 
-          block: params.block, 
+        return this.createSuccessResult(`成功放置 ${params.block}`, {
+          block: params.block,
           position: { x: position.x, y: position.y, z: position.z },
           referenceBlock: referenceBlock.name,
           face: params.face || 'auto',

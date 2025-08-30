@@ -4,6 +4,7 @@ import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionI
 import { z } from 'zod';
 import pathfinder from 'mineflayer-pathfinder';
 import { Vec3 } from 'vec3';
+import { MovementUtils } from '../utils/MovementUtils.js';
 
 interface ItemWithCount {
   name: string;
@@ -154,21 +155,19 @@ export class UseChestAction extends BaseAction<UseChestParams> {
    * 移动到箱子附近
    */
   private async moveToChest(bot: Bot, chestBlock: any): Promise<void> {
-    if (bot.pathfinder?.goto) {
-      const { GoalLookAtBlock } = pathfinder.goals;
-      if (!GoalLookAtBlock) {
-        throw new Error('mineflayer-pathfinder 插件未正确加载，无法移动到箱子位置');
-      }
+    // 使用统一的移动工具类移动到箱子位置
+    const moveResult = await MovementUtils.moveToCoordinate(
+      bot,
+      chestBlock.position.x,
+      chestBlock.position.y,
+      chestBlock.position.z,
+      3, // 到达距离（稍微远一点，以便更好地看到箱子）
+      32, // 最大移动距离
+      false // 不使用相对坐标
+    );
 
-      try {
-        const goal = new GoalLookAtBlock(chestBlock.position, bot.world as any);
-        await bot.pathfinder.goto(goal);
-      } catch (pathError) {
-        const errorMessage = pathError instanceof Error ? pathError.message : String(pathError);
-        throw new Error(`无法移动到箱子位置 (${chestBlock.position.x}, ${chestBlock.position.y}, ${chestBlock.position.z}): ${errorMessage}`);
-      }
-    } else {
-      throw new Error('缺少 mineflayer-pathfinder 插件，无法移动到箱子位置');
+    if (!moveResult.success) {
+      throw new Error(`无法移动到箱子位置 (${chestBlock.position.x}, ${chestBlock.position.y}, ${chestBlock.position.z}): ${moveResult.error}`);
     }
   }
 

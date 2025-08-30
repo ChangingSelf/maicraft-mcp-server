@@ -1,6 +1,7 @@
 import { Bot } from 'mineflayer';
 import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
+import { MovementUtils } from '../utils/MovementUtils.js';
 import pathfinder from 'mineflayer-pathfinder';
 
 interface KillMobParams extends BaseActionParams {
@@ -40,13 +41,10 @@ export class KillMobAction extends BaseAction<KillMobParams> {
         await bot.pvp.attack(targetEntity);
       } else {
         // 使用 simple attack：靠近然后 swingArm（简化处理）
-        if (bot.pathfinder?.goto) {
-          const { GoalNear } = pathfinder.goals;
-          if (!GoalNear) {
-            return this.createErrorResult('mineflayer-pathfinder goals 未加载', 'PATHFINDER_NOT_LOADED');
-          }
-          const goal = new GoalNear(targetEntity.position.x, targetEntity.position.y, targetEntity.position.z, 2);
-          await bot.pathfinder.goto(goal);
+        // 使用统一的移动工具类移动到目标实体附近
+        const moveResult = await MovementUtils.moveToEntity(bot, params.mob, 2, 50);
+        if (!moveResult.success) {
+          this.logger.warn(`移动到目标实体失败: ${moveResult.error}，尝试直接攻击`);
         }
         await bot.attack(targetEntity);
       }

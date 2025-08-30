@@ -2,6 +2,7 @@ import { Bot } from 'mineflayer';
 import minecraftData from 'minecraft-data';
 import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
+import { MovementUtils } from '../utils/MovementUtils.js';
 import pathfinder from 'mineflayer-pathfinder';
 
 interface SwimToLandParams extends BaseActionParams {
@@ -39,10 +40,8 @@ export class SwimToLandAction extends BaseAction<SwimToLandParams> {
         }
       }
 
-      // ensure pathfinder
-      if (!bot.pathfinder) {
-        return this.createErrorResult('路径寻找插件未加载', 'PATHFINDER_NOT_LOADED');
-      }
+      // 检查移动工具类是否可用
+      // MovementUtils 会自动检查 pathfinder
 
       const mcData = minecraftData(bot.version);
       const waterId = mcData.blocksByName.water.id;
@@ -68,18 +67,14 @@ export class SwimToLandAction extends BaseAction<SwimToLandParams> {
       // 按距离排序
       positions.sort((a, b) => bot.entity.position.distanceTo(a) - bot.entity.position.distanceTo(b));
 
-      const { GoalNear } = pathfinder.goals;
-      if (!GoalNear) {
-        return this.createErrorResult('mineflayer-pathfinder goals 未加载', 'PATHFINDER_NOT_LOADED');
-      }
-
       const startTime = Date.now();
       for (const pos of positions) {
-        const goal = new GoalNear(pos.x, pos.y + 1, pos.z, 1);
-        try {
-          await bot.pathfinder.goto(goal);
-        } catch (_) {
-          continue; // 无法到达
+        // 使用统一的移动工具类移动到陆地位置
+        const moveResult = await MovementUtils.moveToCoordinate(bot, pos.x, pos.y + 1, pos.z, 1, maxDist, false);
+
+        if (!moveResult.success) {
+          // 无法到达这个位置，继续尝试下一个
+          continue;
         }
 
         // 检查是否离开水面

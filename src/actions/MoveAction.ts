@@ -1,8 +1,7 @@
 import { Bot } from 'mineflayer';
 import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
-import pathfinder from 'mineflayer-pathfinder';
-import { Vec3 } from 'vec3';
+import { MovementUtils, MovementParams } from '../utils/MovementUtils.js';
 
 interface MoveParams extends BaseActionParams {
   /** 移动类型 */
@@ -24,7 +23,7 @@ interface MoveParams extends BaseActionParams {
   /** 到达距离，默认 1 */
   distance?: number;
 
-  /** 最大移动距离，默认 100 */
+  /** 最大移动距离，默认 200 */
   maxDistance?: number;
 }
 
@@ -55,156 +54,27 @@ export class MoveAction extends BaseAction<MoveParams> {
 
   async execute(bot: Bot, params: MoveParams): Promise<ActionResult> {
     try {
-      // 检查 pathfinder 插件
-      if (!bot.pathfinder) {
-        return this.createErrorResult('路径寻找插件未加载，请先加载 mineflayer-pathfinder 插件', 'PATHFINDER_NOT_LOADED');
-      }
+      // 转换参数格式
+      const movementParams: MovementParams = {
+        type: params.type,
+        useRelativeCoords: params.useRelativeCoords,
+        x: params.x,
+        y: params.y,
+        z: params.z,
+        block: params.block,
+        player: params.player,
+        entity: params.entity,
+        distance: params.distance,
+        maxDistance: params.maxDistance
+      };
 
-      const distance = params.distance ?? 1;
-      const useRelativeCoords = params.useRelativeCoords ?? false;
-      const maxDistance = params.maxDistance ?? 200;
+      // 调用统一的移动工具类
+      const result = await MovementUtils.moveTo(bot, movementParams);
 
-      let targetX: number, targetY: number, targetZ: number;
-      let targetDescription: string;
-
-      // 根据移动类型确定目标位置
-      switch (params.type) {
-        case 'coordinate':
-          if (params.x === undefined || params.y === undefined || params.z === undefined) {
-            return this.createErrorResult('坐标移动需要提供 x, y, z 参数', 'MISSING_COORDINATES');
-          }
-          
-          if (useRelativeCoords) {
-            // 相对坐标：基于当前位置，确保方块坐标为整数
-            const botPos = bot.entity.position;
-            targetX = Math.floor(botPos.x) + params.x;
-            targetY = Math.floor(botPos.y) + params.y;
-            targetZ = Math.floor(botPos.z) + params.z;
-          } else {
-            // 绝对坐标
-            targetX = params.x;
-            targetY = params.y;
-            targetZ = params.z;
-          }
-          targetDescription = `坐标 (${targetX}, ${targetY}, ${targetZ})`;
-          break;
-
-        case 'block':
-          if (!params.block) {
-            return this.createErrorResult('方块移动需要提供 block 参数', 'MISSING_BLOCK');
-          }
-          
-          const mcData = bot.registry;
-          const blockByName = mcData.blocksByName[params.block];
-          if (!blockByName) {
-            return this.createErrorResult(`未找到名为 ${params.block} 的方块`, 'BLOCK_NOT_FOUND');
-          }
-
-          const blockPositions = bot.findBlocks({
-            matching: [blockByName.id],
-            maxDistance: 64,
-            count: 1
-          });
-
-          if (blockPositions.length === 0) {
-            return this.createErrorResult(`附近未找到 ${params.block} 方块`, 'BLOCK_NOT_FOUND');
-          }
-
-          const blockPos = blockPositions[0];
-          targetX = blockPos.x;
-          targetY = blockPos.y;
-          targetZ = blockPos.z;
-          targetDescription = `${params.block} 方块`;
-          break;
-
-        case 'player':
-          if (!params.player) {
-            return this.createErrorResult('玩家移动需要提供 player 参数', 'MISSING_PLAYER');
-          }
-
-          const targetPlayer = bot.players[params.player];
-          if (!targetPlayer || !targetPlayer.entity) {
-            return this.createErrorResult(`未找到玩家 ${params.player}，请确保其在附近`, 'PLAYER_NOT_FOUND');
-          }
-
-          targetX = targetPlayer.entity.position.x;
-          targetY = targetPlayer.entity.position.y;
-          targetZ = targetPlayer.entity.position.z;
-          targetDescription = `玩家 ${params.player}`;
-          break;
-
-        case 'entity':
-          if (!params.entity) {
-            return this.createErrorResult('实体移动需要提供 entity 参数', 'MISSING_ENTITY');
-          }
-
-          const targetEntity = bot.nearestEntity((e: any) => 
-            e.name?.toLocaleLowerCase() === params.entity?.toLocaleLowerCase()
-          );
-          if (!targetEntity) {
-            return this.createErrorResult(`附近未找到 ${params.entity} 类型的实体`, 'ENTITY_NOT_FOUND');
-          }
-
-          targetX = targetEntity.position.x;
-          targetY = targetEntity.position.y;
-          targetZ = targetEntity.position.z;
-          targetDescription = `${params.entity} 类型实体`;
-          break;
-
-        default:
-          return this.createErrorResult(`不支持的移动类型: ${params.type}`, 'INVALID_MOVE_TYPE');
-      }
-
-      this.logger.info(`开始移动到 ${targetDescription}，距离: ${distance}`);
-
-      // 检查是否已经在目标位置
-      const targetPosition = new Vec3(targetX, targetY, targetZ);
-      const currentDistance = bot.entity.position.distanceTo(targetPosition);
-      
-      // 检查距离是否过远
-      if (currentDistance > maxDistance) {
-        return this.createErrorResult(
-          `目标 ${targetDescription} 距离过远 (${currentDistance.toFixed(2)} > ${maxDistance})，无法到达`, 
-          'TARGET_TOO_FAR'
-        );
-      }
-      
-      if (currentDistance <= distance) {
-        return this.createSuccessResult(`已在 ${targetDescription} 附近 (距离: ${currentDistance.toFixed(2)})`, {
-          type: params.type,
-          target: targetDescription,
-          distance: Number(currentDistance.toFixed(2)),
-          position: { x: targetX, y: targetY, z: targetZ }
-        });
-      }
-
-      // 使用 pathfinder 移动到目标位置
-      const { GoalNear } = pathfinder.goals;
-      if (!GoalNear) {
-        return this.createErrorResult('mineflayer-pathfinder goals 未加载', 'PATHFINDER_NOT_LOADED');
-      }
-
-      const goal = new GoalNear(targetX, targetY, targetZ, distance);
-      
-      try {
-        await bot.pathfinder.goto(goal);
-
-        // 验证是否成功到达
-        const finalDistance = bot.entity.position.distanceTo(targetPosition);
-        
-        if (finalDistance <= distance) {
-           this.logger.info(`成功移动到 ${targetDescription} (距离: ${finalDistance.toFixed(2)})`);
-           return this.createSuccessResult(`已成功移动到 ${targetDescription}`, {
-             type: params.type,
-             target: targetDescription,
-             distance: Number(finalDistance.toFixed(2)),
-             position: { x: targetX, y: targetY, z: targetZ }
-           });
-         } else {
-           return this.createErrorResult(`移动到 ${targetDescription} 失败，最终距离: ${finalDistance.toFixed(2)}`, 'MOVE_FAILED');
-         }
-      } catch (error) {
-        throw error;
+      if (result.success) {
+        return this.createSuccessResult(`已成功移动到 ${result.target}`, result);
+      } else {
+        return this.createErrorResult(result.error || '移动失败', 'MOVE_FAILED');
       }
     } catch (error) {
       this.logger.error(`移动失败: ${error instanceof Error ? error.message : String(error)}`);

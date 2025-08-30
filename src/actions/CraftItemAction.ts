@@ -3,6 +3,7 @@ import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionI
 import { z } from 'zod';
 import { Vec3 } from 'vec3';
 import pathfinder from 'mineflayer-pathfinder';
+import { MovementUtils } from '../utils/MovementUtils.js';
 
 interface CraftItemParams extends BaseActionParams {
   item: string;
@@ -176,16 +177,11 @@ export class CraftItemAction extends BaseAction<CraftItemParams> {
           if (craftingTableItem) {
             try {
               // 尝试放置工作台
-              if (bot.pathfinder?.goto) {
-                // 使用 pathfinder 移动到目标放置点附近
-                const {GoalNear} = pathfinder.goals;
-                if (!GoalNear) {
-                  return this.createErrorResult('mineflayer-pathfinder goals 未加载', 'PATHFINDER_NOT_LOADED');
-                }
-
-                const placePos = bot.entity.position.offset(1, 0, 0);
-                const goal = new GoalNear(placePos.x, placePos.y, placePos.z, 1);
-                await bot.pathfinder.goto(goal);
+              // 使用统一的移动工具类移动到目标放置点附近
+              const placePos = bot.entity.position.offset(1, 0, 0);
+              const moveResult = await MovementUtils.moveToCoordinate(bot, placePos.x, placePos.y, placePos.z, 1, 32, false);
+              if (!moveResult.success) {
+                this.logger.warn(`移动到工作台放置点失败: ${moveResult.error}，尝试直接放置`);
               }
 
               await bot.equip(craftingTableItem, 'hand');
@@ -224,14 +220,22 @@ export class CraftItemAction extends BaseAction<CraftItemParams> {
         this.logger.info('用户指定不使用工作台进行合成');
       }
 
-      // 3) 如果已找到工作台且路径插件可用，走过去（仅在未指定 without_crafting_table 时）
-      if (!params.without_crafting_table && craftingTableBlock && bot.pathfinder?.goto) {
-        const { GoalNear } = pathfinder.goals;
-        if (!GoalNear) {
-          return this.createErrorResult('mineflayer-pathfinder goals 未加载', 'PATHFINDER_NOT_LOADED');
+      // 3) 如果已找到工作台，走过去（仅在未指定 without_crafting_table 时）
+      if (!params.without_crafting_table && craftingTableBlock) {
+        // 使用统一的移动工具类移动到工作台位置
+        const moveResult = await MovementUtils.moveToCoordinate(
+          bot,
+          craftingTableBlock.position.x,
+          craftingTableBlock.position.y,
+          craftingTableBlock.position.z,
+          1, // 到达距离
+          32, // 最大移动距离
+          false // 不使用相对坐标
+        );
+
+        if (!moveResult.success) {
+          this.logger.warn(`移动到工作台失败: ${moveResult.error}，尝试直接合成`);
         }
-        const goal = new GoalNear(craftingTableBlock.position.x, craftingTableBlock.position.y, craftingTableBlock.position.z, 1);
-        await bot.pathfinder.goto(goal);
       }
 
       // 4) 获取所有配方并尝试合成
