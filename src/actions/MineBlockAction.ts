@@ -2,6 +2,54 @@ import { Bot } from 'mineflayer';
 import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 import { Vec3 } from 'vec3';
+import { Block } from 'prismarine-block';
+
+/**
+ * MineBlockAction 的执行结果数据结构
+ *
+ * 使用示例：
+ * ```typescript
+ * const result = await mineBlockAction.execute(bot, {
+ *   name: 'dirt',
+ *   count: 5,
+ *   direction: '+x'
+ * });
+ *
+ * if (result.success && result.data) {
+ *   const mineResult: MineBlockResult = result.data as MineBlockResult;
+ *   console.log(`成功挖掘 ${mineResult.minedCount} 个方块`);
+ *   console.log(`挖掘的方块类型: ${mineResult.minedBlocks.join(', ')}`);
+ *   if (mineResult.coordinates) {
+ *     console.log(`坐标: (${mineResult.coordinates.x}, ${mineResult.coordinates.y}, ${mineResult.coordinates.z})`);
+ *   }
+ * }
+ * ```
+ */
+export interface MineBlockResult {
+  /** 成功挖掘的方块数量 */
+  minedCount: number;
+  /** 实际挖掘的方块名列表 */
+  minedBlocks: string[];
+  /** 挖掘方向（可选） */
+  direction?: string;
+  /** 坐标信息（可选，仅在坐标模式时提供） */
+  coordinates?: {
+    x: number;
+    y: number;
+    z: number;
+    useRelativeCoords: boolean;
+  };
+  /** 使用备用挖掘方式的数量（可选） */
+  fallbackCount?: number;
+}
+
+/**
+ * 内部挖掘方法的结果类型
+ */
+interface MineOperationResult {
+  count: number;
+  blocks: string[];
+}
 
 interface MineBlockParams extends BaseActionParams {
   /** 方块名称，例如 "dirt"。当提供坐标时可选，用于验证方块类型 */
@@ -91,6 +139,12 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
 
   // 校验和 schema 描述由基类提供
 
+
+  private isFluidBlock(block: Block): boolean {
+    if (!block) return false;
+    return block.boundingBox === 'empty' && block.name !== 'air';
+  }
+
   async execute(bot: Bot, params: MineBlockParams): Promise<ActionResult> {
     try {
       const count = params.count ?? 1;
@@ -128,16 +182,24 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       let successCount = 0;
       let fallbackCount = 0;
 
+      let minedBlocks: string[] = [];
+
       // 根据参数组合选择挖掘策略
       if (hasCoordinates) {
         // 精准坐标挖掘模式
-        successCount = await this.mineAtCoordinates(bot, params, blockByName, count, bypassAllCheck, useRelativeCoords, digOnly);
+        const result = await this.mineAtCoordinates(bot, params, blockByName, count, bypassAllCheck, useRelativeCoords, digOnly);
+        successCount = result.count;
+        minedBlocks = result.blocks;
       } else if (hasDirection && !hasName) {
         // 方向挖掘模式：朝着指定方向挖掘指定数量的方块
-        successCount = await this.mineInDirection(bot, params, count, bypassAllCheck, maxDistance, digOnly);
+        const result = await this.mineInDirection(bot, params, count, bypassAllCheck, maxDistance, digOnly);
+        successCount = result.count;
+        minedBlocks = result.blocks;
       } else {
         // 搜索挖掘模式（原有逻辑）- 此时 blockByName 一定不为 null
-        successCount = await this.mineBySearch(bot, params, blockByName!, count, bypassAllCheck, maxDistance, digOnly);
+        const result = await this.mineBySearch(bot, params, blockByName!, count, bypassAllCheck, maxDistance, digOnly);
+        successCount = result.count;
+        minedBlocks = result.blocks;
       }
 
       // 成功完成挖掘
@@ -151,11 +213,11 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
         blockNameText = params.name || (hasCoordinates ? '指定坐标的方块' : '方块');
       }
       const resultMessage = `成功挖掘了 ${successCount} 个 ${blockNameText}${directionText}${coordinateText}`;
-      const resultData = { 
+      const resultData: MineBlockResult = {
         minedCount: successCount,
-        blockName: params.name,
+        minedBlocks: minedBlocks,
         direction: params.direction,
-        coordinates: hasCoordinates ? { x: params.x, y: params.y, z: params.z, useRelativeCoords } : undefined,
+        coordinates: hasCoordinates ? { x: params.x!, y: params.y!, z: params.z!, useRelativeCoords } : undefined,
         fallbackCount: fallbackCount
       };
       
@@ -270,14 +332,14 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
    * 精准坐标挖掘模式
    */
   private async mineAtCoordinates(
-    bot: Bot, 
-    params: MineBlockParams, 
-    blockByName: any, 
-    count: number, 
-    bypassAllCheck: boolean, 
+    bot: Bot,
+    params: MineBlockParams,
+    blockByName: any,
+    count: number,
+    bypassAllCheck: boolean,
     useRelativeCoords: boolean,
     digOnly: boolean
-  ): Promise<number> {
+  ): Promise<MineOperationResult> {
     const botPos = bot.entity.position;
     let targetX = params.x!;
     let targetY = params.y!;
@@ -294,10 +356,15 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
     
     // 获取目标位置的方块
     const targetBlock = bot.blockAt(new Vec3(targetX, targetY, targetZ));
-    
-    if (!targetBlock) {
+
+    if (!targetBlock || targetBlock.name === 'air') {
       this.logger.error(`目标坐标 (${targetX}, ${targetY}, ${targetZ}) 没有方块`);
       throw new Error(`目标坐标 (${targetX}, ${targetY}, ${targetZ}) 没有方块`);
+    }
+    // 检查是否为流体方块（暂用boundingBox判断）
+    if (this.isFluidBlock(targetBlock)) {
+      this.logger.error(`目标坐标 (${targetX}, ${targetY}, ${targetZ}) 的方块是流体 ${targetBlock.name}，不允许挖掘`);
+      throw new Error(`目标坐标 (${targetX}, ${targetY}, ${targetZ}) 的方块是流体 ${targetBlock.name}，不允许挖掘`);
     }
     
     // 如果提供了方块名称，检查方块类型是否匹配
@@ -309,7 +376,8 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
     this.logger.info(`找到目标方块: ${targetBlock.name} 在坐标 (${targetX}, ${targetY}, ${targetZ})`);
     
     let successCount = 0;
-    
+    const minedBlocks: string[] = [];
+
     // 挖掘指定数量的方块（在坐标模式下，通常只挖掘一个）
     for (let i = 0; i < count; i++) {
       if (bypassAllCheck || digOnly) {
@@ -319,7 +387,7 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       } else {
         // 使用collectBlock插件（包含安全检查）
         try {
-          await bot.collectBlock.collect(targetBlock, { 
+          await bot.collectBlock.collect(targetBlock, {
             ignoreNoPath: false,
             count: 1
           });
@@ -327,29 +395,31 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
           throw collectError;
         }
       }
-      
+
       successCount++;
+      minedBlocks.push(targetBlock.name);
       const blockNameText = params.name || targetBlock.name;
       this.logger.info(`成功挖掘第 ${i+1} 个 ${blockNameText} 方块在坐标 (${targetX}, ${targetY}, ${targetZ})`);
     }
-    
-    return successCount;
+
+    return { count: successCount, blocks: minedBlocks };
   }
 
   /**
    * 方向挖掘模式：朝着指定方向挖掘指定数量的方块
    */
   private async mineInDirection(
-    bot: Bot, 
-    params: MineBlockParams, 
-    count: number, 
-    bypassAllCheck: boolean, 
+    bot: Bot,
+    params: MineBlockParams,
+    count: number,
+    bypassAllCheck: boolean,
     maxDistance: number,
     digOnly: boolean
-  ): Promise<number> {
+  ): Promise<MineOperationResult> {
     let successCount = 0;
+    const minedBlocks: string[] = [];
     const botPos = bot.entity.position;
-    
+
     this.logger.info(`开始方向挖掘模式：方向 ${this.getDirectionText(params.direction!)}, 数量: ${count}`);
     
     // 计算挖掘的起始位置（机器人前方一格）
@@ -387,10 +457,13 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       if (!block) {
         this.logger.warn(`位置 (${currentX}, ${currentY}, ${currentZ}) 没有方块，跳过`);
         // 继续下一个位置
+      } else if (block.boundingBox === 'empty') {
+        this.logger.warn(`位置 (${currentX}, ${currentY}, ${currentZ}) 的方块是流体 ${block.name}，跳过挖掘`);
+        // 继续下一个位置
       } else {
-        this.logger.info(`挖掘第 ${i+1} 个方块: ${block.name} 在位置 (${currentX}, ${currentY}, ${currentZ})`);
-        
-        if (bypassAllCheck || digOnly) {
+          this.logger.info(`挖掘第 ${i+1} 个方块: ${block.name} 在位置 (${currentX}, ${currentY}, ${currentZ})`);
+
+          if (bypassAllCheck || digOnly) {
           // 绕过安全检查或只挖掘不收集，直接使用bot.dig()
           this.logger.info(`${bypassAllCheck ? '绕过安全检查' : '只挖掘不收集'}，直接挖掘方块`);
           await this.digBlockDirectly(bot, block, digOnly);
@@ -407,8 +480,9 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
             continue;
           }
         }
-        
+
         successCount++;
+        minedBlocks.push(block.name);
       }
       
       // 移动到下一个位置
@@ -435,23 +509,24 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
     }
     
     this.logger.info(`方向挖掘完成，成功挖掘了 ${successCount} 个方块`);
-    return successCount;
+    return { count: successCount, blocks: minedBlocks };
   }
 
   /**
    * 搜索挖掘模式（原有逻辑）
    */
   private async mineBySearch(
-    bot: Bot, 
-    params: MineBlockParams, 
-    blockByName: any, 
-    count: number, 
-    bypassAllCheck: boolean, 
+    bot: Bot,
+    params: MineBlockParams,
+    blockByName: any,
+    count: number,
+    bypassAllCheck: boolean,
     maxDistance: number,
     digOnly: boolean
-  ): Promise<number> {
+  ): Promise<MineOperationResult> {
     let successCount = 0;
-    
+    const minedBlocks: string[] = [];
+
     // 搜索目标方块
     for (let i = 0; i < count; i++) {
       let block;
@@ -472,7 +547,14 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
         this.logger.warn(`已挖掘 ${successCount} 个 ${params.name} 方块，${directionText}未找到第 ${i+1} 个，请先探索其他区域`);
         throw new Error(`已挖掘 ${successCount} 个 ${params.name} 方块，${directionText}未找到第 ${i+1} 个，请先探索其他区域`);
       }
-      
+
+      // 检查是否为流体方块
+      if (this.isFluidBlock(block)) {
+        const directionText = params.direction ? `在${this.getDirectionText(params.direction)}方向` : '附近';
+        this.logger.warn(`找到的 ${params.name} 方块是流体 ${block.name}，${directionText}位置: ${block.position.x}, ${block.position.y}, ${block.position.z}，不允许挖掘`);
+        throw new Error(`找到的 ${params.name} 方块是流体 ${block.name}，不允许挖掘`);
+      }
+
       const directionText = params.direction ? `在${this.getDirectionText(params.direction)}方向` : '';
       this.logger.info(`找到第 ${i+1} 个 ${params.name} 方块${directionText}，位置: ${block.position.x}, ${block.position.y}, ${block.position.z}`);
 
@@ -493,10 +575,11 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       }
       
       successCount++;
+      minedBlocks.push(block.name);
       this.logger.info(`成功挖掘第 ${i+1} 个 ${params.name} 方块`);
     }
-    
-    return successCount;
+
+    return { count: successCount, blocks: minedBlocks };
   }
 
   /**
