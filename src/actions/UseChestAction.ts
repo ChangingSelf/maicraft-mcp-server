@@ -56,7 +56,7 @@ export class UseChestAction extends BaseAction<UseChestParams> {
     items: z.array(z.object({
       name: z.string().describe('物品名称'),
       count: z.number().int().min(1).describe('物品数量')
-    })).min(1).describe('物品及其数量的对象数组，至少包含一个物品'),
+    })).min(1).describe('物品及其数量的对象数组，格式：[{"name": "物品名", "count": 数量}, ...]，至少包含一个物品'),
     x: z.number().int().optional().describe('箱子X坐标 (整数，可选)'),
     y: z.number().int().optional().describe('箱子Y坐标 (整数，可选)'),
     z: z.number().int().optional().describe('箱子Z坐标 (整数，可选)'),
