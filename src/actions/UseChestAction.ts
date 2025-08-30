@@ -3,76 +3,330 @@ import minecraftData from 'minecraft-data';
 import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 import pathfinder from 'mineflayer-pathfinder';
+import { Vec3 } from 'vec3';
+
+interface ItemWithCount {
+  name: string;
+  count: number;
+}
 
 interface UseChestParams extends BaseActionParams {
-  /** store | withdraw */
-  action: string;
-  /** 物品名称 */
-  item: string;
-  /** 数量，默认 1 */
-  count?: number;
+  /** store | withdraw，默认是 store */
+  action?: string;
+  /** 物品及其数量的对象数组 */
+  items: ItemWithCount[];
+  /** 箱子坐标，可选，不指定则寻找最近的箱子 */
+  x?: number;
+  y?: number;
+  z?: number;
 }
 
 export class UseChestAction extends BaseAction<UseChestParams> {
   name = 'useChest';
-  description = '与附近箱子交互，存取物品';
+  description = '与箱子交互，默认存储操作，支持为每种物品指定不同数量，物品不足时会取完现有并提示还差多少';
   schema = z.object({
-    action: z.enum(['store', 'withdraw']).describe('操作类型 (store | withdraw)'),
-    item: z.string().describe('物品名称 (字符串)'),
-    count: z.number().int().min(1).optional().describe('数量 (数字，可选，默认 1)'),
+    action: z.enum(['store', 'withdraw']).optional().describe('操作类型 (store | withdraw，默认是 store)'),
+    items: z.array(z.object({
+      name: z.string().describe('物品名称'),
+      count: z.number().int().min(1).describe('物品数量')
+    })).min(1).describe('物品及其数量的对象数组，至少包含一个物品'),
+    x: z.number().int().optional().describe('箱子X坐标 (整数，可选)'),
+    y: z.number().int().optional().describe('箱子Y坐标 (整数，可选)'),
+    z: z.number().int().optional().describe('箱子Z坐标 (整数，可选)'),
   });
 
   // 校验和参数描述由基类通过 schema 自动提供
 
-  async execute(bot: Bot, params: UseChestParams): Promise<ActionResult> {
-    try {
-      const action = params.action.toLowerCase();
-      const count = params.count ?? 1;
-      const mcData = minecraftData(bot.version);
-      const itemMeta = mcData.itemsByName[params.item];
-      if (!itemMeta) {
-        return this.createErrorResult(`未知物品 ${params.item}`, 'ITEM_NOT_FOUND');
-      }
 
+
+  /**
+   * 验证物品是否存在并返回物品元数据
+   */
+  private validateItems(items: ItemWithCount[], mcData: any): { itemMetas: any[], validItems: ItemWithCount[] } {
+    const itemMetas = [];
+    const validItems = [];
+    const invalidItems = [];
+
+    for (const item of items) {
+      const itemMeta = mcData.itemsByName[item.name];
+      if (!itemMeta) {
+        invalidItems.push(item.name);
+      } else {
+        itemMetas.push(itemMeta);
+        validItems.push(item);
+      }
+    }
+
+    if (invalidItems.length > 0) {
+      throw new Error(`未知物品: ${invalidItems.join(', ')}`);
+    }
+
+    return { itemMetas, validItems };
+  }
+
+  /**
+   * 查找箱子（指定坐标或最近的）
+   */
+  private findChest(bot: Bot, params: UseChestParams, mcData: any): any {
+    if (params.x !== undefined && params.y !== undefined && params.z !== undefined) {
+      // 查找指定坐标的箱子
+      const pos = new Vec3(params.x, params.y, params.z);
+      const chestBlock = bot.blockAt(pos);
+      if (!chestBlock) {
+        throw new Error(`指定坐标 (${params.x}, ${params.y}, ${params.z}) 处没有方块`);
+      }
+      if (chestBlock.type !== mcData.blocksByName.chest.id) {
+        const blockName = mcData.blocks[chestBlock.type]?.name || `未知方块(${chestBlock.type})`;
+        throw new Error(`指定坐标 (${params.x}, ${params.y}, ${params.z}) 处是 ${blockName}，不是箱子`);
+      }
+      return chestBlock;
+    } else {
       // 找到最近箱子
       const chestBlock = bot.findBlock({ matching: mcData.blocksByName.chest.id, maxDistance: 16 });
       if (!chestBlock) {
-        return this.createErrorResult('附近没有箱子', 'CHEST_NOT_FOUND');
+        throw new Error('附近没有箱子');
+      }
+      return chestBlock;
+    }
+  }
+
+  /**
+   * 移动到箱子附近
+   */
+  private async moveToChest(bot: Bot, chestBlock: any): Promise<void> {
+    if (bot.pathfinder?.goto) {
+      const { GoalLookAtBlock } = pathfinder.goals;
+      if (!GoalLookAtBlock) {
+        throw new Error('mineflayer-pathfinder 插件未正确加载，无法移动到箱子位置');
       }
 
-      // 移动到箱子附近
-      if (bot.pathfinder?.goto) {
-        const { GoalLookAtBlock } = pathfinder.goals;
-        if (!GoalLookAtBlock) {
-          return this.createErrorResult('mineflayer-pathfinder goals 未加载', 'PATHFINDER_NOT_LOADED');
-        }
+      try {
         const goal = new GoalLookAtBlock(chestBlock.position, bot.world as any);
         await bot.pathfinder.goto(goal);
+      } catch (pathError) {
+        const errorMessage = pathError instanceof Error ? pathError.message : String(pathError);
+        throw new Error(`无法移动到箱子位置 (${chestBlock.position.x}, ${chestBlock.position.y}, ${chestBlock.position.z}): ${errorMessage}`);
+      }
+    } else {
+      throw new Error('缺少 mineflayer-pathfinder 插件，无法移动到箱子位置');
+    }
+  }
+
+  /**
+   * 执行存储或取出操作
+   */
+  private async performOperations(
+    chest: any,
+    action: string,
+    items: ItemWithCount[],
+    itemMetas: any[],
+    bot: Bot
+  ): Promise<{ results: string[], successCount: number, totalErrors: number }> {
+    const results: string[] = [];
+    let successCount = 0;
+    let totalErrors = 0;
+
+    if (action === 'store') {
+      // 存储多种物品
+      for (let i = 0; i < items.length; i++) {
+        const success = await this.performStoreOperation(chest, items[i].name, itemMetas[i], items[i].count, bot, results);
+        if (success) {
+          successCount++;
+        } else {
+          totalErrors++;
+        }
+      }
+    } else if (action === 'withdraw') {
+      // 取出多种物品
+      for (let i = 0; i < items.length; i++) {
+        const { success, shortage } = await this.performWithdrawOperation(chest, items[i].name, itemMetas[i], items[i].count, results);
+        if (success) {
+          successCount++;
+        } else {
+          totalErrors++;
+        }
+        // 处理库存不足的情况
+        if (shortage > 0) {
+          results.push(`⚠️ ${items[i].name} 库存不足，还差 ${shortage} 个`);
+        }
+      }
+    } else {
+      results.push(`未知动作 ${action}`);
+      totalErrors++;
+    }
+
+    return { results, successCount, totalErrors };
+  }
+
+  /**
+   * 执行单个存储操作
+   */
+  private async performStoreOperation(
+    chest: any,
+    itemName: string,
+    itemMeta: any,
+    count: number,
+    bot: Bot,
+    results: string[]
+  ): Promise<boolean> {
+    let depositCount = 0;
+    try {
+      const invItem = bot.inventory.findInventoryItem(itemMeta.id, null, false);
+      if (!invItem) {
+        results.push(`背包没有 ${itemName}`);
+        return false;
       }
 
+      depositCount = Math.min(count, invItem.count);
+      await chest.deposit(itemMeta.id, null, depositCount);
+      results.push(`已存入 ${itemName} ${depositCount} 个`);
+      return true;
+    } catch (itemErr) {
+      const errorMessage = itemErr instanceof Error ? itemErr.message : String(itemErr);
+      const detailedError = `存储 ${itemName} 失败: ${errorMessage} (尝试存入 ${depositCount} 个)`;
+      results.push(detailedError);
+      return false;
+    }
+  }
+
+  /**
+   * 执行单个取出操作
+   */
+  private async performWithdrawOperation(
+    chest: any,
+    itemName: string,
+    itemMeta: any,
+    count: number,
+    results: string[]
+  ): Promise<{ success: boolean, shortage: number }> {
+    let withdrawCount = 0;
+    let shortage = 0;
+
+    try {
+      const chestItem = chest.containerItems().find((it: any) => it.type === itemMeta.id);
+      if (!chestItem) {
+        results.push(`箱子中没有 ${itemName}`);
+        return { success: false, shortage: count };
+      }
+
+      withdrawCount = Math.min(count, chestItem.count);
+      shortage = Math.max(0, count - chestItem.count);
+
+      await chest.withdraw(itemMeta.id, null, withdrawCount);
+      results.push(`已取出 ${itemName} ${withdrawCount} 个`);
+      return { success: true, shortage };
+    } catch (itemErr) {
+      const errorMessage = itemErr instanceof Error ? itemErr.message : String(itemErr);
+      const detailedError = `取出 ${itemName} 失败: ${errorMessage} (尝试取出 ${withdrawCount} 个)`;
+      results.push(detailedError);
+      return { success: false, shortage };
+    }
+  }
+
+  /**
+   * 获取箱子内容信息
+   */
+  private getChestContents(chest: any, mcData: any): any[] {
+    const containerItems = chest.containerItems();
+    return containerItems.map((item: any) => ({
+      name: item.name || `未知物品(${item.type})`,
+      count: item.count,
+    }));
+  }
+
+  /**
+   * 创建操作结果
+   */
+  private createOperationResult(
+    results: string[],
+    chestContents: any[],
+    chestBlock: any,
+    successCount: number,
+    totalErrors: number
+  ): ActionResult {
+    const resultMessage = results.join('; ');
+
+    if (successCount > 0 && totalErrors === 0) {
+      return {
+        success: true,
+        message: resultMessage,
+        data: {
+          operationResults: results,
+          chestContents: chestContents,
+          chestLocation: {
+            x: chestBlock.position.x,
+            y: chestBlock.position.y,
+            z: chestBlock.position.z
+          }
+        }
+      };
+    } else if (successCount > 0) {
+      return {
+        success: true,
+        message: `部分成功: ${resultMessage}`,
+        data: {
+          operationResults: results,
+          chestContents: chestContents,
+          chestLocation: {
+            x: chestBlock.position.x,
+            y: chestBlock.position.y,
+            z: chestBlock.position.z
+          }
+        }
+      };
+    } else {
+      // 所有操作都失败的情况
+      return {
+        success: false,
+        message: `所有操作失败: ${resultMessage}`,
+        data: {
+          operationResults: results,
+          chestContents: chestContents,
+          chestLocation: {
+            x: chestBlock.position.x,
+            y: chestBlock.position.y,
+            z: chestBlock.position.z
+          }
+        },
+        error: `ALL_OPERATIONS_FAILED: ${results.join('; ')}`
+      };
+    }
+  }
+
+  async execute(bot: Bot, params: UseChestParams): Promise<ActionResult> {
+    try {
+      const action = (params.action ?? 'store').toLowerCase();
+      const mcData = minecraftData(bot.version);
+
+      // 验证所有物品是否存在
+      const { itemMetas, validItems } = this.validateItems(params.items, mcData);
+
+      // 找到指定箱子或最近箱子
+      const chestBlock = this.findChest(bot, params, mcData);
+
+      // 移动到箱子附近
+      await this.moveToChest(bot, chestBlock);
+
+      // 打开箱子并执行操作
       const chest = await bot.openContainer(chestBlock);
 
-      if (action === 'store') {
-        const invItem = bot.inventory.findInventoryItem(itemMeta.id, null, false);
-        if (!invItem) { 
-          chest.close(); 
-          return this.createErrorResult(`背包没有 ${params.item}`, 'NO_ITEM'); 
-        }
-        await chest.deposit(itemMeta.id, null, Math.min(count, invItem.count));
+      try {
+        // 执行存储或取出操作
+        const { results, successCount, totalErrors } = await this.performOperations(
+          chest,
+          action,
+          validItems,
+          itemMetas,
+          bot
+        );
+
+        // 获取箱子内容信息
+        const chestContents = this.getChestContents(chest, mcData);
+
+        // 创建并返回结果
+        return this.createOperationResult(results, chestContents, chestBlock, successCount, totalErrors);
+      } finally {
         chest.close();
-        return this.createSuccessResult(`已存入 ${params.item}`);
-      } else if (action === 'withdraw') {
-        const chestItem = chest.containerItems().find(it => it.type === itemMeta.id);
-        if (!chestItem) { 
-          chest.close(); 
-          return this.createErrorResult(`箱子中没有 ${params.item}`, 'NO_ITEM_IN_CHEST'); 
-        }
-        await chest.withdraw(itemMeta.id, null, Math.min(count, chestItem.count));
-        chest.close();
-        return this.createSuccessResult(`已取出 ${params.item}`);
-      } else {
-        chest.close();
-        return this.createErrorResult(`未知动作 ${params.action}`, 'INVALID_ACTION');
       }
     } catch (err) {
       return this.createExceptionResult(err, '箱子交互失败', 'CHEST_FAILED');
