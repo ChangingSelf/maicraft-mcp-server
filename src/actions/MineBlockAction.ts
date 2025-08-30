@@ -3,6 +3,7 @@ import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionI
 import { z } from 'zod';
 import { Vec3 } from 'vec3';
 import { Block } from 'prismarine-block';
+import { MinecraftUtils } from '../utils/MinecraftUtils.js';
 
 /**
  * MineBlockAction 的执行结果数据结构
@@ -385,9 +386,9 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
         this.logger.info(`${bypassAllCheck ? '绕过安全检查' : '只挖掘不收集'}，直接挖掘方块`);
         await this.digBlockDirectly(bot, targetBlock, digOnly);
       } else {
-        // 使用collectBlock插件（包含安全检查）
+        // 使用collectBlock插件（包含安全检查），无消息模式
         try {
-          await bot.collectBlock.collect(targetBlock, {
+          await this.collectBlockSilently(bot, targetBlock, {
             ignoreNoPath: false,
             count: 1
           });
@@ -468,9 +469,9 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
           this.logger.info(`${bypassAllCheck ? '绕过安全检查' : '只挖掘不收集'}，直接挖掘方块`);
           await this.digBlockDirectly(bot, block, digOnly);
         } else {
-          // 使用collectBlock插件（包含安全检查）
+          // 使用collectBlock插件（包含安全检查），无消息模式
           try {
-            await bot.collectBlock.collect(block, { 
+            await this.collectBlockSilently(bot, block, {
               ignoreNoPath: false,
               count: 1
             });
@@ -563,9 +564,9 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
         this.logger.info(`${bypassAllCheck ? '绕过安全检查' : '只挖掘不收集'}，直接挖掘方块`);
         await this.digBlockDirectly(bot, block, digOnly);
       } else {
-        // 使用collectBlock插件（包含安全检查）
+        // 使用collectBlock插件（包含安全检查），无消息模式
         try {
-          await bot.collectBlock.collect(block, { 
+          await this.collectBlockSilently(bot, block, {
             ignoreNoPath: false,
             count: 1
           });
@@ -592,17 +593,28 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       getFromChest: false,
       maxTools: 2,
     };
-    
+
     await bot.tool.equipForBlock(block, equipToolOptions);
-    
+
     // 在digOnly模式下，不检查工具是否合适，直接挖掘
     // 在非digOnly模式下，检查是否有合适的工具
     if (!digOnly && !block.canHarvest(bot.heldItem ? bot.heldItem.type : bot.heldItem)) {
       throw new Error(`没有合适的工具来挖掘 ${block.name}！`);
     }
-    
+
     // 直接挖掘
     await bot.dig(block);
+  }
+
+  /**
+   * 无消息收集方块 - 阻止 collectBlock 插件发送完成消息
+   */
+  private async collectBlockSilently(bot: Bot, target: any, options: any = {}): Promise<void> {
+    await MinecraftUtils.executeWithMessageFilter(
+      bot,
+      () => bot.collectBlock.collect(target, options),
+      ["Collect finish!"]
+    );
   }
 
   // MCP 工具由基类根据 schema 自动暴露为 tool: mine_block

@@ -53,8 +53,7 @@ export class MinecraftUtils {
     try {
       const block = bot.blockAt(bot.entity.position);
       if (block && block.biome) {
-        const biome = mcData.biomes[block.biome.id];
-        return biome;
+        return mcData.biomes[block.biome.id];
       }
       return 0;
     } catch (error) {
@@ -70,9 +69,9 @@ export class MinecraftUtils {
     try {
       const pos = bot.entity.position;
       const startY = Math.floor(pos.y) + 1;
-      const maxY = bot.game.dimension === 'overworld' ? 320 : 
+      const maxY = bot.game.dimension === 'overworld' ? 320 :
                   bot.game.dimension === 'the_nether' ? 128 : 256;
-      
+
       for (let y = startY; y < maxY; y++) {
         const blockAbove = bot.blockAt(new Vec3(Math.floor(pos.x), y, Math.floor(pos.z)));
         if (blockAbove && blockAbove.name !== 'air' && !blockAbove.transparent) {
@@ -82,6 +81,44 @@ export class MinecraftUtils {
       return true;
     } catch (error) {
       return false;
+    }
+  }
+
+  /**
+   * 执行带消息过滤的操作
+   * @param bot Bot 实例
+   * @param operation 要执行的操作函数
+   * @param filterMessages 要过滤的消息数组
+   * @returns 操作结果
+   */
+  static async executeWithMessageFilter<T>(
+    bot: Bot,
+    operation: () => Promise<T>,
+    filterMessages: string[] = []
+  ): Promise<T> {
+    // 保存原始的 chat 方法
+    const originalChat = bot.chat;
+
+    // 创建过滤版本的 chat 方法
+    const filteredChat = (message: string) => {
+      // 检查是否是要过滤的消息
+      if (filterMessages.includes(message)) {
+        console.debug(`已过滤消息: ${message}`);
+        return;
+      }
+      // 其他消息正常发送
+      originalChat.call(bot, message);
+    };
+
+    // 临时替换 chat 方法
+    bot.chat = filteredChat;
+
+    try {
+      // 执行操作
+      return await operation();
+    } finally {
+      // 恢复原始的 chat 方法
+      bot.chat = originalChat;
     }
   }
 }

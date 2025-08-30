@@ -1,5 +1,11 @@
 # 更新日志
 
+## [1.5.1] - 2025-08-30
+
+- `MineBlockAction` 挖掘后返回方块名
+- `MineBlockAction` 不挖掘流体
+- `MineBlockAction` 实现静默挖掘，拦截掉collect插件发出的“Collect Finish!”
+
 ## [1.5.0] - 2025-08-29
 
 - 新增动作：`QueryRawRecipeAction`，直接给出原始查询方法，仅作简单封装
