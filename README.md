@@ -615,6 +615,14 @@ export const MyAction = defineAction({
 - **`chat`** - 发送聊天消息
   - 参数：`message` (字符串) - 要发送的聊天消息
 
+- **`use_item`** - 使用手中物品
+  - 参数：
+    - `itemName` (字符串，可选) - 物品名称，不指定则使用当前手持物品
+    - `useType` (字符串，可选) - 使用类型：`consume` | `activate` | `useOn`
+    - `targetEntityName` (字符串，可选) - 目标实体名称，仅在使用 `useOn` 类型时需要
+    - `targetPlayerName` (字符串，可选) - 目标玩家名称，仅在使用 `useOn` 类型时需要
+    - `offHand` (布尔值，可选) - 是否使用副手，默认 false
+
 #### 移动与导航动作
 - **`move`** - 移动到指定位置
   - 参数：
@@ -701,6 +709,50 @@ export const MyAction = defineAction({
   "tool": "chat",
   "arguments": {
     "message": "Hello, Minecraft!"
+  }
+}
+
+// 食用苹果
+{
+  "tool": "use_item",
+  "arguments": {
+    "itemName": "apple",
+    "useType": "consume"
+  }
+}
+
+// 扔雪球
+{
+  "tool": "use_item",
+  "arguments": {
+    "itemName": "snowball",
+    "useType": "activate"
+  }
+}
+
+// 使用当前手持物品（自动判断使用类型）
+{
+  "tool": "use_item",
+  "arguments": {}
+}
+
+// 对玩家使用物品
+{
+  "tool": "use_item",
+  "arguments": {
+    "itemName": "saddle",
+    "useType": "useOn",
+    "targetPlayerName": "Steve"
+  }
+}
+
+// 对实体使用物品
+{
+  "tool": "use_item",
+  "arguments": {
+    "itemName": "shears",
+    "useType": "useOn",
+    "targetEntityName": "sheep"
   }
 }
 
