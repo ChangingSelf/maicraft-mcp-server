@@ -1,7 +1,30 @@
 import { Bot } from 'mineflayer';
-import minecraftData from 'minecraft-data';
+import minecraftData, { Item } from 'minecraft-data';
 import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
+
+/**
+ * 判断物品是否为食物
+ * @param itemName 物品名称
+ * @param mcData minecraft-data 实例
+ * @returns 是否为食物
+ */
+function isFoodItem(itemName: string, mcData: minecraftData.IndexedData): boolean {
+  // 方法1：通过 foodsByName 检查
+  if (mcData.foodsByName && mcData.foodsByName[itemName]) {
+    return true;
+  }
+
+  // 方法2：通过物品ID在foods中查找
+  if (mcData.itemsByName && mcData.foods) {
+    const itemMeta = mcData.itemsByName[itemName];
+    if (itemMeta && mcData.foods[itemMeta.id]) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 interface UseItemParams extends BaseActionParams {
   /** 物品名称，可选，不指定则使用当前手持物品 */
@@ -114,10 +137,8 @@ export class UseItemAction extends BaseAction<UseItemParams> {
    * 根据物品类型自动确定使用方式
    */
   private determineUseType(item: any, mcData: any): 'consume' | 'activate' | 'useOn' {
-    const itemMeta = mcData.itemsByName[item.name];
-
-    // 可食用的物品
-    if (itemMeta && itemMeta.foodPoints !== undefined) {
+    // 首先检查是否是食物
+    if (isFoodItem(item.name, mcData)) {
       return 'consume';
     }
 
@@ -132,21 +153,55 @@ export class UseItemAction extends BaseAction<UseItemParams> {
   }
 
   /**
+   * 获取背包中指定物品的总数量
+   */
+  private getTotalItemCount(bot: Bot, itemName: string): number {
+    let totalCount = 0;
+
+    // 遍历所有背包槽位
+    for (const slot of bot.inventory.items()) {
+      if (slot.name === itemName) {
+        totalCount += slot.count;
+      }
+    }
+
+    return totalCount;
+  }
+
+  /**
+   * 等待物品更新
+   */
+  private async waitForItemUpdate(delayMs: number = 500): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, delayMs));
+  }
+
+  /**
    * 食用物品
    */
   private async consumeItem(bot: Bot, item: any): Promise<ActionResult> {
     this.logger.info(`开始食用物品: ${item.name}`);
 
+    // 获取使用前的总数量
+    const totalCountBefore = this.getTotalItemCount(bot, item.name);
+
     try {
       await bot.consume();
       this.logger.info(`成功食用物品: ${item.name}`);
+
+      // 等待500ms让物品数量更新
+      await this.waitForItemUpdate(500);
+
+      // 获取使用后的总数量
+      const totalCountAfter = this.getTotalItemCount(bot, item.name);
 
       return this.createSuccessResult(
         `成功食用物品: ${item.name}`,
         {
           itemName: item.name,
           useType: 'consume',
-          itemCount: item.count
+          itemCountBefore: totalCountBefore,
+          itemCountAfter: totalCountAfter,
+          itemCount: totalCountAfter // 兼容性：主要返回使用后的数量
         }
       );
     } catch (error) {
@@ -168,9 +223,18 @@ export class UseItemAction extends BaseAction<UseItemParams> {
 
     this.logger.info(`开始激活物品: ${item.name}, 使用${offHand ? '副手' : '主手'}`);
 
+    // 获取使用前的总数量
+    const totalCountBefore = this.getTotalItemCount(bot, item.name);
+
     try {
       await bot.activateItem(offHand);
       this.logger.info(`成功激活物品: ${item.name}`);
+
+      // 等待500ms让物品数量更新
+      await this.waitForItemUpdate(500);
+
+      // 获取使用后的总数量
+      const totalCountAfter = this.getTotalItemCount(bot, item.name);
 
       return this.createSuccessResult(
         `成功激活物品: ${item.name}`,
@@ -178,7 +242,9 @@ export class UseItemAction extends BaseAction<UseItemParams> {
           itemName: item.name,
           useType: 'activate',
           offHand,
-          itemCount: item.count
+          itemCountBefore: totalCountBefore,
+          itemCountAfter: totalCountAfter,
+          itemCount: totalCountAfter // 兼容性：主要返回使用后的数量
         }
       );
     } catch (error) {
@@ -236,8 +302,17 @@ export class UseItemAction extends BaseAction<UseItemParams> {
     this.logger.info(`开始对实体使用物品: ${bot.heldItem.name} -> ${targetDescription}`);
 
     try {
+      // 获取使用前的总数量
+      const totalCountBefore = this.getTotalItemCount(bot, bot.heldItem.name);
+
       await bot.useOn(targetEntity);
       this.logger.info(`成功对实体使用物品: ${bot.heldItem.name}`);
+
+      // 等待500ms让物品数量更新
+      await this.waitForItemUpdate(500);
+
+      // 获取使用后的总数量
+      const totalCountAfter = this.getTotalItemCount(bot, bot.heldItem.name);
 
       return this.createSuccessResult(
         `成功对实体使用物品: ${bot.heldItem.name}`,
@@ -248,7 +323,9 @@ export class UseItemAction extends BaseAction<UseItemParams> {
           targetEntityName: targetEntity.name,
           targetPlayerName,
           targetEntityType: targetEntity.type,
-          itemCount: bot.heldItem.count
+          itemCountBefore: totalCountBefore,
+          itemCountAfter: totalCountAfter,
+          itemCount: totalCountAfter // 兼容性：主要返回使用后的数量
         }
       );
     } catch (error) {
@@ -292,13 +369,12 @@ export class UseItemAction extends BaseAction<UseItemParams> {
   /**
    * 判断物品是否可以进行指定的操作
    */
-  private canItemBeUsed(item: any, useType: string, mcData: any): { canUse: boolean; message?: string } {
-    const itemMeta = mcData.itemsByName[item.name];
+  private canItemBeUsed(item: any, useType: string, mcData: minecraftData.IndexedData): { canUse: boolean; message?: string } {
 
     switch (useType) {
       case 'consume':
         // 检查是否是食物
-        if (!itemMeta || itemMeta.foodPoints === undefined) {
+        if (!isFoodItem(item.name, mcData)) {
           return { canUse: false, message: `物品 ${item.name} 不是可食用的物品` };
         }
         break;
