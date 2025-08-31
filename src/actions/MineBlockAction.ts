@@ -141,9 +141,19 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
   // 校验和 schema 描述由基类提供
 
 
+  /**
+   * Minecraft原版流体方块列表（硬编码）
+   */
+  private static readonly FLUID_BLOCKS = new Set([
+    'water',
+    'flowing_water',
+    'lava',
+    'flowing_lava'
+  ]);
+
   private isFluidBlock(block: Block): boolean {
     if (!block) return false;
-    return block.boundingBox === 'empty' && block.name !== 'air';
+    return MineBlockAction.FLUID_BLOCKS.has(block.name);
   }
 
   async execute(bot: Bot, params: MineBlockParams): Promise<ActionResult> {
@@ -458,7 +468,7 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       if (!block) {
         this.logger.warn(`位置 (${currentX}, ${currentY}, ${currentZ}) 没有方块，跳过`);
         // 继续下一个位置
-      } else if (block.boundingBox === 'empty') {
+      } else if (this.isFluidBlock(block)) {
         this.logger.warn(`位置 (${currentX}, ${currentY}, ${currentZ}) 的方块是流体 ${block.name}，跳过挖掘`);
         // 继续下一个位置
       } else {
