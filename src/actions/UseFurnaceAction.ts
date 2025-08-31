@@ -80,7 +80,7 @@ interface MultiContainerResult {
 
 export class UseFurnaceAction extends BaseAction<UseFurnaceParams> {
   name = 'useFurnace';
-  description = '熔炉操作：1.put放入物品（支持input/fuel位置，燃料不能放input）；2.take按槽位取出；3.view查看状态。容器默认furnace，auto_search默认false，每个槽位只能操作一次';
+  description = '熔炉操作：1.put放入物品（支持input/fuel位置，燃料不能放input）；2.take按槽位取出；3.view查看状态。容器默认furnace，auto_search默认false，每个槽位只能操作一次。参数结构：{container_type:"furnace",action:"put",items:[{name:"iron_ore",count:10,position:"input"}],x?:number,y?:number,z?:number,auto_search?:false}';
   schema = z.object({
     container_type: z.enum(['furnace', 'blast_furnace', 'smoker']).optional().default('furnace').describe('容器方块名称: furnace、blast_furnace、smoker (默认furnace)'),
     action: z.enum([FurnaceOperation.PUT, FurnaceOperation.TAKE, FurnaceOperation.VIEW]).optional().default(FurnaceOperation.PUT).describe('操作类型：put(放入，默认)、take(取出)或view(查看)'),

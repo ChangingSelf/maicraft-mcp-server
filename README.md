@@ -615,6 +615,23 @@ export const MyAction = defineAction({
 - **`chat`** - 发送聊天消息
   - 参数：`message` (字符串) - 要发送的聊天消息
 
+- **`basic_control`** - 基础游戏控制功能
+  - 参数：
+    - `type` (字符串) - 控制类型：`toss` | `move` | `jump` | `sneak` | `look_at` | `sleep` | `wake` | `stop_move` | `stop_sneak`
+    - `item` (字符串，可选) - 物品名称或ID (用于 toss 类型)
+    - `count` (数字，可选) - 物品数量 (用于 toss 类型，默认 1)
+    - `direction` (字符串，可选) - 移动方向 (用于 move 类型：`forward` | `back` | `left` | `right`)
+
+    - `lookType` (字符串，可选) - 注视类型 (用于 look_at 类型：`angle` | `position` | `player` | `entity` | `block`)
+    - `yaw` (数字，可选) - 视角偏航角，弧度 (用于 angle 注视类型)
+    - `pitch` (数字，可选) - 视角俯仰角，弧度 (用于 angle 注视类型)
+    - `x`, `y`, `z` (数字，可选) - 目标坐标 (用于 position 注视类型)
+    - `force` (布尔值，可选) - 是否强制看向 (用于所有注视类型，默认 false)
+    - `player` (字符串，可选) - 目标玩家名称 (用于 player 注视类型)
+    - `entity` (字符串，可选) - 目标实体类型 (用于 entity 注视类型)，例如 cow, pig, zombie 等
+    - `block` (字符串，可选) - 目标方块名称 (用于 block 注视类型)，例如 dirt, stone, diamond_ore 等
+    - `maxDistance` (数字，可选) - 搜索距离 (用于 entity 和 block 注视类型，默认 64)
+
 - **`use_item`** - 使用手中物品
   - 参数：
     - `itemName` (字符串，可选) - 物品名称，不指定则使用当前手持物品
@@ -734,6 +751,131 @@ export const MyAction = defineAction({
 {
   "tool": "use_item",
   "arguments": {}
+}
+
+// 丢弃物品
+{
+  "tool": "basic_control",
+  "arguments": {
+    "type": "toss",
+    "item": "dirt",
+    "count": 5
+  }
+}
+
+// 开始向前移动
+{
+  "tool": "basic_control",
+  "arguments": {
+    "type": "move",
+    "direction": "forward"
+  }
+}
+
+// 执行跳跃
+{
+  "tool": "basic_control",
+  "arguments": {
+    "type": "jump"
+  }
+}
+
+// 开始潜行
+{
+  "tool": "basic_control",
+  "arguments": {
+    "type": "sneak"
+  }
+}
+
+// 调整视角到特定角度
+{
+  "tool": "basic_control",
+  "arguments": {
+    "type": "look_at",
+    "lookType": "angle",
+    "yaw": 1.57,
+    "pitch": 0.0,
+    "force": true
+  }
+}
+
+// 看向特定坐标位置
+{
+  "tool": "basic_control",
+  "arguments": {
+    "type": "look_at",
+    "lookType": "position",
+    "x": 100,
+    "y": 64,
+    "z": 100,
+    "force": true
+  }
+}
+
+// 看向玩家
+{
+  "tool": "basic_control",
+  "arguments": {
+    "type": "look_at",
+    "lookType": "player",
+    "player": "Steve",
+    "force": true
+  }
+}
+
+// 看向最近的牛
+{
+  "tool": "basic_control",
+  "arguments": {
+    "type": "look_at",
+    "lookType": "entity",
+    "entity": "cow",
+    "maxDistance": 50
+  }
+}
+
+// 看向最近的钻石矿石方块
+{
+  "tool": "basic_control",
+  "arguments": {
+    "type": "look_at",
+    "lookType": "block",
+    "block": "diamond_ore",
+    "maxDistance": 100
+  }
+}
+
+// 睡觉（自动寻找附近的床）
+{
+  "tool": "basic_control",
+  "arguments": {
+    "type": "sleep"
+  }
+}
+
+// 醒来
+{
+  "tool": "basic_control",
+  "arguments": {
+    "type": "wake"
+  }
+}
+
+// 停止移动
+{
+  "tool": "basic_control",
+  "arguments": {
+    "type": "stop_move"
+  }
+}
+
+// 停止潜行
+{
+  "tool": "basic_control",
+  "arguments": {
+    "type": "stop_sneak"
+  }
 }
 
 // 对玩家使用物品
