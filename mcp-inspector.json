@@ -3,7 +3,10 @@
     "maicraft": {
       "type": "stdio",
       "command": "tsx",
-      "args": ["src/main.ts", "./config.yaml"]
+      "args": ["src/main.ts", "./config.yaml"],
+      "env": {
+        "NODE_ENV": "development"
+      }
     }
   }
 }

@@ -42,12 +42,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ChangingSelf/Maicraft"
+    "url": "https://github.com/ChangingSelf/maicraft-mcp-server"
   },
   "bugs": {
-    "url": "https://github.com/ChangingSelf/Maicraft/issues"
+    "url": "https://github.com/ChangingSelf/maicraft-mcp-server/issues"
   },
-  "homepage": "https://github.com/ChangingSelf/Maicraft#readme",
+  "homepage": "https://github.com/ChangingSelf/maicraft-mcp-server#readme",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.2",
     "@tweenjs/tween.js": "^23.1.3",

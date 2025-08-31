@@ -1,5 +1,10 @@
 # 更新日志
 
+## [1.6.1] - 2025-08-31
+
+- 更新README
+- 由于Maicraft这个名字给Maicraft Agent项目使用，所以本项目改名为maicraft-mcp-server
+
 ## [1.6.0] - 2025-08-31
 
 - 添加 `ScreenshotAction` ，可以获取第一人称的base64格式的截图数据

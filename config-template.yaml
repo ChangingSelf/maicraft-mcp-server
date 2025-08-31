@@ -32,6 +32,16 @@ blocksCantBreak:
   - torch        # 火把
   - lantern      # 灯笼
 
+# 截图功能配置
+screenshot:
+  enabled: true            # 是否启用截图功能（需要额外依赖）
+  width: 1920             # 图像宽度，默认 1920
+  height: 1080            # 图像高度，默认 1080
+  viewDistance: 12        # 视距，默认 12
+  jpgQuality: 95          # JPG质量，默认 95
+  loadWaitTime: 2000      # 世界加载等待时间(ms)，默认 2000
+  renderLoops: 10         # 渲染循环次数，默认 10
+
 # 日志配置
 logging:
   level: INFO             # DEBUG | INFO | WARN | ERROR
