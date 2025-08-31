@@ -22,6 +22,7 @@ import { ClientConfig } from './config.js';
 import { MinecraftClient } from './minecraft/MinecraftClient.js';
 import { ActionExecutor } from './minecraft/ActionExecutor.js';
 import { GameEvent } from './minecraft/GameEvent.js';
+import { ViewerManager, ViewerOptions } from './minecraft/ViewerManager.js';
 // 动作由 ActionExecutor 自动发现与注册，无需在此显式导入
 
 // 设置MCP stdio模式，重定向全局console输出到stderr
@@ -33,6 +34,46 @@ const tempLogger = new Logger('Maicraft', { useStderr: true });
 // 兼容 ESM 的 __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+/**
+ * 初始化 ViewerManager
+ * @param minecraftClient Minecraft 客户端实例
+ * @param config 客户端配置
+ */
+async function initializeViewerManager(minecraftClient: MinecraftClient, config: ClientConfig): Promise<void> {
+  const screenshotConfig = config.screenshot;
+  if (!screenshotConfig || !screenshotConfig.enabled) {
+    return;
+  }
+
+  const bot = minecraftClient.getBot();
+  if (!bot) {
+    throw new Error('Minecraft 客户端未连接，无法初始化 ViewerManager');
+  }
+
+  try {
+    // 创建 ViewerManager 配置选项
+    const viewerOptions: ViewerOptions = {
+      viewDistance: screenshotConfig.viewDistance || 12,
+      width: screenshotConfig.width || 1920,
+      height: screenshotConfig.height || 1080,
+      jpgQuality: screenshotConfig.jpgQuality || 95,
+      loadWaitTime: screenshotConfig.loadWaitTime || 2000,
+      renderLoops: screenshotConfig.renderLoops || 10,
+    };
+
+    const viewerManager = new ViewerManager(viewerOptions);
+    await viewerManager.initialize(bot);
+
+    // 将 ViewerManager 设置到 MinecraftClient 中
+    minecraftClient.setViewerManager(viewerManager);
+
+    console.log('ViewerManager 初始化成功');
+  } catch (error) {
+    console.error('ViewerManager 初始化失败:', error);
+    throw error;
+  }
+}
 
 /** 初始化配置文件 */
 function initConfig() {
@@ -265,12 +306,32 @@ async function main() {
     try {
       await minecraftClient.connect();
       logger.info('Minecraft 连接成功');
+
+      // 如果截图功能启用，在连接成功后立即初始化 ViewerManager
+      if (config.screenshot?.enabled) {
+        try {
+          await initializeViewerManager(minecraftClient, config);
+          logger.info('ViewerManager 初始化成功');
+        } catch (error) {
+          logger.error('ViewerManager 初始化失败:', error);
+        }
+
+        // 额外添加连接事件监听器，以防后续重连时需要重新初始化
+        minecraftClient.on('connected', async () => {
+          try {
+            await initializeViewerManager(minecraftClient, config);
+            logger.info('ViewerManager 重连后重新初始化成功');
+          } catch (error) {
+            logger.error('ViewerManager 重连后重新初始化失败:', error);
+          }
+        });
+      }
     } catch (error) {
       logger.error('Minecraft 连接失败，但程序将继续运行:', error);
     }
     logger.info('Maicraft 客户端已启动，按 Ctrl+C 退出。');
     logger.info(`日志文件位置: ${logger.getLogFilePath()}`);
-    
+
     // 启动 MCP Server（独立于 Minecraft 连接）
     if (mcpServer) {
       logger.info('正在启动 MCP Server...');

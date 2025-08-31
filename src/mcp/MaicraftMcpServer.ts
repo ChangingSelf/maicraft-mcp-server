@@ -42,6 +42,8 @@ export class MaicraftMcpServer {
     this.registerActionTools();
   }
 
+
+
   async startOnStdio(): Promise<void> {
     // 在启动时若未注册成功，重试一次（通常 discover 完成后可获取到 schema 工具）
     if (!this.actionToolsRegistered) {
