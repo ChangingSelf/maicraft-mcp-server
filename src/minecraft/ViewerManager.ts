@@ -8,7 +8,7 @@ import * as mineflayer from 'mineflayer'
 import prismarineViewer from 'prismarine-viewer'
 import * as fs from 'fs'
 import * as path from 'path'
-import { createCanvas } from 'node-canvas-webgl/lib'
+import { createCanvas } from 'node-canvas-webgl'
 import * as THREE from 'three'
 import { Worker } from 'worker_threads'
 // 设置全局对象

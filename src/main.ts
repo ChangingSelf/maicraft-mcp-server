@@ -22,7 +22,7 @@ import { ClientConfig } from './config.js';
 import { MinecraftClient } from './minecraft/MinecraftClient.js';
 import { ActionExecutor } from './minecraft/ActionExecutor.js';
 import { GameEvent } from './minecraft/GameEvent.js';
-import { ViewerManager, ViewerOptions } from './minecraft/ViewerManager.js';
+// ViewerManager 动态导入，避免不必要的依赖加载
 // 动作由 ActionExecutor 自动发现与注册，无需在此显式导入
 
 // 设置MCP stdio模式，重定向全局console输出到stderr
@@ -52,8 +52,12 @@ async function initializeViewerManager(minecraftClient: MinecraftClient, config:
   }
 
   try {
+    // 动态导入 ViewerManager，避免不必要的依赖加载
+    const viewerModule = await import('./minecraft/ViewerManager.js');
+    const { ViewerManager } = viewerModule;
+
     // 创建 ViewerManager 配置选项
-    const viewerOptions: ViewerOptions = {
+    const viewerOptions = {
       viewDistance: screenshotConfig.viewDistance || 12,
       width: screenshotConfig.width || 1920,
       height: screenshotConfig.height || 1080,

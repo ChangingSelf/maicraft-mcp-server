@@ -1,4 +1,4 @@
-declare module 'node-canvas-webgl/lib' {
+declare module 'node-canvas-webgl' {
   export function createCanvas(width: number, height: number): Canvas
 
   export interface Canvas {
