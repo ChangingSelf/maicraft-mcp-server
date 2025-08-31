@@ -6,7 +6,7 @@ import { ViewerManager } from '../minecraft/ViewerManager.js';
 /**
  * 截图动作参数接口（无参数）
  */
-interface TakeScreenshotParams extends BaseActionParams {
+interface ScreenshotParams extends BaseActionParams {
   // 无参数，配置来自配置文件
 }
 
@@ -14,9 +14,9 @@ interface TakeScreenshotParams extends BaseActionParams {
  * 截图动作类
  * 使用预初始化的ViewerManager生成当前时刻的第一视角截图并返回base64格式
  */
-export class TakeScreenshotAction extends BaseAction<TakeScreenshotParams> {
-  name = 'takeScreenshot';
-  description = '生成当前时刻的第一视角截图并以base64格式返回';
+export class ScreenshotAction extends BaseAction<ScreenshotParams> {
+  name = 'screenshot';
+  description = '生成当前时刻的第一人称截图并以base64格式返回';
 
   /** 参数校验schema（空schema表示无参数） */
   schema = z.object({});
@@ -27,9 +27,9 @@ export class TakeScreenshotAction extends BaseAction<TakeScreenshotParams> {
    * @param params 动作参数（无参数）
    * @returns 包含base64截图数据的动作结果
    */
-  async execute(bot: Bot, params: TakeScreenshotParams): Promise<ActionResult> {
+  async execute(bot: Bot, params: ScreenshotParams): Promise<ActionResult> {
     try {
-      this.logger.info('开始生成第一视角截图');
+      this.logger.info('开始生成第一人称截图');
 
       // 验证机器人连接状态
       if (!bot || !bot.entity) {
@@ -39,7 +39,7 @@ export class TakeScreenshotAction extends BaseAction<TakeScreenshotParams> {
 
       // 验证机器人是否在游戏中
       if (!bot.player || bot.player.gamemode === 3) { // 3 为旁观者模式
-        this.logger.warn('机器人处于旁观者模式，可能无法正常生成截图');
+        this.logger.warn('机器人处于旁观者模式，可能无法正常生成第一人称截图');
         return this.createErrorResult('机器人处于旁观者模式，无法生成截图', 'BOT_IN_SPECTATOR_MODE');
       }
 
@@ -71,7 +71,7 @@ export class TakeScreenshotAction extends BaseAction<TakeScreenshotParams> {
         return this.createErrorResult('ViewerManager 尚未准备就绪，请稍后重试', 'VIEWER_NOT_READY');
       }
 
-      // 生成截图
+      // 生成截图（内部会自动同步相机位置）
       const screenshotData = await viewerManager.takeScreenshot('base64');
 
       // 验证截图数据

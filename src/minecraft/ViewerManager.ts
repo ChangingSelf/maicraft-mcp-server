@@ -8,14 +8,15 @@ import * as mineflayer from 'mineflayer'
 import prismarineViewer from 'prismarine-viewer'
 import * as fs from 'fs'
 import * as path from 'path'
-import { createCanvas } from 'node-canvas-webgl/lib/index.js'
+import { createCanvas } from 'node-canvas-webgl/lib'
 import * as THREE from 'three'
 import { Worker } from 'worker_threads'
 // 设置全局对象
 global.THREE = THREE
 ;(global as any).Worker = Worker
 
-const { Viewer, WorldView, getBufferFromStream } = prismarineViewer.viewer
+// 导入prismarine-viewer组件
+const { Viewer, WorldView, getBufferFromStream } = (prismarineViewer as any).viewer
 
 /**
  * Minecraft 视图管理器配置选项
@@ -46,6 +47,7 @@ export class ViewerManager {
   private renderer: any = null
   private canvas: any = null
   private isInitialized = false
+  private positionUpdateTimer: NodeJS.Timeout | null = null
 
   private options: Required<ViewerOptions> = {
     viewDistance: 12,
@@ -95,23 +97,42 @@ export class ViewerManager {
       this.worldView.init(bot.entity.position)  // 不使用 await，与官方一致
 
       // 创建位置更新函数
-      const botPosition = () => {
-        this.viewer.setFirstPersonCamera(bot.entity.position, bot.entity.yaw, bot.entity.pitch)
-        this.worldView.updatePosition(bot.entity.position)
+      const updatePosition = () => {
+        if (this.bot && this.bot.entity && this.bot.entity.position) {
+          try {
+            const position = this.bot.entity.position
+            const yaw = this.bot.entity.yaw
+            const pitch = this.bot.entity.pitch
+
+            // 只有在位置数据有效时才更新
+            this.viewer.setFirstPersonCamera(position, yaw, pitch)
+            this.worldView.updatePosition(position)
+          } catch (error) {
+            console.warn('[ViewerManager] 位置更新失败:', error instanceof Error ? error.message : String(error))
+          }
+        }
       }
 
-      // 等待世界渲染完成
-      await this.viewer.world.waitForChunksToRender()
+      // 移除定时器，完全依赖按需更新位置
+      // 每次截图前都会强制同步位置
 
-      // 注册事件监听器
-      bot.on('move', botPosition)
+      // 注册世界视图事件监听器
       this.worldView.listenToBot(bot)
 
-      // 等待世界完全加载
-      await new Promise(resolve => setTimeout(resolve, this.options.loadWaitTime))
+      // 立即执行一次位置更新
+      updatePosition()
 
-      // 进行渲染循环以确保材质正确加载
-      await this.performRenderLoops()
+      // 等待世界渲染完成（减少等待时间）
+      await Promise.race([
+        this.viewer.world.waitForChunksToRender(),
+        new Promise(resolve => setTimeout(resolve, 1000)) // 最多等待1秒
+      ])
+
+      // 减少等待时间
+      await new Promise(resolve => setTimeout(resolve, Math.min(this.options.loadWaitTime, 500)))
+
+      // 减少渲染循环次数
+      await this.performRenderLoops(Math.min(this.options.renderLoops, 3))
 
       this.isInitialized = true
       console.log('Minecraft视图管理器初始化完成')
@@ -124,14 +145,16 @@ export class ViewerManager {
 
   /**
    * 执行渲染循环以确保材质正确加载
+   * @param loops 循环次数，可选，默认使用配置值
    */
-  private async performRenderLoops(): Promise<void> {
-    for (let i = 0; i < this.options.renderLoops; i++) {
+  private async performRenderLoops(loops?: number): Promise<void> {
+    const loopCount = loops || this.options.renderLoops
+    for (let i = 0; i < loopCount; i++) {
       this.viewer.update()
       this.renderer.render(this.viewer.scene, this.viewer.camera)
 
       // 短暂延迟让纹理加载
-      await new Promise(resolve => setTimeout(resolve, 100))
+      await new Promise(resolve => setTimeout(resolve, 50)) // 减少到50ms
     }
   }
 
@@ -146,11 +169,10 @@ export class ViewerManager {
     }
 
     try {
-      // 更新相机位置（处理机器人可能的移动）
-      this.viewer.setFirstPersonCamera(this.bot.entity.position, this.bot.entity.yaw, this.bot.entity.pitch)
-      this.worldView.updatePosition(this.bot.entity.position)
+      // 每次截图前都强制同步机器人当前位置
+      this.forceSyncPosition()
 
-      // 最终渲染
+      // 再次渲染确保位置更新生效
       this.viewer.update()
       this.renderer.render(this.viewer.scene, this.viewer.camera)
 
@@ -209,6 +231,52 @@ export class ViewerManager {
   }
 
   /**
+   * 强制同步相机位置到机器人当前位置
+   * 用于处理传送等特殊情况，每次截图前都会调用此方法
+   */
+  forceSyncPosition(): void {
+    if (!this.isInitialized || !this.bot || !this.bot.entity) {
+      console.warn('[ViewerManager] 无法强制同步位置：未初始化或机器人不存在')
+      return
+    }
+
+    try {
+      const position = this.bot.entity.position
+      const yaw = this.bot.entity.yaw
+      const pitch = this.bot.entity.pitch
+
+      // 验证位置数据
+      if (!position || typeof position.x !== 'number' || typeof position.y !== 'number' || typeof position.z !== 'number') {
+        console.warn('[ViewerManager] 位置数据无效，跳过同步')
+        return
+      }
+
+      // 调试日志（只在位置变化时输出）
+      const currentPos = this.viewer.camera?.position
+      const posChanged = !currentPos ||
+        Math.abs(currentPos.x - position.x) > 0.01 ||
+        Math.abs(currentPos.y - position.y) > 0.01 ||
+        Math.abs(currentPos.z - position.z) > 0.01
+
+      if (posChanged) {
+        console.log(`[ViewerManager] 同步相机位置: (${position.x.toFixed(2)}, ${position.y.toFixed(2)}, ${position.z.toFixed(2)}), 朝向: yaw=${yaw?.toFixed(2)}, pitch=${pitch?.toFixed(2)}`)
+      }
+
+      // 更新相机位置
+      this.viewer.setFirstPersonCamera(position, yaw, pitch)
+      this.worldView.updatePosition(position)
+
+      // 立即渲染确保位置更新生效
+      this.viewer.update()
+      this.renderer.render(this.viewer.scene, this.viewer.camera)
+
+    } catch (error) {
+      console.error('[ViewerManager] 强制同步位置失败:', error instanceof Error ? error.message : String(error))
+      // 即使同步失败，也继续执行，不抛出异常
+    }
+  }
+
+  /**
    * 更新视图管理器的配置
    * @param options 新的配置选项
    */
@@ -220,6 +288,12 @@ export class ViewerManager {
    * 销毁视图管理器，释放资源
    */
   destroy(): void {
+    if (this.positionUpdateTimer) {
+      // 清理定时器
+      clearInterval(this.positionUpdateTimer)
+      this.positionUpdateTimer = null
+    }
+
     if (this.bot) {
       // 移除事件监听器
       this.bot.removeAllListeners('move')
