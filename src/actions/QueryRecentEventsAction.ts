@@ -6,6 +6,8 @@ import { MinecraftClient } from '../minecraft/MinecraftClient.js';
 interface QueryRecentEventsParams extends BaseActionParams {
   eventType?: string;
   sinceTick?: number;
+  timestampAfter?: number;
+  timestampBefore?: number;
   limit?: number;
   includeDetails?: boolean;
 }
@@ -16,6 +18,8 @@ export class QueryRecentEventsAction extends BaseAction<QueryRecentEventsParams>
   schema = z.object({
     eventType: z.string().optional().describe('事件类型过滤（如：chat, playerJoin, blockBreak等）'),
     sinceTick: z.number().optional().describe('查询指定游戏刻之后的事件'),
+    timestampAfter: z.number().optional().describe('查询指定时间戳（毫秒）之后的事件'),
+    timestampBefore: z.number().optional().describe('查询指定时间戳（毫秒）之前的事件'),
     limit: z.number().min(1).max(100).optional().describe('返回事件数量限制（1-100）'),
     includeDetails: z.boolean().optional().describe('是否包含详细事件信息'),
   });
@@ -47,10 +51,12 @@ export class QueryRecentEventsAction extends BaseAction<QueryRecentEventsParams>
       const eventManager = client.getEventManager();
       
       // 查询事件
-      const { eventType, sinceTick, limit, includeDetails } = params;
+      const { eventType, sinceTick, timestampAfter, timestampBefore, limit, includeDetails } = params;
       const queryResult = eventManager.queryRecentEvents({
         eventType,
         sinceTick,
+        timestampAfter,
+        timestampBefore,
         limit,
         includeDetails
       });

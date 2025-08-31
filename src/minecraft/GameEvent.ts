@@ -39,6 +39,7 @@ export interface ChatInfo {
 export interface BaseGameEvent {
   type: string; // 事件类型标识
   gameTick: number; // 游戏刻（世界年龄）
+  timestamp: number; // 真实世界时间戳（毫秒）
 }
 
 // 具体事件类型

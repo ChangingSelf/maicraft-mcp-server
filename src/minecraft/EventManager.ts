@@ -38,13 +38,15 @@ export class EventManager {
   queryRecentEvents(options: {
     eventType?: string;
     sinceTick?: number;
+    timestampAfter?: number;
+    timestampBefore?: number;
     limit?: number;
     includeDetails?: boolean;
   } = {}): {
     total: number;
-    events: GameEvent[] | Array<{ type: string; gameTick: number; }>;
+    events: GameEvent[] | Array<{ type: string; gameTick: number; timestamp: number; }>;
   } {
-    const { eventType, sinceTick, limit = 50, includeDetails = true } = options;
+    const { eventType, sinceTick, timestampAfter, timestampBefore, limit = 50, includeDetails = true } = options;
     
     let filteredEvents = [...this.events];
 
@@ -58,6 +60,14 @@ export class EventManager {
       filteredEvents = filteredEvents.filter(event => event.gameTick >= sinceTick);
     }
 
+    // 按时间戳过滤
+    if (timestampAfter !== undefined) {
+      filteredEvents = filteredEvents.filter(event => event.timestamp >= timestampAfter);
+    }
+    if (timestampBefore !== undefined) {
+      filteredEvents = filteredEvents.filter(event => event.timestamp <= timestampBefore);
+    }
+
     // 按游戏刻升序排序（最早的在前）
     filteredEvents.sort((a, b) => a.gameTick - b.gameTick);
 
@@ -65,11 +75,12 @@ export class EventManager {
     const limitedEvents = filteredEvents.slice(0, limit);
 
     // 如果不包含详细信息，简化事件对象
-    const finalEvents = includeDetails 
-      ? limitedEvents 
+    const finalEvents = includeDetails
+      ? limitedEvents
       : limitedEvents.map(event => ({
           type: event.type,
-          gameTick: event.gameTick
+          gameTick: event.gameTick,
+          timestamp: event.timestamp
         }));
 
     this.logger.debug(`查询事件: 过滤后 ${filteredEvents.length} 个，返回 ${finalEvents.length} 个`);
@@ -88,15 +99,19 @@ export class EventManager {
     byType: Record<string, number>;
     oldestGameTick: number | null;
     newestGameTick: number | null;
+    oldestTimestamp: number | null;
+    newestTimestamp: number | null;
   } {
     const byType: Record<string, number> = {};
     let oldestGameTick: number | null = null;
     let newestGameTick: number | null = null;
+    let oldestTimestamp: number | null = null;
+    let newestTimestamp: number | null = null;
 
     for (const event of this.events) {
       // 统计事件类型
       byType[event.type] = (byType[event.type] || 0) + 1;
-      
+
       // 更新游戏刻范围
       if (oldestGameTick === null || event.gameTick < oldestGameTick) {
         oldestGameTick = event.gameTick;
@@ -104,13 +119,23 @@ export class EventManager {
       if (newestGameTick === null || event.gameTick > newestGameTick) {
         newestGameTick = event.gameTick;
       }
+
+      // 更新时间戳范围
+      if (oldestTimestamp === null || event.timestamp < oldestTimestamp) {
+        oldestTimestamp = event.timestamp;
+      }
+      if (newestTimestamp === null || event.timestamp > newestTimestamp) {
+        newestTimestamp = event.timestamp;
+      }
     }
 
     return {
       total: this.events.length,
       byType,
       oldestGameTick,
-      newestGameTick
+      newestGameTick,
+      oldestTimestamp,
+      newestTimestamp
     };
   }
 
@@ -170,6 +195,13 @@ export class EventManager {
   }
 
   /**
+   * 获取当前时间戳
+   */
+  private getCurrentTimestamp(): number {
+    return Date.now();
+  }
+
+  /**
    * 设置事件监听器
    */
   private setupEventListeners(): void {
@@ -181,6 +213,7 @@ export class EventManager {
         this.addEvent({
           type: 'chat',
           gameTick: this.getCurrentGameTick(),
+          timestamp: this.getCurrentTimestamp(),
           chatInfo: {
             text: message,
             username: username,
@@ -195,6 +228,7 @@ export class EventManager {
         this.addEvent({
           type: 'playerJoin',
           gameTick: this.getCurrentGameTick(),
+          timestamp: this.getCurrentTimestamp(),
           playerInfo: {
             uuid: player.uuid,
             username: player.username,
@@ -212,6 +246,7 @@ export class EventManager {
         this.addEvent({
           type: 'playerLeave',
           gameTick: this.getCurrentGameTick(),
+          timestamp: this.getCurrentTimestamp(),
           playerInfo: {
             uuid: entity.uuid,
             username: entity.username,
@@ -229,6 +264,7 @@ export class EventManager {
         this.addEvent({
           type: 'playerDeath',
           gameTick: this.getCurrentGameTick(),
+          timestamp: this.getCurrentTimestamp(),
           player: {
             uuid: this.bot!.player.uuid,
             username: this.bot!.player.username,
@@ -247,6 +283,7 @@ export class EventManager {
         this.addEvent({
           type: 'playerRespawn',
           gameTick: this.getCurrentGameTick(),
+          timestamp: this.getCurrentTimestamp(),
           player: {
             uuid: this.bot!.player.uuid,
             username: this.bot!.player.username,
@@ -279,6 +316,7 @@ export class EventManager {
         this.addEvent({
           type: 'weatherChange',
           gameTick: this.getCurrentGameTick(),
+          timestamp: this.getCurrentTimestamp(),
           weather: weather
         });
       }
@@ -290,6 +328,7 @@ export class EventManager {
         this.addEvent({
           type: 'playerKick',
           gameTick: this.getCurrentGameTick(),
+          timestamp: this.getCurrentTimestamp(),
           player: {
             uuid: this.bot!.player.uuid,
             username: this.bot!.player.username,
@@ -308,6 +347,7 @@ export class EventManager {
         this.addEvent({
           type: 'spawnPointReset',
           gameTick: this.getCurrentGameTick(),
+          timestamp: this.getCurrentTimestamp(),
           position: {
             x: this.bot!.entity.position.x,
             y: this.bot!.entity.position.y,
@@ -323,6 +363,7 @@ export class EventManager {
         this.addEvent({
           type: 'healthUpdate',
           gameTick: this.getCurrentGameTick(),
+          timestamp: this.getCurrentTimestamp(),
           health: this.bot!.health,
           food: this.bot!.food,
           saturation: this.bot!.foodSaturation
@@ -336,6 +377,7 @@ export class EventManager {
         this.addEvent({
           type: 'entityHurt',
           gameTick: this.getCurrentGameTick(),
+          timestamp: this.getCurrentTimestamp(),
           entity: {
             id: entity.id,
             type: entity.name || 'unknown',
@@ -359,6 +401,7 @@ export class EventManager {
         this.addEvent({
           type: 'entityDeath',
           gameTick: this.getCurrentGameTick(),
+          timestamp: this.getCurrentTimestamp(),
           entity: {
             id: entity.id,
             type: entity.name || 'unknown',
