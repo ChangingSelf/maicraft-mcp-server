@@ -73,6 +73,8 @@ interface MineBlockParams extends BaseActionParams {
   useRelativeCoords?: boolean;
   /** 是否只挖掘不收集，默认false（会移动到方块位置并收集掉落物） */
   digOnly?: boolean;
+  /** 是否启用透视模式 (布尔值，可选，默认false为限制可见方块) */
+  enable_xray?: boolean;
 }
 
 /**
@@ -136,6 +138,7 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
     z: z.number().int().optional().describe('目标坐标 Z (整数，当指定坐标时必需)'),
     useRelativeCoords: z.boolean().optional().describe('是否使用相对坐标 (布尔值，可选，默认false为绝对坐标)'),
     digOnly: z.boolean().optional().describe('是否只挖掘不收集，默认false（会移动到方块位置并收集掉落物）'),
+    enable_xray: z.boolean().optional().describe('是否启用透视模式 (布尔值，可选，默认false为限制可见方块)'),
   });
 
   // 校验和 schema 描述由基类提供
@@ -163,6 +166,7 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       const maxDistance = params.maxDistance ?? 48;
       const useRelativeCoords = params.useRelativeCoords ?? false;
       const digOnly = params.digOnly ?? false;
+      const enable_xray = params.enable_xray ?? false;
       
       // 检查是否提供了坐标参数
       const hasCoordinates = params.x !== undefined && params.y !== undefined && params.z !== undefined;
@@ -198,17 +202,17 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       // 根据参数组合选择挖掘策略
       if (hasCoordinates) {
         // 精准坐标挖掘模式
-        const result = await this.mineAtCoordinates(bot, params, blockByName, count, bypassAllCheck, useRelativeCoords, digOnly);
+        const result = await this.mineAtCoordinates(bot, params, blockByName, count, bypassAllCheck, useRelativeCoords, digOnly, enable_xray);
         successCount = result.count;
         minedBlocks = result.blocks;
       } else if (hasDirection && !hasName) {
         // 方向挖掘模式：朝着指定方向挖掘指定数量的方块
-        const result = await this.mineInDirection(bot, params, count, bypassAllCheck, maxDistance, digOnly);
+        const result = await this.mineInDirection(bot, params, count, bypassAllCheck, maxDistance, digOnly, enable_xray);
         successCount = result.count;
         minedBlocks = result.blocks;
       } else {
         // 搜索挖掘模式（原有逻辑）- 此时 blockByName 一定不为 null
-        const result = await this.mineBySearch(bot, params, blockByName!, count, bypassAllCheck, maxDistance, digOnly);
+        const result = await this.mineBySearch(bot, params, blockByName!, count, bypassAllCheck, maxDistance, digOnly, enable_xray);
         successCount = result.count;
         minedBlocks = result.blocks;
       }
@@ -258,7 +262,7 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
   /**
    * 在指定方向搜索方块
    */
-  private findBlockInDirection(bot: Bot, blockId: number, direction: string, maxDistance: number): any {
+  private findBlockInDirection(bot: Bot, blockId: number, direction: string, maxDistance: number, enable_xray: boolean = false): any {
     const botPos = bot.entity.position;
     const searchRange = Math.min(maxDistance, 100); // 限制单次搜索范围，避免性能问题
     
@@ -306,6 +310,12 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
         for (let z = startZ; z <= endZ; z++) {
           const block = bot.blockAt(new Vec3(x, y, z));
           if (block && block.type === blockId) {
+            // 如果未启用透视模式，检查方块是否可见
+            if (!enable_xray && !bot.canSeeBlock(block)) {
+              // 方块不可见，跳过
+              continue;
+            }
+
             // 计算到机器人的距离
             const distance = Math.sqrt(
               Math.pow(botPos.x - block.position.x, 2) +
@@ -349,7 +359,8 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
     count: number,
     bypassAllCheck: boolean,
     useRelativeCoords: boolean,
-    digOnly: boolean
+    digOnly: boolean,
+    enable_xray: boolean
   ): Promise<MineOperationResult> {
     const botPos = bot.entity.position;
     let targetX = params.x!;
@@ -384,8 +395,13 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       throw new Error(`目标坐标 (${targetX}, ${targetY}, ${targetZ}) 的方块类型是 ${targetBlock.name}，不是期望的 ${params.name}`);
     }
     
+    // 检查方块是否可见（如果未启用透视模式）
+    if (!enable_xray && !bot.canSeeBlock(targetBlock)) {
+      throw new Error(`目标坐标 (${targetX}, ${targetY}, ${targetZ}) 处的方块 ${targetBlock.name} 不可见，无法挖掘。如需挖掘不可见方块，请设置enable_xray=true`);
+    }
+
     this.logger.info(`找到目标方块: ${targetBlock.name} 在坐标 (${targetX}, ${targetY}, ${targetZ})`);
-    
+
     let successCount = 0;
     const minedBlocks: string[] = [];
 
@@ -425,7 +441,8 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
     count: number,
     bypassAllCheck: boolean,
     maxDistance: number,
-    digOnly: boolean
+    digOnly: boolean,
+    enable_xray: boolean
   ): Promise<MineOperationResult> {
     let successCount = 0;
     const minedBlocks: string[] = [];
@@ -470,6 +487,9 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
         // 继续下一个位置
       } else if (this.isFluidBlock(block)) {
         this.logger.warn(`位置 (${currentX}, ${currentY}, ${currentZ}) 的方块是流体 ${block.name}，跳过挖掘`);
+        // 继续下一个位置
+      } else if (!enable_xray && !bot.canSeeBlock(block)) {
+        this.logger.warn(`位置 (${currentX}, ${currentY}, ${currentZ}) 的方块 ${block.name} 不可见，跳过挖掘。如需挖掘不可见方块，请设置enable_xray=true`);
         // 继续下一个位置
       } else {
           this.logger.info(`挖掘第 ${i+1} 个方块: ${block.name} 在位置 (${currentX}, ${currentY}, ${currentZ})`);
@@ -533,7 +553,8 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
     count: number,
     bypassAllCheck: boolean,
     maxDistance: number,
-    digOnly: boolean
+    digOnly: boolean,
+    enable_xray: boolean
   ): Promise<MineOperationResult> {
     let successCount = 0;
     const minedBlocks: string[] = [];
@@ -544,13 +565,20 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       
       if (params.direction) {
         // 按指定方向搜索
-        block = this.findBlockInDirection(bot, blockByName.id, params.direction, maxDistance);
+        block = this.findBlockInDirection(bot, blockByName.id, params.direction, maxDistance, enable_xray);
       } else {
-        // 在附近搜索（原有行为）
+        // 在附近搜索（原有行为），需要过滤可见性
         block = bot.findBlock({
           matching: [blockByName.id],
           maxDistance: maxDistance,
         });
+
+        // 如果找到的方块不可见且未启用透视模式，抛出错误
+        if (block && !enable_xray && !bot.canSeeBlock(block)) {
+          const directionText = params.direction ? `在${this.getDirectionText(params.direction)}方向` : '附近';
+          this.logger.warn(`找到的 ${params.name} 方块不可见，${directionText}位置: ${block.position.x}, ${block.position.y}, ${block.position.z}，无法挖掘`);
+          throw new Error(`找到的 ${params.name} 方块不可见，无法挖掘。如需挖掘不可见方块，请设置enable_xray=true`);
+        }
       }
       
       if (!block) {
@@ -564,6 +592,13 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
         const directionText = params.direction ? `在${this.getDirectionText(params.direction)}方向` : '附近';
         this.logger.warn(`找到的 ${params.name} 方块是流体 ${block.name}，${directionText}位置: ${block.position.x}, ${block.position.y}, ${block.position.z}，不允许挖掘`);
         throw new Error(`找到的 ${params.name} 方块是流体 ${block.name}，不允许挖掘`);
+      }
+
+      // 最终可见性检查（双重保险）
+      if (!enable_xray && !bot.canSeeBlock(block)) {
+        const directionText = params.direction ? `在${this.getDirectionText(params.direction)}方向` : '附近';
+        this.logger.warn(`找到的 ${params.name} 方块不可见，${directionText}位置: ${block.position.x}, ${block.position.y}, ${block.position.z}，无法挖掘`);
+        throw new Error(`找到的 ${params.name} 方块不可见，无法挖掘。如需挖掘不可见方块，请设置enable_xray=true`);
       }
 
       const directionText = params.direction ? `在${this.getDirectionText(params.direction)}方向` : '';
