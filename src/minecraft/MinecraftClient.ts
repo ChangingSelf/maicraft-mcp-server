@@ -175,6 +175,8 @@ export class MinecraftClient extends EventEmitter {
           }
           
           defaultMove.blocksCantBreak = blocksCantBreakIds;
+          defaultMove.allow1by1towers = false;
+
           this.bot!.pathfinder.setMovements(defaultMove);
 
 
