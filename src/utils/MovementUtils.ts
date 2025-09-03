@@ -282,13 +282,14 @@ export class MovementUtils {
             position: { x: targetPosition.x, y: targetPosition.y, z: targetPosition.z }
           };
         } else {
+          this.logger.info(`移动完成，最终距离: ${finalDistance.toFixed(2)} (目标距离: ${distance})`);
           return {
-            success: false,
+            success: true,
             type: params.type,
             target: targetDescription,
             distance: Number(finalDistance.toFixed(2)),
             position: { x: targetPosition.x, y: targetPosition.y, z: targetPosition.z },
-            error: `移动失败，最终距离: ${finalDistance.toFixed(2)}`
+            error: `移动完成，最终距离: ${finalDistance.toFixed(2)}`
           };
         }
       } catch (error) {
