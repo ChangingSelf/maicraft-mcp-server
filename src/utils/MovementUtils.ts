@@ -3,6 +3,7 @@ import { Vec3 } from 'vec3';
 import pathfinder from 'mineflayer-pathfinder';
 import { Logger } from './Logger.js';
 
+
 /**
  * 移动参数接口
  */
@@ -30,15 +31,46 @@ export interface MovementParams {
 }
 
 /**
- * 移动结果接口
+ * 移动结果接口 - 精简的结构化数据
  */
 export interface MovementResult {
+  /** 是否成功 */
   success: boolean;
-  type: string;
+  /** 移动类型 */
+  type: 'coordinate' | 'block' | 'player' | 'entity';
+  /** 目标描述 */
   target: string;
+  /** 最终距离目标的距离 */
   distance: number;
-  position: { x: number; y: number; z: number };
+  /** 目标坐标 */
+  targetPosition: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  /** 最终 bot 位置坐标 */
+  finalPosition: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  /** 移动状态信息 */
+  status: {
+    /** 是否已到达目标范围内 */
+    reached: boolean;
+    /** 是否因距离过远而失败 */
+    tooFar: boolean;
+    /** 是否因参数错误而失败 */
+    invalidParams: boolean;
+    /** 是否已在目标范围内（无需移动） */
+    alreadyInRange: boolean;
+  };
+  /** 错误信息（如果有） */
   error?: string;
+  /** 详细状态描述 */
+  message: string;
+  /** 时间戳 */
+  timestamp: number;
 }
 
 /**
@@ -183,26 +215,54 @@ export class MovementUtils {
     try {
       // 检查 pathfinder 插件
       if (!this.checkPathfinderAvailable(bot)) {
+        const botPos = bot.entity.position;
         return {
           success: false,
           type: params.type,
           target: '未知目标',
           distance: 0,
-          position: { x: 0, y: 0, z: 0 },
-          error: 'PATHFINDER_NOT_LOADED'
+          targetPosition: { x: 0, y: 0, z: 0 },
+          finalPosition: {
+            x: Number(botPos.x.toFixed(2)),
+            y: Number(botPos.y.toFixed(2)),
+            z: Number(botPos.z.toFixed(2))
+          },
+          status: {
+            reached: false,
+            tooFar: false,
+            invalidParams: false,
+            alreadyInRange: false
+          },
+          error: 'PATHFINDER_NOT_LOADED',
+          message: '路径寻找插件未加载，请先加载 mineflayer-pathfinder 插件',
+          timestamp: Date.now()
         };
       }
 
       // 验证参数
       const validation = this.validateMovementParams(params);
       if (!validation.isValid) {
+        const botPos = bot.entity.position;
         return {
           success: false,
           type: params.type,
           target: '未知目标',
           distance: 0,
-          position: { x: 0, y: 0, z: 0 },
-          error: validation.error
+          targetPosition: { x: 0, y: 0, z: 0 },
+          finalPosition: {
+            x: Number(botPos.x.toFixed(2)),
+            y: Number(botPos.y.toFixed(2)),
+            z: Number(botPos.z.toFixed(2))
+          },
+          status: {
+            reached: false,
+            tooFar: false,
+            invalidParams: true,
+            alreadyInRange: false
+          },
+          error: validation.error,
+          message: validation.error || '参数验证失败',
+          timestamp: Date.now()
         };
       }
 
@@ -212,13 +272,27 @@ export class MovementUtils {
       // 计算目标位置
       const targetResult = await this.calculateTargetPosition(bot, params);
       if (!targetResult) {
+        const botPos = bot.entity.position;
         return {
           success: false,
           type: params.type,
           target: '未知目标',
           distance: 0,
-          position: { x: 0, y: 0, z: 0 },
-          error: 'CALCULATE_TARGET_FAILED'
+          targetPosition: { x: 0, y: 0, z: 0 },
+          finalPosition: {
+            x: Number(botPos.x.toFixed(2)),
+            y: Number(botPos.y.toFixed(2)),
+            z: Number(botPos.z.toFixed(2))
+          },
+          status: {
+            reached: false,
+            tooFar: false,
+            invalidParams: true,
+            alreadyInRange: false
+          },
+          error: 'CALCULATE_TARGET_FAILED',
+          message: '计算目标位置失败',
+          timestamp: Date.now()
         };
       }
 
@@ -231,36 +305,90 @@ export class MovementUtils {
 
       // 检查距离是否过远
       if (currentDistance > maxDistance) {
+        const botPos = bot.entity.position;
         return {
           success: false,
           type: params.type,
           target: targetDescription,
           distance: Number(currentDistance.toFixed(2)),
-          position: { x: targetPosition.x, y: targetPosition.y, z: targetPosition.z },
-          error: `目标距离过远 (${currentDistance.toFixed(2)} > ${maxDistance})，无法到达`
+          targetPosition: {
+            x: Number(targetPosition.x.toFixed(2)),
+            y: Number(targetPosition.y.toFixed(2)),
+            z: Number(targetPosition.z.toFixed(2))
+          },
+          finalPosition: {
+            x: Number(botPos.x.toFixed(2)),
+            y: Number(botPos.y.toFixed(2)),
+            z: Number(botPos.z.toFixed(2))
+          },
+          status: {
+            reached: false,
+            tooFar: true,
+            invalidParams: false,
+            alreadyInRange: false
+          },
+          error: `目标距离过远 (${currentDistance.toFixed(2)} > ${maxDistance})，无法到达`,
+          message: `目标距离过远 (${currentDistance.toFixed(2)} > ${maxDistance})，无法到达`,
+          timestamp: Date.now()
         };
       }
 
       if (currentDistance <= distance) {
+        const botPos = bot.entity.position;
         return {
           success: true,
           type: params.type,
           target: targetDescription,
           distance: Number(currentDistance.toFixed(2)),
-          position: { x: targetPosition.x, y: targetPosition.y, z: targetPosition.z }
+          targetPosition: {
+            x: Number(targetPosition.x.toFixed(2)),
+            y: Number(targetPosition.y.toFixed(2)),
+            z: Number(targetPosition.z.toFixed(2))
+          },
+          finalPosition: {
+            x: Number(botPos.x.toFixed(2)),
+            y: Number(botPos.y.toFixed(2)),
+            z: Number(botPos.z.toFixed(2))
+          },
+          status: {
+            reached: true,
+            tooFar: false,
+            invalidParams: false,
+            alreadyInRange: true
+          },
+          message: `已在 ${targetDescription} 范围内，距离: ${currentDistance.toFixed(2)}`,
+          timestamp: Date.now()
         };
       }
 
       // 使用 pathfinder 移动到目标位置
       const { GoalNear } = pathfinder.goals;
       if (!GoalNear) {
+        const botPos = bot.entity.position;
         return {
           success: false,
           type: params.type,
           target: targetDescription,
           distance: 0,
-          position: { x: targetPosition.x, y: targetPosition.y, z: targetPosition.z },
-          error: 'mineflayer-pathfinder goals 未加载'
+          targetPosition: {
+            x: Number(targetPosition.x.toFixed(2)),
+            y: Number(targetPosition.y.toFixed(2)),
+            z: Number(targetPosition.z.toFixed(2))
+          },
+          finalPosition: {
+            x: Number(botPos.x.toFixed(2)),
+            y: Number(botPos.y.toFixed(2)),
+            z: Number(botPos.z.toFixed(2))
+          },
+          status: {
+            reached: false,
+            tooFar: false,
+            invalidParams: false,
+            alreadyInRange: false
+          },
+          error: 'mineflayer-pathfinder goals 未加载',
+          message: 'mineflayer-pathfinder goals 未加载',
+          timestamp: Date.now()
         };
       }
 
@@ -271,6 +399,7 @@ export class MovementUtils {
 
         // 验证是否成功到达
         const finalDistance = bot.entity.position.distanceTo(targetPosition);
+        const botPos = bot.entity.position;
 
         if (finalDistance <= distance) {
           this.logger.info(`成功移动到 ${targetDescription} (距离: ${finalDistance.toFixed(2)})`);
@@ -279,7 +408,24 @@ export class MovementUtils {
             type: params.type,
             target: targetDescription,
             distance: Number(finalDistance.toFixed(2)),
-            position: { x: targetPosition.x, y: targetPosition.y, z: targetPosition.z }
+            targetPosition: {
+              x: Number(targetPosition.x.toFixed(2)),
+              y: Number(targetPosition.y.toFixed(2)),
+              z: Number(targetPosition.z.toFixed(2))
+            },
+            finalPosition: {
+              x: Number(botPos.x.toFixed(2)),
+              y: Number(botPos.y.toFixed(2)),
+              z: Number(botPos.z.toFixed(2))
+            },
+            status: {
+              reached: true,
+              tooFar: false,
+              invalidParams: false,
+              alreadyInRange: false
+            },
+            message: `成功移动到 ${targetDescription}，距离: ${finalDistance.toFixed(2)}`,
+            timestamp: Date.now()
           };
         } else {
           this.logger.info(`移动完成，最终距离: ${finalDistance.toFixed(2)} (目标距离: ${distance})`);
@@ -288,8 +434,25 @@ export class MovementUtils {
             type: params.type,
             target: targetDescription,
             distance: Number(finalDistance.toFixed(2)),
-            position: { x: targetPosition.x, y: targetPosition.y, z: targetPosition.z },
-            error: `移动完成，最终距离: ${finalDistance.toFixed(2)}`
+            targetPosition: {
+              x: Number(targetPosition.x.toFixed(2)),
+              y: Number(targetPosition.y.toFixed(2)),
+              z: Number(targetPosition.z.toFixed(2))
+            },
+            finalPosition: {
+              x: Number(botPos.x.toFixed(2)),
+              y: Number(botPos.y.toFixed(2)),
+              z: Number(botPos.z.toFixed(2))
+            },
+            status: {
+              reached: false,
+              tooFar: false,
+              invalidParams: false,
+              alreadyInRange: false
+            },
+            error: `移动完成，最终距离: ${finalDistance.toFixed(2)}`,
+            message: `移动完成，最终距离: ${finalDistance.toFixed(2)} (目标距离: ${distance})`,
+            timestamp: Date.now()
           };
         }
       } catch (error) {
@@ -297,13 +460,27 @@ export class MovementUtils {
       }
     } catch (error) {
       this.logger.error(`移动失败: ${error instanceof Error ? error.message : String(error)}`);
+      const botPos = bot.entity.position;
       return {
         success: false,
         type: params.type,
         target: '未知目标',
         distance: 0,
-        position: { x: 0, y: 0, z: 0 },
-        error: error instanceof Error ? error.message : String(error)
+        targetPosition: { x: 0, y: 0, z: 0 },
+        finalPosition: {
+          x: Number(botPos.x.toFixed(2)),
+          y: Number(botPos.y.toFixed(2)),
+          z: Number(botPos.z.toFixed(2))
+        },
+        status: {
+          reached: false,
+          tooFar: false,
+          invalidParams: false,
+          alreadyInRange: false
+        },
+        error: error instanceof Error ? error.message : String(error),
+        message: `移动失败: ${error instanceof Error ? error.message : String(error)}`,
+        timestamp: Date.now()
       };
     }
   }

@@ -71,13 +71,8 @@ export class MoveAction extends BaseAction<MoveParams> {
       // 调用统一的移动工具类
       const result = await MovementUtils.moveTo(bot, movementParams);
 
-      // 移动操作总是成功，即使距离没达到目标
-      const finalPosition = `(${result.position.x.toFixed(1)}, ${result.position.y.toFixed(1)}, ${result.position.z.toFixed(1)})`;
-      const message = result.error
-        ? `已移动到 ${result.target} 附近，最终距离: ${result.distance}，坐标: ${finalPosition}`
-        : `已成功移动到 ${result.target}，坐标: ${finalPosition}`;
-
-      return this.createSuccessResult(message, result);
+      // 返回统一的结构化数据
+      return this.createSuccessResult(result.message, result);
     } catch (error) {
       this.logger.error(`移动失败: ${error instanceof Error ? error.message : String(error)}`);
       return this.createExceptionResult(error, '移动失败', 'MOVE_FAILED');
