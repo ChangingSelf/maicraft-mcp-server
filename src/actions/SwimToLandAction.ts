@@ -2,7 +2,7 @@ import { Bot } from 'mineflayer';
 import minecraftData from 'minecraft-data';
 import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
-import { MovementUtils } from '../utils/MovementUtils.js';
+import { MovementUtils, GoalType } from '../utils/MovementUtils.js';
 import pathfinder from 'mineflayer-pathfinder';
 
 interface SwimToLandParams extends BaseActionParams {
@@ -69,8 +69,20 @@ export class SwimToLandAction extends BaseAction<SwimToLandParams> {
 
       const startTime = Date.now();
       for (const pos of positions) {
-        // 使用统一的移动工具类移动到陆地位置
-        const moveResult = await MovementUtils.moveToCoordinate(bot, pos.x, pos.y + 1, pos.z, 1, maxDist, false);
+        // 使用统一的移动工具类移动到陆地位置，使用 GoalNear 目标类型
+        const moveResult = await MovementUtils.moveTo(
+          bot,
+          {
+            type: 'coordinate',
+            x: pos.x,
+            y: pos.y + 1,
+            z: pos.z,
+            distance: 1, // 到达距离
+            maxDistance: maxDist, // 最大移动距离
+            useRelativeCoords: false, // 不使用相对坐标
+            goalType: GoalType.GoalNear // 使用附近目标类型
+          }
+        );
 
         if (!moveResult.success) {
           // 无法到达这个位置，继续尝试下一个

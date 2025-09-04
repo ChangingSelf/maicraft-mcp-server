@@ -1,6 +1,6 @@
 import { Bot } from 'mineflayer';
 import { Vec3 } from 'vec3';
-import { MovementUtils } from './MovementUtils.js';
+import { MovementUtils, GoalType } from './MovementUtils.js';
 
 export interface ContainerInfo {
   location: {
@@ -98,15 +98,19 @@ export class ContainerUtils {
    * 移动到容器附近
    */
   static async moveToContainer(bot: Bot, containerBlock: any, containerType: string): Promise<void> {
-    // 使用统一的移动工具类移动到容器位置
-    const moveResult = await MovementUtils.moveToCoordinate(
+    // 使用统一的移动工具类移动到容器位置，使用 GoalGetToBlock 目标类型
+    const moveResult = await MovementUtils.moveTo(
       bot,
-      containerBlock.position.x,
-      containerBlock.position.y,
-      containerBlock.position.z,
-      3, // 到达距离（稍微远一点，以便更好地看到容器）
-      32, // 最大移动距离
-      false // 不使用相对坐标
+      {
+        type: 'coordinate',
+        x: containerBlock.position.x,
+        y: containerBlock.position.y,
+        z: containerBlock.position.z,
+        distance: 3, // 到达距离（稍微远一点，以便更好地看到容器）
+        maxDistance: 32, // 最大移动距离
+        useRelativeCoords: false, // 不使用相对坐标
+        goalType: GoalType.GoalGetToBlock // 使用获取方块目标类型
+      }
     );
 
     if (!moveResult.success) {

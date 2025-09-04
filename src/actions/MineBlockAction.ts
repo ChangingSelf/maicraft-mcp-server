@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { Vec3 } from 'vec3';
 import { Block } from 'prismarine-block';
 import { MinecraftUtils } from '../utils/MinecraftUtils.js';
+import { MovementUtils, GoalType } from '../utils/MovementUtils.js';
 
 /**
  * MineBlockAction 的执行结果数据结构
@@ -75,6 +76,10 @@ interface MineBlockParams extends BaseActionParams {
   digOnly?: boolean;
   /** 是否启用透视模式 (布尔值，可选，默认false为限制可见方块) */
   enable_xray?: boolean;
+  /** 是否使用 MovementUtils 而不是 collectBlock (布尔值，可选，默认false) */
+  use_movement_utils?: boolean;
+  /** 移动目标类型 (当 use_movement_utils 为 true 时有效) */
+  goalType?: GoalType;
 }
 
 /**
@@ -123,10 +128,17 @@ interface MineBlockParams extends BaseActionParams {
  * - 默认情况下（digOnly=false）：使用collectBlock插件，会移动到方块位置并收集掉落物
  * - 当digOnly=true时：只进行挖掘操作，不会移动到方块位置，也不会收集掉落物
  * - digOnly模式适用于远程挖掘或不需要收集掉落物的场景
+ *
+ * 移动目标类型选择建议：
+ * - use_movement_utils=true 时可通过 goalType 参数控制移动行为：
+ *   • goalNearXZ: 推荐用于挖掘，不关心具体Y坐标，便于在地表移动
+ *   • goalGetToBlock: 适用于需要靠近方块进行交互的场景
+ *   • goalNear: 通用型目标，适用于大多数挖掘场景
+ *   • goalBlock: 精确到达方块中心，适用于特殊定位需求
  */
 export class MineBlockAction extends BaseAction<MineBlockParams> {
   name = 'mineBlock';
-  description = '挖掘方块，支持三种模式：按名称搜索、精准坐标指定、方向挖掘，可选择只挖掘不收集';
+  description = '挖掘方块，支持三种模式：按名称搜索、精准坐标指定、方向挖掘，可选择只挖掘不收集，支持自定义移动目标类型';
   schema = z.object({
     name: z.string().optional().describe('方块名称 (字符串，当提供坐标时可选，用于验证方块类型)'),
     count: z.number().int().min(1).optional().describe('挖掘数量 (数字，可选，默认 1)'),
@@ -139,6 +151,20 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
     useRelativeCoords: z.boolean().optional().describe('是否使用相对坐标 (布尔值，可选，默认false为绝对坐标)'),
     digOnly: z.boolean().optional().describe('是否只挖掘不收集，默认false（会移动到方块位置并收集掉落物）'),
     enable_xray: z.boolean().optional().describe('是否启用透视模式 (布尔值，可选，默认false为限制可见方块)'),
+    use_movement_utils: z.boolean().optional().describe('是否使用 MovementUtils 而不是 collectBlock (布尔值，可选，默认false)'),
+    goalType: z.enum([
+      'goalBlock', 'goalNear', 'goalXZ', 'goalNearXZ', 'goalY',
+      'goalGetToBlock', 'goalFollow', 'goalPlaceBlock', 'goalLookAtBlock'
+    ]).optional().describe(`移动目标类型 (当 use_movement_utils 为 true 时有效，可选，默认 goalNearXZ)
+• goalBlock: 移动到指定方块，玩家站在方块内脚部水平位置
+• goalNear: 移动到指定位置的指定半径范围内
+• goalXZ: 移动到指定X、Z坐标，不关心具体Y坐标
+• goalNearXZ: 移动到指定X、Z坐标附近，不关心具体Y坐标（推荐用于挖掘）
+• goalY: 移动到指定Y坐标高度
+• goalGetToBlock: 移动到方块旁边（不进入方块）
+• goalFollow: 跟随实体移动
+• goalPlaceBlock: 移动到适合放置方块的位置
+• goalLookAtBlock: 移动到可以看到指定方块面的位置`),
   });
 
   // 校验和 schema 描述由基类提供
@@ -167,6 +193,8 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       const useRelativeCoords = params.useRelativeCoords ?? false;
       const digOnly = params.digOnly ?? false;
       const enable_xray = params.enable_xray ?? false;
+      const useMovementUtils = params.use_movement_utils ?? false;
+      const goalType = params.goalType ?? GoalType.GoalNearXZ;
       
       // 检查是否提供了坐标参数
       const hasCoordinates = params.x !== undefined && params.y !== undefined && params.z !== undefined;
@@ -202,7 +230,7 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       // 根据参数组合选择挖掘策略
       if (hasCoordinates) {
         // 精准坐标挖掘模式
-        const result = await this.mineAtCoordinates(bot, params, blockByName, count, bypassAllCheck, useRelativeCoords, digOnly, enable_xray);
+        const result = await this.mineAtCoordinates(bot, params, blockByName, count, bypassAllCheck, useRelativeCoords, digOnly, enable_xray, useMovementUtils, goalType);
         successCount = result.count;
         minedBlocks = result.blocks;
       } else if (hasDirection && !hasName) {
@@ -360,7 +388,9 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
     bypassAllCheck: boolean,
     useRelativeCoords: boolean,
     digOnly: boolean,
-    enable_xray: boolean
+    enable_xray: boolean,
+    useMovementUtils: boolean,
+    goalType: GoalType
   ): Promise<MineOperationResult> {
     const botPos = bot.entity.position;
     let targetX = params.x!;
@@ -407,7 +437,11 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
 
     // 挖掘指定数量的方块（在坐标模式下，通常只挖掘一个）
     for (let i = 0; i < count; i++) {
-      if (bypassAllCheck || digOnly) {
+      if (useMovementUtils) {
+        // 使用 MovementUtils 进行移动和挖掘
+        this.logger.info(`使用 MovementUtils (${goalType}) 挖掘方块`);
+        await this.mineWithMovementUtils(bot, targetBlock, goalType, digOnly);
+      } else if (bypassAllCheck || digOnly) {
         // 绕过安全检查或只挖掘不收集，直接使用bot.dig()
         this.logger.info(`${bypassAllCheck ? '绕过安全检查' : '只挖掘不收集'}，直接挖掘方块`);
         await this.digBlockDirectly(bot, targetBlock, digOnly);
@@ -660,6 +694,41 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       () => bot.collectBlock.collect(target, options),
       ["Collect finish!"]
     );
+  }
+
+  /**
+   * 使用 MovementUtils 挖掘方块
+   */
+  private async mineWithMovementUtils(bot: Bot, targetBlock: any, goalType: GoalType, digOnly: boolean): Promise<void> {
+    // 使用 MovementUtils 移动到目标位置
+    const moveResult = await MovementUtils.moveTo(
+      bot,
+      {
+        type: 'coordinate',
+        x: targetBlock.position.x,
+        y: targetBlock.position.y,
+        z: targetBlock.position.z,
+        distance: 4, // 挖掘距离
+        maxDistance: 64, // 最大移动距离
+        useRelativeCoords: false,
+        goalType: goalType
+      }
+    );
+
+    if (!moveResult.success) {
+      throw new Error(`移动到挖掘位置失败: ${moveResult.error}`);
+    }
+
+    // 挖掘方块
+    if (digOnly) {
+      await this.digBlockDirectly(bot, targetBlock, digOnly);
+    } else {
+      // 使用 collectBlock 收集
+      await this.collectBlockSilently(bot, targetBlock, {
+        ignoreNoPath: false,
+        count: 1
+      });
+    }
   }
 
   // MCP 工具由基类根据 schema 自动暴露为 tool: mine_block

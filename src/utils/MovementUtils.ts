@@ -3,6 +3,30 @@ import { Vec3 } from 'vec3';
 import pathfinder from 'mineflayer-pathfinder';
 import { Logger } from './Logger.js';
 
+/**
+ * 移动目标类型枚举 - 基于 mineflayer-pathfinder 的目标类型
+ */
+export enum GoalType {
+  /** goalBlock: 移动到指定方块，玩家站在方块内脚部水平位置 */
+  GoalBlock = 'goalBlock',
+  /** goalNear: 移动到指定位置的指定半径范围内 */
+  GoalNear = 'goalNear',
+  /** goalXZ: 移动到指定X、Z坐标，不关心具体Y坐标 */
+  GoalXZ = 'goalXZ',
+  /** goalNearXZ: 移动到指定X、Z坐标附近，不关心具体Y坐标 */
+  GoalNearXZ = 'goalNearXZ',
+  /** goalY: 移动到指定Y坐标高度 */
+  GoalY = 'goalY',
+  /** goalGetToBlock: 移动到方块旁边（不进入方块），适用于箱子等交互 */
+  GoalGetToBlock = 'goalGetToBlock',
+  /** goalFollow: 跟随实体移动 */
+  GoalFollow = 'goalFollow',
+  /** goalPlaceBlock: 移动到适合放置方块的位置 */
+  GoalPlaceBlock = 'goalPlaceBlock',
+  /** goalLookAtBlock: 移动到可以看到指定方块面的位置 */
+  GoalLookAtBlock = 'goalLookAtBlock'
+}
+
 
 /**
  * 移动参数接口
@@ -28,6 +52,8 @@ export interface MovementParams {
   distance?: number;
   /** 最大移动距离，默认 200 */
   maxDistance?: number;
+  /** 移动目标类型，默认根据移动类型自动选择 */
+  goalType?: GoalType;
 }
 
 /**
@@ -89,6 +115,127 @@ export class MovementUtils {
       return false;
     }
     return true;
+  }
+
+  /**
+   * 根据移动类型和参数确定目标类型
+   */
+  private static determineGoalType(params: MovementParams): GoalType {
+    // 如果用户指定了目标类型，直接使用
+    if (params.goalType) {
+      return params.goalType;
+    }
+
+    // 根据移动类型选择默认的目标类型
+    switch (params.type) {
+      case 'coordinate':
+        return GoalType.GoalNear; // 移动到坐标附近
+      case 'block':
+        return GoalType.GoalNearXZ; // 移动到方块所在XZ位置附近，Y坐标自适应
+      case 'player':
+      case 'entity':
+        return GoalType.GoalFollow; // 跟随玩家或实体
+      default:
+        return GoalType.GoalNear; // 默认使用 GoalNear
+    }
+  }
+
+  /**
+   * 根据目标类型创建相应的路径寻找目标
+   */
+  private static createGoal(goalType: GoalType, targetPosition: Vec3, distance: number, params: MovementParams, bot: Bot): any {
+    const { GoalBlock, GoalNear, GoalXZ, GoalNearXZ, GoalY, GoalGetToBlock, GoalFollow, GoalPlaceBlock, GoalLookAtBlock } = pathfinder.goals;
+
+    switch (goalType) {
+      case GoalType.GoalBlock:
+        return new GoalBlock(targetPosition.x, targetPosition.y, targetPosition.z);
+
+      case GoalType.GoalNear:
+        return new GoalNear(targetPosition.x, targetPosition.y, targetPosition.z, distance);
+
+      case GoalType.GoalXZ:
+        return new GoalXZ(targetPosition.x, targetPosition.z);
+
+      case GoalType.GoalNearXZ:
+        return new GoalNearXZ(targetPosition.x, targetPosition.z, distance);
+
+      case GoalType.GoalY:
+        return new GoalY(targetPosition.y);
+
+      case GoalType.GoalGetToBlock:
+        return new GoalGetToBlock(targetPosition.x, targetPosition.y, targetPosition.z);
+
+      case GoalType.GoalFollow:
+        // 对于跟随目标，需要找到实体
+        if (params.type === 'player' || params.type === 'entity') {
+          let entity = null;
+          if (params.type === 'player' && params.player) {
+            entity = bot.players[params.player]?.entity;
+          } else if (params.type === 'entity' && params.entity) {
+            entity = bot.nearestEntity((e: any) =>
+              e.name?.toLocaleLowerCase() === params.entity?.toLocaleLowerCase()
+            );
+          }
+
+          if (entity) {
+            return new GoalFollow(entity, distance);
+          } else {
+            // 如果找不到实体，回退到 GoalNear
+            this.logger.warn(`找不到实体，使用 GoalNear 作为回退目标`);
+            return new GoalNear(targetPosition.x, targetPosition.y, targetPosition.z, distance);
+          }
+        } else {
+          // 非实体移动类型，回退到 GoalNear
+          return new GoalNear(targetPosition.x, targetPosition.y, targetPosition.z, distance);
+        }
+
+      case GoalType.GoalPlaceBlock:
+        const world = bot.world;
+        if (!world) {
+          this.logger.warn('无法获取世界信息，使用 GoalNear 作为回退目标');
+          return new GoalNear(targetPosition.x, targetPosition.y, targetPosition.z, distance);
+        }
+
+        // 查找参照方块（用于放置方块）
+        const referenceBlock = bot.blockAt(targetPosition.offset(0, -1, 0)); // 假设在目标位置下方放置
+        if (referenceBlock) {
+          return new GoalPlaceBlock(targetPosition, world, {
+            range: 4.5,
+            LOS: true,
+            faces: [
+              new Vec3(0, 1, 0),   // up
+              new Vec3(0, -1, 0),  // down
+              new Vec3(0, 0, -1),  // north
+              new Vec3(0, 0, 1),   // south
+              new Vec3(1, 0, 0),   // east
+              new Vec3(-1, 0, 0)   // west
+            ],
+            facing: 'up'
+          });
+        } else {
+          this.logger.warn('找不到参照方块，使用 GoalNear 作为回退目标');
+          return new GoalNear(targetPosition.x, targetPosition.y, targetPosition.z, distance);
+        }
+
+      case GoalType.GoalLookAtBlock:
+        const worldForLook = bot.world;
+        if (!worldForLook) {
+          this.logger.warn('无法获取世界信息，使用 GoalNear 作为回退目标');
+          return new GoalNear(targetPosition.x, targetPosition.y, targetPosition.z, distance);
+        }
+
+        const blockToLookAt = bot.blockAt(targetPosition);
+        if (blockToLookAt) {
+          return new GoalLookAtBlock(targetPosition, worldForLook, { reach: distance });
+        } else {
+          this.logger.warn('找不到要看向的方块，使用 GoalNear 作为回退目标');
+          return new GoalNear(targetPosition.x, targetPosition.y, targetPosition.z, distance);
+        }
+
+      default:
+        this.logger.warn(`不支持的目标类型: ${goalType}，使用 GoalNear 作为默认目标`);
+        return new GoalNear(targetPosition.x, targetPosition.y, targetPosition.z, distance);
+    }
   }
 
   /**
@@ -361,38 +508,9 @@ export class MovementUtils {
         };
       }
 
-      // 使用 pathfinder 移动到目标位置
-      const { GoalNear } = pathfinder.goals;
-      if (!GoalNear) {
-        const botPos = bot.entity.position;
-        return {
-          success: false,
-          type: params.type,
-          target: targetDescription,
-          distance: 0,
-          targetPosition: {
-            x: Number(targetPosition.x.toFixed(2)),
-            y: Number(targetPosition.y.toFixed(2)),
-            z: Number(targetPosition.z.toFixed(2))
-          },
-          finalPosition: {
-            x: Number(botPos.x.toFixed(2)),
-            y: Number(botPos.y.toFixed(2)),
-            z: Number(botPos.z.toFixed(2))
-          },
-          status: {
-            reached: false,
-            tooFar: false,
-            invalidParams: false,
-            alreadyInRange: false
-          },
-          error: 'mineflayer-pathfinder goals 未加载',
-          message: 'mineflayer-pathfinder goals 未加载',
-          timestamp: Date.now()
-        };
-      }
-
-      const goal = new GoalNear(targetPosition.x, targetPosition.y, targetPosition.z, distance);
+      // 根据目标类型创建相应的目标
+      const goalType = this.determineGoalType(params);
+      const goal = this.createGoal(goalType, targetPosition, distance, params, bot);
 
       try {
         await bot.pathfinder.goto(goal);

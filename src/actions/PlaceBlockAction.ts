@@ -2,7 +2,7 @@ import { Bot } from 'mineflayer';
 import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 import { Vec3 } from 'vec3';
-import { MovementUtils } from '../utils/MovementUtils.js';
+import { MovementUtils, GoalType } from '../utils/MovementUtils.js';
 import pathfinder from 'mineflayer-pathfinder';
 
 interface PlaceBlockParams extends BaseActionParams {
@@ -133,15 +133,19 @@ export class PlaceBlockAction extends BaseAction<PlaceBlockParams> {
 
       // 尝试放置方块
       try {
-        // 使用统一的移动工具类移动到目标位置
-        const moveResult = await MovementUtils.moveToCoordinate(
+        // 使用统一的移动工具类移动到目标位置，使用 GoalPlaceBlock 目标类型
+        const moveResult = await MovementUtils.moveTo(
           bot,
-          position.x,
-          position.y,
-          position.z,
-          4, // 到达距离
-          100, // 最大移动距离
-          false // 不使用相对坐标
+          {
+            type: 'coordinate',
+            x: position.x,
+            y: position.y,
+            z: position.z,
+            distance: 4, // 到达距离
+            maxDistance: 100, // 最大移动距离
+            useRelativeCoords: false, // 不使用相对坐标
+            goalType: GoalType.GoalPlaceBlock // 使用放置方块目标类型
+          }
         );
 
         if (!moveResult.success) {

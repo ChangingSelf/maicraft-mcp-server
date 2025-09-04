@@ -4,7 +4,7 @@ import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionI
 import { z } from 'zod';
 import pathfinder from 'mineflayer-pathfinder';
 import { Vec3 } from 'vec3';
-import { MovementUtils } from '../utils/MovementUtils.js';
+import { MovementUtils, GoalType } from '../utils/MovementUtils.js';
 
 interface ItemWithCount {
   name: string;
@@ -155,15 +155,19 @@ export class UseChestAction extends BaseAction<UseChestParams> {
    * 移动到箱子附近
    */
   private async moveToChest(bot: Bot, chestBlock: any): Promise<void> {
-    // 使用统一的移动工具类移动到箱子位置
-    const moveResult = await MovementUtils.moveToCoordinate(
+    // 使用统一的移动工具类移动到箱子位置，使用 GoalGetToBlock 目标类型
+    const moveResult = await MovementUtils.moveTo(
       bot,
-      chestBlock.position.x,
-      chestBlock.position.y,
-      chestBlock.position.z,
-      3, // 到达距离（稍微远一点，以便更好地看到箱子）
-      32, // 最大移动距离
-      false // 不使用相对坐标
+      {
+        type: 'coordinate',
+        x: chestBlock.position.x,
+        y: chestBlock.position.y,
+        z: chestBlock.position.z,
+        distance: 3, // 到达距离（稍微远一点，以便更好地看到箱子）
+        maxDistance: 32, // 最大移动距离
+        useRelativeCoords: false, // 不使用相对坐标
+        goalType: GoalType.GoalGetToBlock // 使用获取方块目标类型
+      }
     );
 
     if (!moveResult.success) {

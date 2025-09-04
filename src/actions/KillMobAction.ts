@@ -1,7 +1,7 @@
 import { Bot } from 'mineflayer';
 import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
-import { MovementUtils } from '../utils/MovementUtils.js';
+import { MovementUtils, GoalType } from '../utils/MovementUtils.js';
 import pathfinder from 'mineflayer-pathfinder';
 
 interface KillMobParams extends BaseActionParams {
@@ -41,8 +41,17 @@ export class KillMobAction extends BaseAction<KillMobParams> {
         await bot.pvp.attack(targetEntity);
       } else {
         // 使用 simple attack：靠近然后 swingArm（简化处理）
-        // 使用统一的移动工具类移动到目标实体附近
-        const moveResult = await MovementUtils.moveToEntity(bot, params.mob, 2, 50);
+        // 使用统一的移动工具类移动到目标实体附近，使用 GoalFollow 目标类型
+        const moveResult = await MovementUtils.moveTo(
+          bot,
+          {
+            type: 'entity',
+            entity: params.mob,
+            distance: 2, // 到达距离
+            maxDistance: 50, // 最大移动距离
+            goalType: GoalType.GoalFollow // 使用跟随目标类型
+          }
+        );
         if (!moveResult.success) {
           this.logger.warn(`移动到目标实体失败: ${moveResult.error}，尝试直接攻击`);
         }
