@@ -11,7 +11,6 @@ interface QueryAreaBlocksParams extends BaseActionParams {
   endY: number;
   endZ: number;
   useRelativeCoords?: boolean;
-  enable_xray?: boolean;
   maxBlocks?: number;
   compressionMode?: boolean;
   includeBlockCounts?: boolean;
@@ -33,6 +32,7 @@ interface BlockInfo {
   boundingBox: string;
   stateId?: number;
   metadata?: any;
+  canSee: boolean;
 }
 
 interface CompressedBlockInfo {
@@ -48,6 +48,7 @@ interface CompressedBlockInfo {
   isSolid: boolean;
   isTransparent: boolean;
   boundingBox: string;
+  canSee: boolean;
 }
 
 export class QueryAreaBlocksAction extends BaseAction<QueryAreaBlocksParams> {
@@ -61,7 +62,6 @@ export class QueryAreaBlocksAction extends BaseAction<QueryAreaBlocksParams> {
     endY: z.number().int().describe('区域结束坐标 Y (整数)'),
     endZ: z.number().int().describe('区域结束坐标 Z (整数)'),
     useRelativeCoords: z.boolean().optional().describe('是否使用相对坐标 (布尔值，可选，默认 false 为绝对坐标)'),
-    enable_xray: z.boolean().optional().describe('是否启用透视模式 (布尔值，可选，默认false为限制可见方块)'),
     maxBlocks: z.number().int().min(1).max(50000).optional().describe('最大查询方块数量 (整数，可选，默认5000，最大50000)'),
     compressionMode: z.boolean().optional().describe('是否启用压缩模式，按方块类型分组统计 (布尔值，可选，默认false)'),
     includeBlockCounts: z.boolean().optional().describe('是否包含方块数量统计 (布尔值，可选，默认true)')
@@ -111,7 +111,6 @@ export class QueryAreaBlocksAction extends BaseAction<QueryAreaBlocksParams> {
         endPos = new Vec3(params.endX, params.endY, params.endZ);
       }
 
-      const enable_xray = params.enable_xray ?? false;
       const maxBlocks = params.maxBlocks ?? 5000; // 提高默认限制
       const compressionMode = params.compressionMode ?? false;
       const includeBlockCounts = params.includeBlockCounts ?? true;
@@ -155,14 +154,11 @@ export class QueryAreaBlocksAction extends BaseAction<QueryAreaBlocksParams> {
               continue;
             }
 
-            // 检查方块是否可见（如果未启用透视模式）
-            if (!enable_xray && !bot.canSeeBlock(block)) {
-              skippedBlocks++;
-              continue;
-            }
+            // 检查方块是否可见
+            const canSee = bot.canSeeBlock(block);
 
             // 收集方块信息
-            const blockInfo = this.extractBlockInfo(block, position);
+            const blockInfo = this.extractBlockInfo(block, position, canSee);
 
             if (compressionMode) {
               // 压缩模式：按方块名称分组
@@ -184,6 +180,7 @@ export class QueryAreaBlocksAction extends BaseAction<QueryAreaBlocksParams> {
                   isSolid: blockInfo.isSolid,
                   isTransparent: blockInfo.isTransparent,
                   boundingBox: blockInfo.boundingBox,
+                  canSee: blockInfo.canSee,
                   positions: [{ x: position.x, y: position.y, z: position.z }]
                 });
               }
@@ -224,7 +221,6 @@ export class QueryAreaBlocksAction extends BaseAction<QueryAreaBlocksParams> {
             actualStartPosition: { x: startPos.x, y: startPos.y, z: startPos.z },
             actualEndPosition: { x: endPos.x, y: endPos.y, z: endPos.z },
             useRelativeCoords: params.useRelativeCoords || false,
-            enable_xray,
             maxBlocks,
             compressionMode: true
           },
@@ -249,7 +245,6 @@ export class QueryAreaBlocksAction extends BaseAction<QueryAreaBlocksParams> {
             actualStartPosition: { x: startPos.x, y: startPos.y, z: startPos.z },
             actualEndPosition: { x: endPos.x, y: endPos.y, z: endPos.z },
             useRelativeCoords: params.useRelativeCoords || false,
-            enable_xray,
             maxBlocks,
             compressionMode: false
           },
@@ -319,7 +314,7 @@ export class QueryAreaBlocksAction extends BaseAction<QueryAreaBlocksParams> {
   /**
    * 提取方块信息
    */
-  private extractBlockInfo(block: any, position: Vec3): BlockInfo {
+  private extractBlockInfo(block: any, position: Vec3, canSee: boolean): BlockInfo {
     // 获取方块的掉落物品
     const drops = block.drops?.map((drop: any) => drop.name) || [];
 
@@ -357,7 +352,8 @@ export class QueryAreaBlocksAction extends BaseAction<QueryAreaBlocksParams> {
       isTransparent: block.transparent || false,
       boundingBox,
       stateId: block.stateId,
-      metadata: block.metadata || {}
+      metadata: block.metadata || {},
+      canSee
     };
   }
 

@@ -10,7 +10,6 @@ interface QueryBlockParams extends BaseActionParams {
   z: number;
   useRelativeCoords?: boolean;
   includeContainerInfo?: boolean;
-  enable_xray?: boolean;
 }
 
 export class QueryBlockAction extends BaseAction<QueryBlockParams> {
@@ -22,7 +21,6 @@ export class QueryBlockAction extends BaseAction<QueryBlockParams> {
     z: z.number().int().describe('目标坐标 Z (整数)'),
     useRelativeCoords: z.boolean().optional().describe('是否使用相对坐标 (布尔值，可选，默认 false 为绝对坐标)'),
     includeContainerInfo: z.boolean().optional().describe('是否包含容器信息 (布尔值，可选，默认 false)'),
-    enable_xray: z.boolean().optional().describe('是否启用透视模式 (布尔值，可选，默认false为限制可见方块)'),
   });
 
   async execute(bot: Bot, params: QueryBlockParams): Promise<ActionResult> {
@@ -44,7 +42,6 @@ export class QueryBlockAction extends BaseAction<QueryBlockParams> {
         position = new Vec3(params.x, params.y, params.z);
       }
 
-      const enable_xray = params.enable_xray ?? false;
 
       // 直接返回 bot.blockAt 方法的原始结果
       const block = bot.blockAt(position, true);
@@ -56,20 +53,16 @@ export class QueryBlockAction extends BaseAction<QueryBlockParams> {
         );
       }
 
-      // 检查方块是否可见（如果未启用透视模式）
-      if (!enable_xray && !bot.canSeeBlock(block)) {
-        return this.createErrorResult(
-          `坐标 (${position.x}, ${position.y}, ${position.z}) 处的方块 ${block.name} 不可见，无法查询。如需查询不可见方块，请设置enable_xray=true`,
-          'BLOCK_NOT_VISIBLE'
-        );
-      }
+      // 检查方块是否可见
+      const canSee = bot.canSeeBlock(block);
 
       // 准备返回结果
       const result: any = {
         block,
         queryPosition: { x: params.x, y: params.y, z: params.z },
         actualPosition: { x: position.x, y: position.y, z: position.z },
-        useRelativeCoords: params.useRelativeCoords || false
+        useRelativeCoords: params.useRelativeCoords || false,
+        canSee
       };
 
       // 如果需要查询容器信息
