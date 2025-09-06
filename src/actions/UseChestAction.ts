@@ -2,7 +2,7 @@ import { Bot } from 'mineflayer';
 import minecraftData from 'minecraft-data';
 import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
-import pathfinder from 'mineflayer-pathfinder';
+import pathfinder from 'mineflayer-pathfinder-mai';
 import { Vec3 } from 'vec3';
 import { MovementUtils, GoalType } from '../utils/MovementUtils.js';
 

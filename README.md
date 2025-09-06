@@ -2,21 +2,11 @@
 
 基于 [mineflayer](https://github.com/PrismarineJS/mineflayer) 构建的 Minecraft MCP Server。
 
-主要用于和[Amaidesu](https://github.com/MaiM-with-u/Amaidesu)项目配合，让[MaiBot](https://github.com/MaiM-with-u/MaiBot)游玩Minecraft游戏。
+主要用于和[Amaidesu](https://github.com/MaiM-with-u/Amaidesu)项目配合（maicraft插件现已独立成新的仓库[MaiM-with-u/Maicraft](https://github.com/MaiM-with-u/Maicraft)），让[MaiBot](https://github.com/MaiM-with-u/MaiBot)游玩Minecraft游戏。
 
 当然，也可以像普通MCP Server一样使用本项目。
 
 部分高级动作的实现参考自 [mineland](https://github.com/cocacola-lab/MineLand)
-
-## 📦 最新版本
-
-**v1.6.0** - 2025-08-31
-
-### ✨ 最新功能
-- 🖼️ **截图功能** - 生成第一人称视角截图
-- 🔥 **熔炉操作** - 完整的熔炉交互功能（放入/取出/查看）
-- 🎮 **基础控制** - 移动、跳跃、潜行、视角调整等
-- 🍎 **物品使用** - 食用、激活、对实体使用物品
 
 ## 快速配置
 
@@ -1141,7 +1131,7 @@ export const MyAction = defineAction({
 ### 主要依赖版本
 - mineflayer: ^4.32.0
 - @modelcontextprotocol/sdk: ^1.17.2
-- mineflayer-pathfinder: ^2.4.5
+- mineflayer-pathfinder-mai: ^2.4.6
 - prismarine-viewer: ^1.33.0
 - canvas: ^3.1.2
 

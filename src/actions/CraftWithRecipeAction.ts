@@ -2,7 +2,7 @@ import { Bot } from 'mineflayer';
 import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 import { Vec3 } from 'vec3';
-import pathfinder from 'mineflayer-pathfinder';
+import pathfinder from 'mineflayer-pathfinder-mai';
 import { Recipe } from 'prismarine-recipe';
 import { MovementUtils } from '../utils/MovementUtils.js';
 

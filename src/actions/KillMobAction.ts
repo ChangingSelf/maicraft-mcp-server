@@ -2,7 +2,7 @@ import { Bot } from 'mineflayer';
 import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 import { MovementUtils, GoalType } from '../utils/MovementUtils.js';
-import pathfinder from 'mineflayer-pathfinder';
+import pathfinder from 'mineflayer-pathfinder-mai';
 
 interface KillMobParams extends BaseActionParams {
   /** 生物名称，例如 "cow" */

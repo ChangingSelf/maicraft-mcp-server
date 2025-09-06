@@ -1,10 +1,10 @@
 import { Bot } from 'mineflayer';
 import { Vec3 } from 'vec3';
-import pathfinder from 'mineflayer-pathfinder';
+import pathfinder from 'mineflayer-pathfinder-mai';
 import { Logger } from './Logger.js';
 
 /**
- * 移动目标类型枚举 - 基于 mineflayer-pathfinder 的目标类型
+ * 移动目标类型枚举 - 基于 mineflayer-pathfinder-mai 的目标类型
  */
 export enum GoalType {
   /** goalBlock: 移动到指定方块，玩家站在方块内脚部水平位置 */
@@ -101,7 +101,7 @@ export interface MovementResult {
 
 /**
  * 移动工具类
- * 提供统一的移动功能，基于 mineflayer-pathfinder
+ * 提供统一的移动功能，基于 mineflayer-pathfinder-mai
  */
 export class MovementUtils {
   private static logger = new Logger('MovementUtils');
@@ -111,7 +111,7 @@ export class MovementUtils {
    */
   private static checkPathfinderAvailable(bot: Bot): boolean {
     if (!bot.pathfinder) {
-      this.logger.error('路径寻找插件未加载，请先加载 mineflayer-pathfinder 插件');
+      this.logger.error('路径寻找插件未加载，请先加载 mineflayer-pathfinder-mai 插件');
       return false;
     }
     return true;
@@ -381,7 +381,7 @@ export class MovementUtils {
             alreadyInRange: false
           },
           error: 'PATHFINDER_NOT_LOADED',
-          message: '路径寻找插件未加载，请先加载 mineflayer-pathfinder 插件',
+          message: '路径寻找插件未加载，请先加载 mineflayer-pathfinder-mai 插件',
           timestamp: Date.now()
         };
       }

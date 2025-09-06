@@ -3,7 +3,7 @@ import minecraftData from 'minecraft-data';
 import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionInterface.js';
 import { z } from 'zod';
 import { MovementUtils, GoalType } from '../utils/MovementUtils.js';
-import pathfinder from 'mineflayer-pathfinder';
+import pathfinder from 'mineflayer-pathfinder-mai';
 
 interface SwimToLandParams extends BaseActionParams {
   /** 最大搜索半径，默认 64 */

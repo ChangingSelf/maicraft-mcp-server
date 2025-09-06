@@ -4,7 +4,7 @@ import { Logger, LoggingConfig } from '../utils/Logger.js';
 import { GameEvent, GameEventType, PlayerInfo, Position } from './GameEvent.js';
 import { EventManager } from './EventManager.js';
 import { plugin as pvpPlugin } from 'mineflayer-pvp';
-import { pathfinder as pathfinderPlugin, Movements } from 'mineflayer-pathfinder';
+import { pathfinder as pathfinderPlugin, Movements } from 'mineflayer-pathfinder-mai';
 import { plugin as toolPlugin } from 'mineflayer-tool';
 import { plugin as collectblockPlugin } from 'mineflayer-collectblock-colalab';
 
@@ -175,7 +175,7 @@ export class MinecraftClient extends EventEmitter {
           }
           
           defaultMove.blocksCantBreak = blocksCantBreakIds;
-          defaultMove.allow1by1towers = false;
+          // defaultMove.allow1by1towers = false;
 
           this.bot!.pathfinder.setMovements(defaultMove);
 

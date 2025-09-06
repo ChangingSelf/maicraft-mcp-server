@@ -3,7 +3,7 @@ import { BaseAction, BaseActionParams, ActionResult } from '../minecraft/ActionI
 import { z } from 'zod';
 import { Vec3 } from 'vec3';
 import { MovementUtils, GoalType } from '../utils/MovementUtils.js';
-import pathfinder from 'mineflayer-pathfinder';
+import pathfinder from 'mineflayer-pathfinder-mai';
 
 interface PlaceBlockParams extends BaseActionParams {
   x: number;
