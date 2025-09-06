@@ -1,5 +1,9 @@
 # 更新日志
 
+## [1.6.12] - 2025-09-06
+
+- 修改`QuerySurrendingsAction`的参数和返回值结构，改为全查但添加canSee字段
+
 ## [1.6.11] - 2025-09-05
 
 fork mineflayer-pathfinder, 使用了官方未合并的pr，修复了原地跳搭的bug

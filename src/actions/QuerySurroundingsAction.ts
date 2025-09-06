@@ -9,7 +9,6 @@ interface QuerySurroundingsParams extends BaseActionParams {
   type: 'players' | 'entities' | 'blocks';
   entityTypes?: string[];
   useRelativeCoords?: boolean;
-  enable_xray?: boolean;
 }
 
 export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams> {
@@ -21,7 +20,6 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
     blockRange: z.number().min(1).max(5).optional().describe('方块查询范围（1-5格），默认2格'),
     entityTypes: z.array(z.string()).optional().describe('实体类型过滤，可填多个（如：player, mob, animal等）'),
     useRelativeCoords: z.boolean().optional().describe('是否使用相对坐标 (布尔值，可选，默认false为绝对坐标)'),
-    enable_xray: z.boolean().optional().describe('是否启用透视模式 (布尔值，可选，默认false为限制可见方块)'),
   });
 
   async execute(bot: Bot, params: QuerySurroundingsParams): Promise<ActionResult> {
@@ -31,7 +29,6 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
       const range = params.range || 10;
       const blockRange = params.blockRange || 2; // 默认值为2
       const useRelativeCoords = params.useRelativeCoords ?? false;
-      const enable_xray = params.enable_xray ?? false;
       const result: any = {};
 
       switch (params.type) {
@@ -111,7 +108,7 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
 
         case 'blocks':
           // 查询附近方块
-          const blockMap: { [key: string]: { positions: number[][], count: number } } = {};
+          const blockMap: { [key: string]: { positions: Array<{ position: number[], canSee: boolean }>, count: number } } = {};
           const centerX = Math.floor(bot.entity.position.x);
           const centerY = Math.floor(bot.entity.position.y);
           const centerZ = Math.floor(bot.entity.position.z);
@@ -127,28 +124,29 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
                 try {
                   const block = bot.blockAt(new Vec3(blockX, blockY, blockZ));
                   if (block && block.name !== 'air') { // 排除空气方块
-                    // 检查方块是否可见（如果未启用透视模式）
-                    if (!enable_xray && !bot.canSeeBlock(block)) {
-                      // 方块不可见，跳过
-                      this.logger.debug(`方块 (${blockX}, ${blockY}, ${blockZ}) ${block.name} 不可见，已跳过`);
-                    } else {
-                      const position = useRelativeCoords ? [
-                        blockX - Math.floor(bot.entity.position.x),
-                        blockY - Math.floor(bot.entity.position.y),
-                        blockZ - Math.floor(bot.entity.position.z)
-                      ] : [blockX, blockY, blockZ];
+                    const position = useRelativeCoords ? [
+                      blockX - Math.floor(bot.entity.position.x),
+                      blockY - Math.floor(bot.entity.position.y),
+                      blockZ - Math.floor(bot.entity.position.z)
+                    ] : [blockX, blockY, blockZ];
 
-                      if (!blockMap[block.name]) {
-                        blockMap[block.name] = {
-                          positions: [],
-                          count: 0
-                        };
-                      }
+                    // 检查方块是否可见
+                    const canSee = bot.canSeeBlock(block);
 
-                      blockMap[block.name].positions.push(position);
-                      blockMap[block.name].count++;
-                      totalBlockCount++;
+                    if (!blockMap[block.name]) {
+                      blockMap[block.name] = {
+                        positions: [],
+                        count: 0
+                      };
                     }
+
+                    // 将位置和可见性信息一起存储
+                    blockMap[block.name].positions.push({
+                      position,
+                      canSee
+                    });
+                    blockMap[block.name].count++;
+                    totalBlockCount++;
                   }
                 } catch (error) {
                   // 忽略无法访问的方块
