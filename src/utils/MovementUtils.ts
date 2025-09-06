@@ -54,6 +54,20 @@ export interface MovementParams {
   maxDistance?: number;
   /** 移动目标类型，默认根据移动类型自动选择 */
   goalType?: GoalType;
+  /** GoalPlaceBlock 的额外参数 */
+  placeBlockOptions?: {
+    /** 参照方块位置 */
+    referencePosition?: Vec3;
+    /** 放置面向向量 */
+    faceVector?: Vec3;
+    /** 放置选项 */
+    options?: {
+      range?: number;
+      LOS?: boolean;
+      faces?: Vec3[];
+      facing?: string;
+    };
+  };
 }
 
 /**
@@ -196,25 +210,41 @@ export class MovementUtils {
           return new GoalNear(targetPosition.x, targetPosition.y, targetPosition.z, distance);
         }
 
-        // 查找参照方块（用于放置方块）
-        const referenceBlock = bot.blockAt(targetPosition.offset(0, -1, 0)); // 假设在目标位置下方放置
-        if (referenceBlock) {
-          return new GoalPlaceBlock(targetPosition, world, {
-            range: 4.5,
-            LOS: true,
-            faces: [
-              new Vec3(0, 1, 0),   // up
-              new Vec3(0, -1, 0),  // down
-              new Vec3(0, 0, -1),  // north
-              new Vec3(0, 0, 1),   // south
-              new Vec3(1, 0, 0),   // east
-              new Vec3(-1, 0, 0)   // west
-            ],
-            facing: 'up'
-          });
+        // 检查是否有传入的参照方块信息
+        const placeBlockOptions = params.placeBlockOptions;
+        if (placeBlockOptions?.referencePosition && placeBlockOptions?.faceVector) {
+          // 使用传入的参照方块信息
+          const options = {
+            range: placeBlockOptions.options?.range ?? 4.5,
+            LOS: placeBlockOptions.options?.LOS ?? true,
+            faces: placeBlockOptions.options?.faces ?? [placeBlockOptions.faceVector],
+            facing: (placeBlockOptions.options?.facing ?? 'up') as 'up' | 'north' | 'east' | 'south' | 'west' | 'down'
+          };
+          return new GoalPlaceBlock(targetPosition, world, options);
         } else {
-          this.logger.warn('找不到参照方块，使用 GoalNear 作为回退目标');
-          return new GoalNear(targetPosition.x, targetPosition.y, targetPosition.z, distance);
+          // 回退到旧的逻辑（向后兼容）
+          this.logger.warn('未提供参照方块信息，使用旧的查找逻辑');
+
+          // 查找参照方块（用于放置方块）
+          const referenceBlock = bot.blockAt(targetPosition.offset(0, -1, 0)); // 假设在目标位置下方放置
+          if (referenceBlock) {
+            return new GoalPlaceBlock(targetPosition, world, {
+              range: 4.5,
+              LOS: true,
+              faces: [
+                new Vec3(0, 1, 0),   // up
+                new Vec3(0, -1, 0),  // down
+                new Vec3(0, 0, -1),  // north
+                new Vec3(0, 0, 1),   // south
+                new Vec3(1, 0, 0),   // east
+                new Vec3(-1, 0, 0)   // west
+              ],
+              facing: 'up'
+            });
+          } else {
+            this.logger.warn('找不到参照方块，使用 GoalNear 作为回退目标');
+            return new GoalNear(targetPosition.x, targetPosition.y, targetPosition.z, distance);
+          }
         }
 
       case GoalType.GoalLookAtBlock:
