@@ -13,6 +13,7 @@ enabledEvents:
   - chat
   - playerJoin
   - playerLeave
+  - playerCollect
   - mobSpawn
   - blockBreak
   - blockPlace

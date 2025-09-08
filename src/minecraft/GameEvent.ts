@@ -24,6 +24,7 @@ export interface EntityInfo {
   id: number; // 实体唯一 ID
   type: string; // 实体类型字符串（例如 'player'、'zombie'）
   name?: string; // 实体显示名称
+  username?: string; // 玩家用户名
   position: Position; // 实体当前坐标
   health?: number; // 当前生命值
   maxHealth?: number; // 最大生命值
@@ -33,6 +34,15 @@ export interface EntityInfo {
 export interface ChatInfo {
   text: string; // 解析后的纯文本内容
   username?: string; // 发送者用户名（如果可用）
+}
+
+// 物品信息
+export interface ItemInfo {
+  id: number; // 物品ID
+  name: string; // 物品名称
+  displayName?: string; // 显示名称
+  count: number; // 物品数量
+  metadata?: number; // 元数据
 }
 
 // 游戏事件基础接口
@@ -107,8 +117,14 @@ export interface EntityDeathEvent extends BaseGameEvent {
   killer?: EntityInfo; // 凶手
 }
 
+export interface PlayerCollectEvent extends BaseGameEvent {
+  type: 'playerCollect';
+  collector: EntityInfo; // 收集物品的玩家实体
+  collected: ItemInfo[]; // 被收集的物品实体
+}
+
 // 联合类型，包含所有事件
-export type GameEvent = 
+export type GameEvent =
   | ChatEvent
   | PlayerJoinEvent
   | PlayerLeaveEvent
@@ -119,7 +135,8 @@ export type GameEvent =
   | SpawnPointResetEvent
   | HealthUpdateEvent
   | EntityHurtEvent
-  | EntityDeathEvent;
+  | EntityDeathEvent
+  | PlayerCollectEvent;
 
 // 事件类型枚举
 export enum GameEventType {
@@ -133,7 +150,8 @@ export enum GameEventType {
   SPAWN_POINT_RESET = 'spawnPointReset',
   HEALTH_UPDATE = 'healthUpdate',
   ENTITY_HURT = 'entityHurt',
-  ENTITY_DEATH = 'entityDeath'
+  ENTITY_DEATH = 'entityDeath',
+  PLAYER_COLLECT = 'playerCollect'
 }
 
 // 事件监听器接口

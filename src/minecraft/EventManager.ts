@@ -418,6 +418,49 @@ export class EventManager {
       }
     });
 
+    // 玩家收集物品事件 - "playerCollect" (collector, collected)
+    this.bot.on('playerCollect', (collector, collected) => {
+      if (this.enabledEvents.has(GameEventType.PLAYER_COLLECT)) {
+        // 检查是否是机器人自己收集的物品
+        const isSelfCollect = collector.id === this.bot!.entity.id;
+
+        const mcData = this.bot!.registry;
+
+        const collectedItems = collected.metadata.filter((item: any) => item !== null)
+        .map((item: any) => {
+          return {
+            count: item.itemCount,
+            ...mcData.items[item.itemId],
+          }
+        });
+
+        this.addEvent({
+          type: 'playerCollect',
+          gameTick: this.getCurrentGameTick(),
+          timestamp: this.getCurrentTimestamp(),
+          collector: {
+            id: collector.id,
+            type: collector.type,
+            name:collector.name,
+            username: collector.username,
+            position: {
+              x: Number(collector.position.x?.toFixed(2) ?? 0),
+              y: Number(collector.position.y?.toFixed(2) ?? 0),
+              z: Number(collector.position.z?.toFixed(2) ?? 0)
+            },
+          },
+          collected: collectedItems
+        });
+
+        // 如果是机器人自己收集的物品，记录到日志
+        if (isSelfCollect) {
+          const itemNames = collectedItems.map((item) => item.name).join(', ');
+          const itemCounts = collectedItems.map((item) => item.count).join(', ');
+          this.logger.info(`机器人收集了物品: ${itemNames} x${itemCounts}`);
+        }
+      }
+    });
+
     this.logger.info('事件监听器设置完成');
   }
 }
