@@ -9,6 +9,7 @@ interface QuerySurroundingsParams extends BaseActionParams {
   type: 'players' | 'entities' | 'blocks';
   entityTypes?: string[];
   useRelativeCoords?: boolean;
+  filterInvisibleBlocks?: boolean;
 }
 
 export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams> {
@@ -20,6 +21,7 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
     blockRange: z.number().min(1).max(5).optional().describe('方块查询范围（1-5格），默认2格'),
     entityTypes: z.array(z.string()).optional().describe('实体类型过滤，可填多个（如：player, mob, animal等）'),
     useRelativeCoords: z.boolean().optional().describe('是否使用相对坐标 (布尔值，可选，默认false为绝对坐标)'),
+    filterInvisibleBlocks: z.boolean().optional().describe('是否过滤不可见方块 (布尔值，可选，默认false不过滤)'),
   });
 
   async execute(bot: Bot, params: QuerySurroundingsParams): Promise<ActionResult> {
@@ -29,6 +31,7 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
       const range = params.range || 10;
       const blockRange = params.blockRange || 2; // 默认值为2
       const useRelativeCoords = params.useRelativeCoords ?? false;
+      const filterInvisibleBlocks = params.filterInvisibleBlocks ?? false;
       const result: any = {};
       const mcData = bot.registry;
 
@@ -138,16 +141,21 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
                 try {
                   const block = bot.blockAt(new Vec3(blockX, blockY, blockZ));
                   if (block && block.name !== 'air') { // 排除空气方块
+                    // 检查方块是否可见
+                    const canSee = bot.canSeeBlock(block);
+                    // 确保canSee字段始终为boolean值
+                    const canSeeResult = typeof canSee === 'boolean' ? canSee : false;
+
+                    // 如果需要过滤不可见方块且方块不可见，则跳过
+                    if (filterInvisibleBlocks && !canSeeResult) {
+                      continue;
+                    }
+
                     const position = useRelativeCoords ? [
                       blockX - Math.floor(bot.entity.position.x),
                       blockY - Math.floor(bot.entity.position.y),
                       blockZ - Math.floor(bot.entity.position.z)
                     ] : [blockX, blockY, blockZ];
-
-                    // 检查方块是否可见
-                    const canSee = bot.canSeeBlock(block);
-                    // 确保canSee字段始终为boolean值
-                    const canSeeResult = typeof canSee === 'boolean' ? canSee : false;
 
                     if (!blockMap[block.name]) {
                       blockMap[block.name] = {

@@ -14,6 +14,7 @@ interface QueryAreaBlocksParams extends BaseActionParams {
   maxBlocks?: number;
   compressionMode?: boolean;
   includeBlockCounts?: boolean;
+  filterInvisibleBlocks?: boolean;
 }
 
 interface BlockInfo {
@@ -64,7 +65,8 @@ export class QueryAreaBlocksAction extends BaseAction<QueryAreaBlocksParams> {
     useRelativeCoords: z.boolean().optional().describe('是否使用相对坐标 (布尔值，可选，默认 false 为绝对坐标)'),
     maxBlocks: z.number().int().min(1).max(50000).optional().describe('最大查询方块数量 (整数，可选，默认5000，最大50000)'),
     compressionMode: z.boolean().optional().describe('是否启用压缩模式，按方块类型分组统计 (布尔值，可选，默认false)'),
-    includeBlockCounts: z.boolean().optional().describe('是否包含方块数量统计 (布尔值，可选，默认true)')
+    includeBlockCounts: z.boolean().optional().describe('是否包含方块数量统计 (布尔值，可选，默认true)'),
+    filterInvisibleBlocks: z.boolean().optional().describe('是否过滤不可见方块 (布尔值，可选，默认false不过滤)')
   });
 
   async execute(bot: Bot, params: QueryAreaBlocksParams): Promise<ActionResult> {
@@ -114,6 +116,7 @@ export class QueryAreaBlocksAction extends BaseAction<QueryAreaBlocksParams> {
       const maxBlocks = params.maxBlocks ?? 5000; // 提高默认限制
       const compressionMode = params.compressionMode ?? false;
       const includeBlockCounts = params.includeBlockCounts ?? true;
+      const filterInvisibleBlocks = params.filterInvisibleBlocks ?? false;
 
       // 查询区域内所有方块
       const blocks: BlockInfo[] = [];
@@ -158,6 +161,11 @@ export class QueryAreaBlocksAction extends BaseAction<QueryAreaBlocksParams> {
             const canSee = bot.canSeeBlock(block);
             // 确保canSee字段始终为boolean值
             const canSeeResult = typeof canSee === 'boolean' ? canSee : false;
+
+            // 如果需要过滤不可见方块且方块不可见，则跳过
+            if (filterInvisibleBlocks && !canSeeResult) {
+              continue;
+            }
 
             // 收集方块信息
             const blockInfo = this.extractBlockInfo(block, position, canSeeResult);

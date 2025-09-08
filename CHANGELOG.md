@@ -1,5 +1,9 @@
 # 更新日志
 
+## [1.6.16] - 2025-09-08
+
+- 优化 `QuerySurroundingsAction` 和 `QueryAreaBlocksAction` 动作，添加不可见方块过滤开关
+
 ## [1.6.15] - 2025-09-08
 
 - 优化 `QuerySurroundingsAction` 查询实体操作，额外返回玩家名称、物品信息
