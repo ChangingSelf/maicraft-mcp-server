@@ -30,6 +30,7 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
       const blockRange = params.blockRange || 2; // 默认值为2
       const useRelativeCoords = params.useRelativeCoords ?? false;
       const result: any = {};
+      const mcData = bot.registry;
 
       switch (params.type) {
         case 'players':
@@ -85,6 +86,19 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
             // id: entity.id,
             type: entity.type,
             name: entity.name || entity.type,
+            username: entity.username,
+            itemsInfo: entity.metadata?.filter((item: any) => !!item)
+            .map((item: any) => {
+              const itemData = mcData.items[item.itemId];
+              if (!itemData || Object.keys(itemData).length === 0) {
+                return null;
+              }
+              return {
+                count: item.itemCount,
+                ...itemData,
+              }
+            })
+            .filter((item: any) => item !== null),
             position: useRelativeCoords ? [
               Number((entity.position.x - bot.entity.position.x).toFixed(2)),
               Number((entity.position.y - bot.entity.position.y).toFixed(2)),
