@@ -156,9 +156,11 @@ export class QueryAreaBlocksAction extends BaseAction<QueryAreaBlocksParams> {
 
             // 检查方块是否可见
             const canSee = bot.canSeeBlock(block);
+            // 确保canSee字段始终为boolean值
+            const canSeeResult = typeof canSee === 'boolean' ? canSee : false;
 
             // 收集方块信息
-            const blockInfo = this.extractBlockInfo(block, position, canSee);
+            const blockInfo = this.extractBlockInfo(block, position, canSeeResult);
 
             if (compressionMode) {
               // 压缩模式：按方块名称分组

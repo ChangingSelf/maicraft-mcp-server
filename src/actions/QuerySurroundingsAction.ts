@@ -132,6 +132,8 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
 
                     // 检查方块是否可见
                     const canSee = bot.canSeeBlock(block);
+                    // 确保canSee字段始终为boolean值
+                    const canSeeResult = typeof canSee === 'boolean' ? canSee : false;
 
                     if (!blockMap[block.name]) {
                       blockMap[block.name] = {
@@ -143,7 +145,7 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
                     // 将位置和可见性信息一起存储
                     blockMap[block.name].positions.push({
                       position,
-                      canSee
+                      canSee: canSeeResult
                     });
                     blockMap[block.name].count++;
                     totalBlockCount++;

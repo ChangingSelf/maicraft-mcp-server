@@ -55,6 +55,8 @@ export class QueryBlockAction extends BaseAction<QueryBlockParams> {
 
       // 检查方块是否可见
       const canSee = bot.canSeeBlock(block);
+      // 确保canSee字段始终为boolean值
+      const canSeeResult = typeof canSee === 'boolean' ? canSee : false;
 
       // 准备返回结果
       const result: any = {
@@ -62,7 +64,7 @@ export class QueryBlockAction extends BaseAction<QueryBlockParams> {
         queryPosition: { x: params.x, y: params.y, z: params.z },
         actualPosition: { x: position.x, y: position.y, z: position.z },
         useRelativeCoords: params.useRelativeCoords || false,
-        canSee
+        canSee: canSeeResult
       };
 
       // 如果需要查询容器信息
