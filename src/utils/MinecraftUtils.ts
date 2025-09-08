@@ -89,12 +89,14 @@ export class MinecraftUtils {
    * @param bot Bot 实例
    * @param operation 要执行的操作函数
    * @param filterMessages 要过滤的消息数组
+   * @param delayCleanup 延迟清理过滤器的毫秒数，默认200ms（解决异步消息发送的时序问题）
    * @returns 操作结果
    */
   static async executeWithMessageFilter<T>(
     bot: Bot,
     operation: () => Promise<T>,
-    filterMessages: string[] = []
+    filterMessages: string[] = [],
+    delayCleanup: number = 200
   ): Promise<T> {
     // 保存原始的 chat 方法
     const originalChat = bot.chat;
@@ -113,12 +115,29 @@ export class MinecraftUtils {
     // 临时替换 chat 方法
     bot.chat = filteredChat;
 
+    // 标记是否已清理，避免重复清理
+    let cleanedUp = false;
+
+    // 清理函数
+    const cleanup = () => {
+      if (!cleanedUp) {
+        cleanedUp = true;
+        bot.chat = originalChat;
+      }
+    };
+
     try {
       // 执行操作
-      return await operation();
-    } finally {
-      // 恢复原始的 chat 方法
-      bot.chat = originalChat;
+      const result = await operation();
+
+      // 延迟清理，确保异步消息也能被过滤
+      setTimeout(cleanup, delayCleanup);
+
+      return result;
+    } catch (error) {
+      // 立即清理，不延迟（异常情况下不需要等待异步消息）
+      cleanup();
+      throw error;
     }
   }
 }
