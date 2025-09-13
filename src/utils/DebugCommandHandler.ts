@@ -118,6 +118,12 @@ export class DebugCommandHandler {
    */
   private registerCommand(command: DebugCommand): void {
     this.commands.set(command.name, command);
+
+    // 如果命令支持配置设置，则传递配置
+    if ('setConfig' in command && typeof command.setConfig === 'function') {
+      (command as any).setConfig(this.config);
+    }
+
     this.logger.debug(`注册调试命令: ${command.name}`);
   }
 
@@ -164,14 +170,24 @@ export class DebugCommandHandler {
     try {
       const result = await command.execute(this.bot, username, args);
 
-      if (!result.success && result.message) {
-        this.bot.chat(`[调试系统] ${result.message}`);
+      // 根据配置决定是否在游戏中输出反馈
+      const shouldChat = this.config.chatFeedback !== false;
+
+      if (shouldChat && result.message) {
+        if (result.success) {
+          // 成功消息
+          this.bot.chat(`[调试系统] ${result.message}`);
+        } else {
+          // 错误消息
+          this.bot.chat(`[调试系统] ${result.message}`);
+        }
       }
 
-      this.logger.info(`管理员 ${username} 执行命令: ${commandName} ${args.join(' ')}`);
+      this.logger.info(`管理员 ${username} 执行命令: ${commandName} ${args.join(' ')} - ${result.success ? '成功' : '失败'}`);
       return true;
     } catch (error) {
       this.logger.error(`命令执行错误 ${commandName}:`, error);
+      // 异常情况下总是输出错误信息
       this.bot.chat(`[调试系统] 命令执行失败: ${error instanceof Error ? error.message : '未知错误'}`);
       return true;
     }

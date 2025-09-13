@@ -17,6 +17,7 @@ export interface ScreenshotConfig extends Partial<ViewerOptions> {
 export interface DebugCommandsConfig {
   enabled: boolean;
   adminPlayers: string[];
+  chatFeedback?: boolean;
 }
 
 export interface ClientConfig {

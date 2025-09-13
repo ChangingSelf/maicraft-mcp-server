@@ -43,6 +43,13 @@ screenshot:
   loadWaitTime: 2000      # 世界加载等待时间(ms)，默认 2000
   renderLoops: 10         # 渲染循环次数，默认 10
 
+# 调试命令系统配置
+debugCommands:
+  enabled: true           # 是否启用调试命令系统
+  adminPlayers:           # 管理员玩家列表，只有这些玩家才能使用调试命令
+    - "YourPlayerName"    # 替换为你的游戏用户名
+  chatFeedback: true      # 是否在游戏中显示调试命令的执行结果
+
 # 日志配置
 logging:
   level: INFO             # DEBUG | INFO | WARN | ERROR

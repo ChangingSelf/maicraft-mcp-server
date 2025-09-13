@@ -1,5 +1,6 @@
 import { Logger } from '../utils/Logger.js';
 import { Bot } from 'mineflayer';
+import type { DebugCommandsConfig } from '../config.js';
 
 /**
  * 调试命令参数类型
@@ -34,6 +35,11 @@ export interface DebugCommand {
    * 获取帮助信息
    */
   getHelp(): string;
+
+  /**
+   * 设置调试命令配置（可选）
+   */
+  setConfig?(config: DebugCommandsConfig): void;
 }
 
 /**
@@ -44,6 +50,7 @@ export abstract class BaseCommand implements DebugCommand {
   abstract description: string;
   usage?: string;
   private _logger?: Logger;
+  protected config?: DebugCommandsConfig;
 
   /**
    * 获取 logger 实例，延迟初始化
@@ -54,6 +61,14 @@ export abstract class BaseCommand implements DebugCommand {
     }
     return this._logger;
   }
+
+  /**
+   * 设置调试命令配置
+   */
+  setConfig(config: DebugCommandsConfig): void {
+    this.config = config;
+  }
+
 
   /**
    * 执行命令
