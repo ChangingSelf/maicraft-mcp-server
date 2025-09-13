@@ -1,6 +1,8 @@
 import { GameEvent, GameEventType } from './GameEvent.js';
 import { Logger } from '../utils/Logger.js';
 import { Bot } from 'mineflayer';
+import { DebugCommandHandler } from '../utils/DebugCommandHandler.js';
+import type { DebugCommandsConfig } from '../config.js';
 
 /**
  * 事件管理器
@@ -12,10 +14,16 @@ export class EventManager {
   private logger: Logger;
   private bot: Bot | null = null;
   private enabledEvents: Set<GameEventType> = new Set(Object.values(GameEventType) as GameEventType[]);
+  private debugCommandHandler: DebugCommandHandler | null = null;
 
-  constructor(maxEvents: number = 1000) {
+  constructor(maxEvents: number = 1000, debugCommandsConfig?: DebugCommandsConfig) {
     this.maxEvents = maxEvents;
     this.logger = new Logger('EventManager');
+
+    // 如果配置了调试命令，则创建调试命令处理器
+    if (debugCommandsConfig && debugCommandsConfig.enabled) {
+      this.logger.info('启用调试命令系统');
+    }
   }
 
   /**
@@ -180,8 +188,15 @@ export class EventManager {
   /**
    * 注册mineflayer bot并设置事件监听器
    */
-  registerBot(bot: Bot): void {
+  registerBot(bot: Bot, debugCommandsConfig?: DebugCommandsConfig): void {
     this.bot = bot;
+
+    // 如果配置了调试命令，创建调试命令处理器
+    if (debugCommandsConfig && debugCommandsConfig.enabled) {
+      this.debugCommandHandler = new DebugCommandHandler(bot, debugCommandsConfig);
+      this.logger.info('调试命令系统已启用');
+    }
+
     this.setupEventListeners();
     this.logger.info('已注册mineflayer bot并设置事件监听器');
   }
@@ -209,6 +224,11 @@ export class EventManager {
 
     // 聊天事件 - "chat" (username, message, translate, jsonMsg, matches)
     this.bot.on('chat', (username, message, translate, jsonMsg, matches) => {
+      // 检查是否是调试命令，如果是则处理并返回，不添加到事件队列
+      if (this.debugCommandHandler && this.debugCommandHandler.handleChatMessage(username, message)) {
+        return;
+      }
+
       if (this.enabledEvents.has(GameEventType.CHAT)) {
         this.addEvent({
           type: 'chat',

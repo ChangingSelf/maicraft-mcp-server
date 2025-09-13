@@ -7,6 +7,7 @@ import { plugin as pvpPlugin } from 'mineflayer-pvp';
 import { pathfinder as pathfinderPlugin, Movements } from 'mineflayer-pathfinder-mai';
 import { plugin as toolPlugin } from 'mineflayer-tool';
 import { plugin as collectblockPlugin } from 'mineflayer-collectblock-colalab';
+import type { DebugCommandsConfig } from '../config.js';
 
 export interface MinecraftClientOptions {
   host: string;
@@ -25,6 +26,8 @@ export interface MinecraftClientOptions {
   logging?: LoggingConfig;
   // 不能破坏的方块列表配置
   blocksCantBreak?: string[];
+  // 调试命令系统配置
+  debugCommands?: DebugCommandsConfig;
 }
 
 export interface MinecraftClientEvents {
@@ -82,7 +85,7 @@ export class MinecraftClient extends EventEmitter {
       ...options
     };
     this.logger = Logger.fromConfig('MinecraftClient', options.logging || {});
-    this.eventManager = new EventManager(1000); // 初始化事件管理器，最多存储1000个事件
+    this.eventManager = new EventManager(1000, options.debugCommands); // 初始化事件管理器，最多存储1000个事件
   }
 
   /**
@@ -132,7 +135,7 @@ export class MinecraftClient extends EventEmitter {
       this.bot.loadPlugin(collectblockPlugin);
 
       // 注册bot到事件管理器
-      this.eventManager.registerBot(this.bot);
+      this.eventManager.registerBot(this.bot, this.options.debugCommands);
 
       // 等待连接成功
       return new Promise((resolve, reject) => {

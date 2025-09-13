@@ -240,6 +240,7 @@ async function main() {
     ...config.minecraft,
     logging: config.logging,
     blocksCantBreak: config.blocksCantBreak,
+    debugCommands: config.debugCommands,
   });
   const actionExecutor = new ActionExecutor();
 
