@@ -45,10 +45,24 @@ screenshot:
 
 # 调试命令系统配置
 debugCommands:
-  enabled: true           # 是否启用调试命令系统
+  enabled: false           # 是否启用调试命令系统
   adminPlayers:           # 管理员玩家列表，只有这些玩家才能使用调试命令
-    - "YourPlayerName"    # 替换为你的游戏用户名
+    # - "YourPlayerName"    # 替换为你的游戏用户名
   chatFeedback: true      # 是否在游戏中显示调试命令的执行结果
+
+# 聊天过滤配置
+chatFilters:
+  enabled: true           # 是否启用聊天过滤功能
+  # 玩家黑名单：不接收这些玩家的消息
+  blockedPlayers:
+    # - "SpamBot"          # 示例：屏蔽垃圾消息机器人
+    # - "AnnoyingPlayer"   # 示例：屏蔽讨厌的玩家
+  # 消息黑名单：不接收匹配这些正则表达式的消息
+  # 注意：如果调试命令系统未启用，将自动过滤以!开头的消息
+  blockedMessagePatterns:
+    # - "^\\s*spam\\s*$"    # 示例：屏蔽只包含"spam"的消息（不区分大小写）
+    # - "广告"               # 示例：屏蔽包含"广告"的消息
+    # - "\\b(?:fuck|shit|damn)\\b"  # 示例：屏蔽脏话（单词边界匹配）
 
 # 日志配置
 logging:

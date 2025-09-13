@@ -241,6 +241,7 @@ async function main() {
     logging: config.logging,
     blocksCantBreak: config.blocksCantBreak,
     debugCommands: config.debugCommands,
+    chatFilters: config.chatFilters,
   });
   const actionExecutor = new ActionExecutor();
 

@@ -2,7 +2,8 @@ import { GameEvent, GameEventType } from './GameEvent.js';
 import { Logger } from '../utils/Logger.js';
 import { Bot } from 'mineflayer';
 import { DebugCommandHandler } from '../utils/DebugCommandHandler.js';
-import type { DebugCommandsConfig } from '../config.js';
+import { ChatFilterManager } from '../utils/ChatFilterManager.js';
+import type { DebugCommandsConfig, ChatFiltersConfig } from '../config.js';
 
 /**
  * 事件管理器
@@ -15,14 +16,23 @@ export class EventManager {
   private bot: Bot | null = null;
   private enabledEvents: Set<GameEventType> = new Set(Object.values(GameEventType) as GameEventType[]);
   private debugCommandHandler: DebugCommandHandler | null = null;
+  private chatFilterManager: ChatFilterManager | null = null;
 
-  constructor(maxEvents: number = 1000, debugCommandsConfig?: DebugCommandsConfig) {
+  constructor(maxEvents: number = 1000, debugCommandsConfig?: DebugCommandsConfig, chatFiltersConfig?: ChatFiltersConfig) {
     this.maxEvents = maxEvents;
     this.logger = new Logger('EventManager');
 
+    const debugCommandsEnabled = debugCommandsConfig?.enabled || false;
+
     // 如果配置了调试命令，则创建调试命令处理器
-    if (debugCommandsConfig && debugCommandsConfig.enabled) {
+    if (debugCommandsEnabled) {
       this.logger.info('启用调试命令系统');
+    }
+
+    // 如果配置了聊天过滤，则创建聊天过滤管理器
+    if (chatFiltersConfig && chatFiltersConfig.enabled) {
+      this.chatFilterManager = new ChatFilterManager(chatFiltersConfig, debugCommandsEnabled);
+      this.logger.info('启用聊天过滤系统');
     }
   }
 
@@ -178,6 +188,13 @@ export class EventManager {
   }
 
   /**
+   * 获取聊天过滤管理器
+   */
+  getChatFilterManager(): ChatFilterManager | null {
+    return this.chatFilterManager;
+  }
+
+  /**
    * 设置启用的游戏事件类型
    */
   setEnabledEvents(events: GameEventType[]): void {
@@ -237,6 +254,11 @@ export class EventManager {
         if (isHandled) {
           return;
         }
+      }
+
+      // 检查聊天过滤，如果消息应该被过滤掉则返回，不添加到事件队列
+      if (this.chatFilterManager && this.chatFilterManager.shouldFilterMessage(username, message)) {
+        return;
       }
 
       if (this.enabledEvents.has(GameEventType.CHAT)) {

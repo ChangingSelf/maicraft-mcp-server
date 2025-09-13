@@ -7,7 +7,7 @@ import { plugin as pvpPlugin } from 'mineflayer-pvp';
 import { pathfinder as pathfinderPlugin, Movements } from 'mineflayer-pathfinder-mai';
 import { plugin as toolPlugin } from 'mineflayer-tool';
 import { plugin as collectblockPlugin } from 'mineflayer-collectblock-colalab';
-import type { DebugCommandsConfig } from '../config.js';
+import type { DebugCommandsConfig, ChatFiltersConfig } from '../config.js';
 
 export interface MinecraftClientOptions {
   host: string;
@@ -28,6 +28,8 @@ export interface MinecraftClientOptions {
   blocksCantBreak?: string[];
   // 调试命令系统配置
   debugCommands?: DebugCommandsConfig;
+  // 聊天过滤配置
+  chatFilters?: ChatFiltersConfig;
 }
 
 export interface MinecraftClientEvents {
@@ -85,7 +87,7 @@ export class MinecraftClient extends EventEmitter {
       ...options
     };
     this.logger = Logger.fromConfig('MinecraftClient', options.logging || {});
-    this.eventManager = new EventManager(1000, options.debugCommands); // 初始化事件管理器，最多存储1000个事件
+    this.eventManager = new EventManager(1000, options.debugCommands, options.chatFilters); // 初始化事件管理器，最多存储1000个事件
   }
 
   /**
@@ -347,6 +349,13 @@ export class MinecraftClient extends EventEmitter {
    */
   getEventManager(): EventManager {
     return this.eventManager;
+  }
+
+  /**
+   * 获取聊天过滤管理器
+   */
+  getChatFilterManager(): any {
+    return this.eventManager.getChatFilterManager();
   }
 
   /**
