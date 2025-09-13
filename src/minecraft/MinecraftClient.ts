@@ -183,6 +183,7 @@ export class MinecraftClient extends EventEmitter {
           // defaultMove.allow1by1towers = false;
 
           this.bot!.pathfinder.setMovements(defaultMove);
+          this.bot!.collectBlock.movements = defaultMove;
 
 
           resolve();
