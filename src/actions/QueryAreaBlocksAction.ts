@@ -63,7 +63,7 @@ export class QueryAreaBlocksAction extends BaseAction<QueryAreaBlocksParams> {
     endY: z.number().int().describe('区域结束坐标 Y (整数)'),
     endZ: z.number().int().describe('区域结束坐标 Z (整数)'),
     useRelativeCoords: z.boolean().optional().describe('是否使用相对坐标 (布尔值，可选，默认 false 为绝对坐标)'),
-    maxBlocks: z.number().int().min(1).max(50000).optional().describe('最大查询方块数量 (整数，可选，默认5000，最大50000)'),
+    maxBlocks: z.number().int().min(1).optional().describe('最大查询方块数量 (整数，可选，默认无限制)'),
     compressionMode: z.boolean().optional().describe('是否启用压缩模式，按方块类型分组统计 (布尔值，可选，默认false)'),
     includeBlockCounts: z.boolean().optional().describe('是否包含方块数量统计 (布尔值，可选，默认true)'),
     filterInvisibleBlocks: z.boolean().optional().describe('是否过滤不可见方块 (布尔值，可选，默认false不过滤)')
@@ -83,12 +83,6 @@ export class QueryAreaBlocksAction extends BaseAction<QueryAreaBlocksParams> {
 
       // 计算区域大小
       const regionSize = this.calculateRegionSize(params);
-      if (regionSize > 10000) {
-        return this.createErrorResult(
-          `区域过大：${regionSize} 个方块，超过最大限制 10000`,
-          'REGION_TOO_LARGE'
-        );
-      }
 
       // 根据参数确定坐标类型
       let startPos: Vec3;
@@ -113,7 +107,7 @@ export class QueryAreaBlocksAction extends BaseAction<QueryAreaBlocksParams> {
         endPos = new Vec3(params.endX, params.endY, params.endZ);
       }
 
-      const maxBlocks = params.maxBlocks ?? 5000; // 提高默认限制
+      const maxBlocks = params.maxBlocks ?? Number.MAX_SAFE_INTEGER; // 无限制
       const compressionMode = params.compressionMode ?? false;
       const includeBlockCounts = params.includeBlockCounts ?? true;
       const filterInvisibleBlocks = params.filterInvisibleBlocks ?? false;
@@ -131,11 +125,6 @@ export class QueryAreaBlocksAction extends BaseAction<QueryAreaBlocksParams> {
         for (let y = Math.min(startPos.y, endPos.y); y <= Math.max(startPos.y, endPos.y); y++) {
           for (let z = Math.min(startPos.z, endPos.z); z <= Math.max(startPos.z, endPos.z); z++) {
 
-            // 检查是否达到最大查询数量
-            if (processedBlocks >= maxBlocks) {
-              this.logger.warn(`达到最大查询数量限制: ${maxBlocks}`);
-              break;
-            }
 
             const position = new Vec3(x, y, z);
             const blockKey = `${x},${y},${z}`;
@@ -208,7 +197,6 @@ export class QueryAreaBlocksAction extends BaseAction<QueryAreaBlocksParams> {
             }
           }
 
-          if (processedBlocks >= maxBlocks) break;
         }
 
         if (processedBlocks >= maxBlocks) break;

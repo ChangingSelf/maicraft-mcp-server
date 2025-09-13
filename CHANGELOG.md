@@ -1,5 +1,9 @@
 # 更新日志
 
+## [1.6.17] - 2025-09-13
+
+- 去除`QueryAreaBlocksAction`和`QuerySurroundingsAction`的区域大小限制
+
 ## [1.6.16] - 2025-09-08
 
 - 优化 `QuerySurroundingsAction` 和 `QueryAreaBlocksAction` 动作，添加不可见方块过滤开关

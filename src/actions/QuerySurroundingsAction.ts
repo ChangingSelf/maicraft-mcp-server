@@ -17,8 +17,8 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
   description = '查询周围环境信息，包括附近玩家、实体、方块等';
   schema = z.object({
     type: z.enum(['players', 'entities', 'blocks']).describe('要查询的环境信息类型（必填）：players、entities、blocks'),
-    range: z.number().min(1).max(50).optional().describe('玩家、实体查询范围（1-50格），默认10格'),
-    blockRange: z.number().min(1).max(5).optional().describe('方块查询范围（1-5格），默认2格'),
+    range: z.number().min(1).optional().describe('玩家、实体查询范围（1格以上），默认10格'),
+    blockRange: z.number().min(1).optional().describe('方块查询范围（1格以上），默认2格'),
     entityTypes: z.array(z.string()).optional().describe('实体类型过滤，可填多个（如：player, mob, animal等）'),
     useRelativeCoords: z.boolean().optional().describe('是否使用相对坐标 (布尔值，可选，默认false为绝对坐标)'),
     filterInvisibleBlocks: z.boolean().optional().describe('是否过滤不可见方块 (布尔值，可选，默认false不过滤)'),
