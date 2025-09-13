@@ -1,6 +1,10 @@
 import { Bot } from 'mineflayer';
 import { Logger } from './Logger.js';
+import { BaseCommand, DebugCommand } from '../commands/BaseCommand.js';
 import type { DebugCommandsConfig } from '../config.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 /**
  * 调试命令处理器
@@ -10,30 +14,117 @@ export class DebugCommandHandler {
   private bot: Bot;
   private logger: Logger;
   private config: DebugCommandsConfig;
-  private commands: Map<string, CommandHandler> = new Map();
+  private commands: Map<string, DebugCommand> = new Map();
 
   constructor(bot: Bot, config: DebugCommandsConfig) {
     this.bot = bot;
     this.config = config;
     this.logger = new Logger('DebugCommandHandler');
-
-    // 注册内置命令
-    this.registerCommand('chat', this.handleChatCommand.bind(this));
-    this.registerCommand('help', this.handleHelpCommand.bind(this));
   }
 
   /**
-   * 注册命令处理器
+   * 自动发现并注册命令
    */
-  private registerCommand(name: string, handler: CommandHandler): void {
-    this.commands.set(name, handler);
-    this.logger.debug(`注册调试命令: ${name}`);
+  async discoverAndRegisterCommands(): Promise<void> {
+    const discoveredCommands: DebugCommand[] = [];
+
+    // 获取当前模块目录
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+
+    // 候选目录列表 - 优先使用 dist 目录（生产环境），然后是 src 目录（开发环境）
+    const candidateDirs = [
+      path.resolve(__dirname, '../commands'),  // dist/commands
+      path.resolve(__dirname, '../../src/commands'),  // src/commands
+      './dist/commands',
+      './src/commands'
+    ];
+
+    for (const dir of candidateDirs) {
+      if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) {
+        continue;
+      }
+
+      const files = fs.readdirSync(dir)
+        .filter((f) => /\.(mjs|cjs|js|ts)$/.test(f) && !/\.d\.ts$/.test(f) && !f.includes('BaseCommand'));
+
+      for (const file of files) {
+        const full = path.join(dir, file);
+        try {
+          const mod = await import(pathToFileURL(full).href);
+
+          // 检查模块导出的值
+          const exportedValues: unknown[] = Object.values(mod);
+
+          for (const value of exportedValues) {
+            try {
+              if (!value) continue;
+
+              // 检查是否是 BaseCommand 的实例
+              if (this.isDebugCommand(value)) {
+                const command = value as DebugCommand;
+                discoveredCommands.push(command);
+                this.logger.debug(`发现调试命令: ${command.name}`);
+              }
+            } catch {}
+          }
+        } catch (err) {
+          this.logger.warn(`加载命令模块失败: ${full}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+
+      // 如果从当前目录找到了命令，就不再扫描其他目录
+      if (discoveredCommands.length > 0) break;
+    }
+
+    // 注册发现的命令
+    for (const command of discoveredCommands) {
+      this.registerCommand(command);
+    }
+
+    // 更新帮助命令的可用命令列表
+    const helpCommand = this.commands.get('help');
+    if (helpCommand && 'setAvailableCommands' in helpCommand) {
+      (helpCommand as any).setAvailableCommands(this.commands);
+    }
+
+    if (discoveredCommands.length > 0) {
+      this.logger.info(`已自动发现并注册 ${discoveredCommands.length} 个调试命令: ${discoveredCommands.map(c => c.name).join(', ')}`);
+    } else {
+      this.logger.warn('未发现任何调试命令，请检查命令文件是否存在且导出正确');
+    }
+  }
+
+  /**
+   * 检查对象是否是调试命令
+   */
+  private isDebugCommand(value: unknown): value is DebugCommand {
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      'name' in value &&
+      'description' in value &&
+      'execute' in value &&
+      'getHelp' in value &&
+      typeof (value as any).name === 'string' &&
+      typeof (value as any).description === 'string' &&
+      typeof (value as any).execute === 'function' &&
+      typeof (value as any).getHelp === 'function'
+    );
+  }
+
+  /**
+   * 注册命令
+   */
+  private registerCommand(command: DebugCommand): void {
+    this.commands.set(command.name, command);
+    this.logger.debug(`注册调试命令: ${command.name}`);
   }
 
   /**
    * 处理聊天消息中的调试命令
    */
-  public handleChatMessage(username: string, message: string): boolean {
+  public async handleChatMessage(username: string, message: string): Promise<boolean> {
     // 检查是否启用调试命令
     if (!this.config.enabled) {
       return false;
@@ -56,22 +147,27 @@ export class DebugCommandHandler {
     const args = parts.slice(1);
 
     // 执行命令
-    return this.executeCommand(username, commandName, args);
+    return await this.executeCommand(username, commandName, args);
   }
 
   /**
    * 执行调试命令
    */
-  private executeCommand(username: string, commandName: string, args: string[]): boolean {
-    const handler = this.commands.get(commandName);
+  private async executeCommand(username: string, commandName: string, args: string[]): Promise<boolean> {
+    const command = this.commands.get(commandName);
 
-    if (!handler) {
+    if (!command) {
       this.bot.chat(`[调试系统] 未知命令: ${commandName}`);
       return true;
     }
 
     try {
-      handler(username, args);
+      const result = await command.execute(this.bot, username, args);
+
+      if (!result.success && result.message) {
+        this.bot.chat(`[调试系统] ${result.message}`);
+      }
+
       this.logger.info(`管理员 ${username} 执行命令: ${commandName} ${args.join(' ')}`);
       return true;
     } catch (error) {
@@ -89,30 +185,22 @@ export class DebugCommandHandler {
   }
 
   /**
-   * 处理聊天命令
+   * 获取已注册的命令列表
    */
-  private handleChatCommand(username: string, args: string[]): void {
-    if (args.length === 0) {
-      this.bot.chat(`[调试系统] 用法: !chat <消息>`);
-      return;
-    }
-
-    const message = args.join(' ');
-    this.bot.chat(message);
-    this.logger.info(`管理员 ${username} 让bot发送消息: ${message}`);
+  public getRegisteredCommands(): string[] {
+    return Array.from(this.commands.keys());
   }
 
   /**
-   * 处理帮助命令
+   * 获取命令信息
    */
-  private handleHelpCommand(username: string, args: string[]): void {
-    const availableCommands = Array.from(this.commands.keys()).join(', ');
-    this.bot.chat(`[调试系统] 可用的命令: ${availableCommands}`);
-    this.bot.chat(`[调试系统] 用法: !chat <消息> - 让bot发送指定消息`);
+  public getCommandInfo(name: string): { description: string; usage?: string } | null {
+    const command = this.commands.get(name);
+    if (!command) return null;
+
+    return {
+      description: command.description,
+      usage: command.usage
+    };
   }
 }
-
-/**
- * 命令处理器函数类型
- */
-type CommandHandler = (username: string, args: string[]) => void;

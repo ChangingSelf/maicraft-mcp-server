@@ -188,13 +188,20 @@ export class EventManager {
   /**
    * 注册mineflayer bot并设置事件监听器
    */
-  registerBot(bot: Bot, debugCommandsConfig?: DebugCommandsConfig): void {
+  async registerBot(bot: Bot, debugCommandsConfig?: DebugCommandsConfig): Promise<void> {
     this.bot = bot;
 
     // 如果配置了调试命令，创建调试命令处理器
     if (debugCommandsConfig && debugCommandsConfig.enabled) {
       this.debugCommandHandler = new DebugCommandHandler(bot, debugCommandsConfig);
       this.logger.info('调试命令系统已启用');
+
+      // 自动发现并注册命令
+      try {
+        await this.debugCommandHandler.discoverAndRegisterCommands();
+      } catch (error) {
+        this.logger.error('自动发现调试命令失败:', error);
+      }
     }
 
     this.setupEventListeners();
@@ -223,10 +230,13 @@ export class EventManager {
     if (!this.bot) return;
 
     // 聊天事件 - "chat" (username, message, translate, jsonMsg, matches)
-    this.bot.on('chat', (username, message, translate, jsonMsg, matches) => {
+    this.bot.on('chat', async (username, message, translate, jsonMsg, matches) => {
       // 检查是否是调试命令，如果是则处理并返回，不添加到事件队列
-      if (this.debugCommandHandler && this.debugCommandHandler.handleChatMessage(username, message)) {
-        return;
+      if (this.debugCommandHandler) {
+        const isHandled = await this.debugCommandHandler.handleChatMessage(username, message);
+        if (isHandled) {
+          return;
+        }
       }
 
       if (this.enabledEvents.has(GameEventType.CHAT)) {

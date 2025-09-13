@@ -135,7 +135,7 @@ export class MinecraftClient extends EventEmitter {
       this.bot.loadPlugin(collectblockPlugin);
 
       // 注册bot到事件管理器
-      this.eventManager.registerBot(this.bot, this.options.debugCommands);
+      await this.eventManager.registerBot(this.bot, this.options.debugCommands);
 
       // 等待连接成功
       return new Promise((resolve, reject) => {
