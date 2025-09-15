@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { Vec3 } from 'vec3';
 import pathfinder from 'mineflayer-pathfinder-mai';
 import { Recipe } from 'prismarine-recipe';
-import { MovementUtils } from '../utils/MovementUtils.js';
+import { GoalType, MovementUtils } from '../utils/MovementUtils.js';
 
 interface CraftWithRecipeParams extends BaseActionParams {
   /**
@@ -137,14 +137,18 @@ RecipeItem结构：{ id: number, metadata: number|null, count: number }`),
       // 3) 如果已找到工作台，走过去（仅在未指定 withoutCraftingTable 时）
       if (!params.withoutCraftingTable && craftingTableBlock) {
         // 使用统一的移动工具类移动到工作台位置
-        const moveResult = await MovementUtils.moveToCoordinate(
+        const moveResult = await MovementUtils.moveTo(
           bot,
-          craftingTableBlock.position.x,
-          craftingTableBlock.position.y,
-          craftingTableBlock.position.z,
-          1, // 到达距离
-          32, // 最大移动距离
-          false // 不使用相对坐标
+          {
+            type: 'coordinate',
+            x: craftingTableBlock.position.x,
+            y: craftingTableBlock.position.y,
+            z: craftingTableBlock.position.z,
+            distance: 1, // 到达距离
+            maxDistance: 32, // 最大移动距离
+            useRelativeCoords: false, // 不使用相对坐标
+            goalType: GoalType.GoalGetToBlock, // 使用获取方块目标类型
+          }
         );
 
         if (!moveResult.success) {

@@ -1,6 +1,6 @@
 {
   "name": "maicraft",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "基于mineflayer构建的 Minecraft MCP Server，主要用于MaiBot直播Minecraft",
   "type": "module",
   "main": "dist/main.js",
