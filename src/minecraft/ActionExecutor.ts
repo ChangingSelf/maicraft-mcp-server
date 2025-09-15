@@ -295,7 +295,7 @@ export class ActionExecutor implements ActionRegistry {
       }
 
       // 执行动作（带超时）
-      this.logger.info(`执行高级动作: ${name}`, params);
+      this.logger.info(`执行高级动作: ${name}`, JSON.stringify(params));
       const timeoutMs = timeout || this.defaultTimeout;
       
       const result = await Promise.race([
@@ -305,7 +305,7 @@ export class ActionExecutor implements ActionRegistry {
         )
       ]);
       
-      this.logger.info(`动作 ${name} 执行结果:`, result);
+      this.logger.info(`动作 ${name} 执行结果:`, JSON.stringify(result));
       return result;
     } catch (error) {
       this.logger.error(`执行动作 ${name} 时发生错误:`, error);
