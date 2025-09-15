@@ -24,14 +24,14 @@ export class ChatFilterManager {
    */
   private initializeFilters(): void {
     if (!this.config.enabled) {
-      this.logger.info('聊天过滤已禁用');
+      this.logger.debug('聊天过滤已禁用');
       return;
     }
 
     // 初始化玩家黑名单
     if (this.config.blockedPlayers) {
       this.blockedPlayers = new Set(this.config.blockedPlayers);
-      this.logger.info(`已加载玩家黑名单: ${this.config.blockedPlayers.join(', ')}`);
+      this.logger.debug(`已加载玩家黑名单: ${this.config.blockedPlayers.join(', ')}`);
     }
 
     // 初始化消息黑名单
@@ -41,7 +41,7 @@ export class ChatFilterManager {
     if (!this.debugCommandsEnabled) {
       const defaultPatterns = ['^!.*'];
       messagePatterns = [...defaultPatterns, ...messagePatterns];
-      this.logger.info('调试命令系统未启用，已添加默认过滤规则：过滤以!开头的消息');
+      this.logger.debug('调试命令系统未启用，已添加默认过滤规则：过滤以!开头的消息');
     }
 
     this.blockedMessagePatterns = messagePatterns
@@ -56,10 +56,10 @@ export class ChatFilterManager {
       .filter((regex): regex is RegExp => regex !== null);
 
     if (this.config.blockedMessagePatterns && this.config.blockedMessagePatterns.length > 0) {
-      this.logger.info(`已加载消息黑名单模式: ${this.config.blockedMessagePatterns.join(', ')}`);
+      this.logger.debug(`已加载消息黑名单模式: ${this.config.blockedMessagePatterns.join(', ')}`);
     }
 
-    this.logger.info('聊天过滤器初始化完成');
+    this.logger.debug('聊天过滤器初始化完成');
   }
 
   /**
@@ -136,7 +136,7 @@ export class ChatFilterManager {
     if (!this.config.blockedPlayers.includes(username)) {
       this.config.blockedPlayers.push(username);
       this.blockedPlayers.add(username);
-      this.logger.info(`已添加玩家到黑名单: ${username}`);
+      this.logger.debug(`已添加玩家到黑名单: ${username}`);
     }
   }
 
@@ -150,7 +150,7 @@ export class ChatFilterManager {
       if (index !== -1) {
         this.config.blockedPlayers.splice(index, 1);
         this.blockedPlayers.delete(username);
-        this.logger.info(`已从黑名单中移除玩家: ${username}`);
+        this.logger.debug(`已从黑名单中移除玩家: ${username}`);
       }
     }
   }
@@ -168,7 +168,7 @@ export class ChatFilterManager {
       if (!this.config.blockedMessagePatterns.includes(pattern)) {
         this.config.blockedMessagePatterns.push(pattern);
         this.blockedMessagePatterns.push(regex);
-        this.logger.info(`已添加消息过滤模式: ${pattern}`);
+        this.logger.debug(`已添加消息过滤模式: ${pattern}`);
         return true;
       }
     } catch (error) {
@@ -197,7 +197,7 @@ export class ChatFilterManager {
             }
           })
           .filter((regex): regex is RegExp => regex !== null);
-        this.logger.info(`已移除消息过滤模式: ${pattern}`);
+        this.logger.debug(`已移除消息过滤模式: ${pattern}`);
       }
     }
   }

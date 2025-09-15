@@ -29,7 +29,7 @@ export class ScreenshotAction extends BaseAction<ScreenshotParams> {
    */
   async execute(bot: Bot, params: ScreenshotParams): Promise<ActionResult> {
     try {
-      this.logger.info('开始生成第一人称截图');
+      this.logger.debug('开始生成第一人称截图');
 
       // 验证机器人连接状态
       if (!bot || !bot.entity) {
@@ -80,7 +80,7 @@ export class ScreenshotAction extends BaseAction<ScreenshotParams> {
         return this.createErrorResult('截图数据格式不正确', 'INVALID_SCREENSHOT_DATA');
       }
 
-      this.logger.info('截图生成成功');
+      this.logger.debug('截图生成成功');
       return this.createSuccessResult('截图生成成功', {
         format: 'base64',
         data: screenshotData,

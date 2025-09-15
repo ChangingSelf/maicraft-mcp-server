@@ -174,7 +174,7 @@ export class PlaceBlockUtils {
           if (block && block.name !== 'air') {
             referenceBlock = block;
             faceVector = vector;
-            this.logger.info(`找到参照方块: ${block.name} 在位置 ${block.position}`);
+            this.logger.debug(`找到参照方块: ${block.name} 在位置 ${block.position}`);
             break;
           }
         }

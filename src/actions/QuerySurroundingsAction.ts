@@ -26,7 +26,7 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
 
   async execute(bot: Bot, params: QuerySurroundingsParams): Promise<ActionResult> {
     try {
-      this.logger.info(`查询周围环境信息 - 类型: ${params.type}`);
+      this.logger.debug(`查询周围环境信息 - 类型: ${params.type}`);
       
       const range = params.range || 10;
       const blockRange = params.blockRange || 2; // 默认值为2
@@ -189,7 +189,7 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
           throw new Error(`不支持的环境信息类型: ${params.type}`);
       }
 
-      this.logger.info(`成功查询周围环境信息 - 类型: ${params.type}`);
+      this.logger.debug(`成功查询周围环境信息 - 类型: ${params.type}`);
       return this.createSuccessResult(`成功查询周围环境信息 - 类型: ${params.type}`, result);
     } catch (error) {
       this.logger.error(`查询周围环境失败: ${error instanceof Error ? error.message : String(error)}`);

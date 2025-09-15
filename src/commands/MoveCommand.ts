@@ -26,7 +26,7 @@ export class MoveCommand extends BaseCommand {
       }
 
       const playerPos = player.entity.position;
-      this.logger.info(`移动到玩家<${username}>的位置: (${playerPos.x}, ${playerPos.y}, ${playerPos.z})`);
+      this.logger.debug(`移动到玩家<${username}>的位置: (${playerPos.x}, ${playerPos.y}, ${playerPos.z})`);
 
       // 设置移动参数
       const moveParams = {

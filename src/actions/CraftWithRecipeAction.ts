@@ -64,7 +64,7 @@ RecipeItem结构：{ id: number, metadata: number|null, count: number }`),
 
   async execute(bot: Bot, params: CraftWithRecipeParams): Promise<ActionResult> {
     try {
-      this.logger.info(`开始使用指定配方合成物品, 数量: ${params.count ?? 1}`);
+      this.logger.debug(`开始使用指定配方合成物品, 数量: ${params.count ?? 1}`);
       const count = params.count ?? 1;
 
       // 加载 mcData，优先使用 mineflayer 官方推荐的 bot.registry（与服务器版本精确匹配）
@@ -131,7 +131,7 @@ RecipeItem结构：{ id: number, metadata: number|null, count: number }`),
           }
         }
       } else {
-        this.logger.info('用户指定不使用工作台进行合成');
+        this.logger.debug('用户指定不使用工作台进行合成');
       }
 
       // 3) 如果已找到工作台，走过去（仅在未指定 withoutCraftingTable 时）
@@ -170,7 +170,7 @@ RecipeItem结构：{ id: number, metadata: number|null, count: number }`),
           }
         }
 
-        this.logger.info(`成功使用指定配方合成 ${itemName} × ${count}`);
+        this.logger.debug(`成功使用指定配方合成 ${itemName} × ${count}`);
         return this.createSuccessResult(`成功使用指定配方合成 ${itemName} × ${count}`, {
           item: itemName,
           count,
@@ -191,7 +191,7 @@ RecipeItem结构：{ id: number, metadata: number|null, count: number }`),
               }
             }
 
-            this.logger.info(`成功使用指定配方合成 ${itemName} × ${count} (不使用工作台)`);
+            this.logger.debug(`成功使用指定配方合成 ${itemName} × ${count} (不使用工作台)`);
             return this.createSuccessResult(`成功使用指定配方合成 ${itemName} × ${count} (不使用工作台)`, {
               item: itemName,
               count,

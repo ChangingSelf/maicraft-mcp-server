@@ -71,7 +71,7 @@ export class QueryAreaBlocksAction extends BaseAction<QueryAreaBlocksParams> {
 
   async execute(bot: Bot, params: QueryAreaBlocksParams): Promise<ActionResult> {
     try {
-      this.logger.info(`查询区域方块信息: 从 (${params.startX}, ${params.startY}, ${params.startZ}) 到 (${params.endX}, ${params.endY}, ${params.endZ})`);
+      this.logger.debug(`查询区域方块信息: 从 (${params.startX}, ${params.startY}, ${params.startZ}) 到 (${params.endX}, ${params.endY}, ${params.endZ})`);
 
       // 验证坐标范围
       if (!this.validateCoordinates(params)) {
@@ -233,7 +233,7 @@ export class QueryAreaBlocksAction extends BaseAction<QueryAreaBlocksParams> {
           compressedBlocks: compressedBlocksArray
         };
 
-        this.logger.info(`区域查询完成（压缩模式）: 找到 ${compressedBlocksArray.length} 种方块类型，共 ${processedBlocks} 个方块，跳过 ${skippedBlocks} 个方块`);
+        this.logger.debug(`区域查询完成（压缩模式）: 找到 ${compressedBlocksArray.length} 种方块类型，共 ${processedBlocks} 个方块，跳过 ${skippedBlocks} 个方块`);
       } else {
         // 普通模式：返回详细的方块信息
         resultData = {
@@ -272,7 +272,7 @@ export class QueryAreaBlocksAction extends BaseAction<QueryAreaBlocksParams> {
           resultData.statistics.uniqueBlockTypes = blockCountArray.length;
         }
 
-        this.logger.info(`区域查询完成: 找到 ${blocks.length} 个非空气方块，跳过 ${skippedBlocks} 个方块`);
+        this.logger.debug(`区域查询完成: 找到 ${blocks.length} 个非空气方块，跳过 ${skippedBlocks} 个方块`);
       }
 
       const foundBlocks = compressionMode ? processedBlocks : blocks.length;

@@ -19,7 +19,7 @@ export class ChatCommand extends BaseCommand {
 
     try {
       bot.chat(message);
-      this.logger.info(`管理员 ${username} 让bot发送消息: ${message}`);
+      this.logger.debug(`管理员 ${username} 让bot发送消息: ${message}`);
       return this.success(`已发送消息: ${message}`);
     } catch (error) {
       this.logger.error(`发送消息失败: ${error}`);

@@ -9,7 +9,7 @@ export class QueryGameStateAction extends BaseAction<BaseActionParams> {
 
   async execute(bot: Bot, params: BaseActionParams): Promise<ActionResult> {
     try {
-      this.logger.info('查询游戏状态信息');
+      this.logger.debug('查询游戏状态信息');
       
       // 天气信息
       let weather: string;
@@ -34,7 +34,7 @@ export class QueryGameStateAction extends BaseAction<BaseActionParams> {
         weather,
       };
 
-      this.logger.info('成功查询游戏状态信息');
+      this.logger.debug('成功查询游戏状态信息');
       return this.createSuccessResult('成功查询游戏状态信息', result);
     } catch (error) {
       this.logger.error(`查询游戏状态失败: ${error instanceof Error ? error.message : String(error)}`);

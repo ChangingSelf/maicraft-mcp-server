@@ -208,7 +208,7 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
         return this.createErrorResult('必须提供以下参数之一：方块名称、坐标、或挖掘方向', 'INVALID_PARAMS');
       }
       
-      this.logger.info(`开始挖掘方块: ${params.name || '坐标模式'}, 数量: ${count}, 绕过所有检查: ${bypassAllCheck}, 方向: ${params.direction || '附近搜索'}, 坐标模式: ${hasCoordinates ? '精准坐标' : '搜索模式'}`);
+      this.logger.debug(`开始挖掘方块: ${params.name || '坐标模式'}, 数量: ${count}, 绕过所有检查: ${bypassAllCheck}, 方向: ${params.direction || '附近搜索'}, 坐标模式: ${hasCoordinates ? '精准坐标' : '搜索模式'}`);
       
       let blockByName: any = null;
       if (params.name) {
@@ -219,7 +219,7 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
           this.logger.error(`未找到名为 ${params.name} 的方块`);
           return this.createErrorResult(`未找到名为 ${params.name} 的方块`, 'BLOCK_NOT_FOUND');
         }
-        this.logger.info(`找到方块定义: ${blockByName.name} (ID: ${blockByName.id})`);
+        this.logger.debug(`找到方块定义: ${blockByName.name} (ID: ${blockByName.id})`);
       }
 
       let successCount = 0;
@@ -265,7 +265,7 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       };
       
       if (fallbackCount > 0) {
-        this.logger.info(`${resultMessage}（其中 ${fallbackCount} 个使用了直接挖掘绕过安全检查）`);
+        this.logger.debug(`${resultMessage}（其中 ${fallbackCount} 个使用了直接挖掘绕过安全检查）`);
       }
       
       return this.createSuccessResult(resultMessage, resultData);
@@ -404,7 +404,7 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       targetZ = Math.floor(botPos.z) + targetZ;
     }
     
-    this.logger.info(`准备挖掘坐标 (${targetX}, ${targetY}, ${targetZ}) 的方块，相对坐标模式: ${useRelativeCoords}`);
+    this.logger.debug(`准备挖掘坐标 (${targetX}, ${targetY}, ${targetZ}) 的方块，相对坐标模式: ${useRelativeCoords}`);
     
     // 获取目标位置的方块
     const targetBlock = bot.blockAt(new Vec3(targetX, targetY, targetZ));
@@ -430,7 +430,7 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       throw new Error(`目标坐标 (${targetX}, ${targetY}, ${targetZ}) 处的方块 ${targetBlock.name} 不可见，无法挖掘。如需挖掘不可见方块，请设置enable_xray=true`);
     }
 
-    this.logger.info(`找到目标方块: ${targetBlock.name} 在坐标 (${targetX}, ${targetY}, ${targetZ})`);
+    this.logger.debug(`找到目标方块: ${targetBlock.name} 在坐标 (${targetX}, ${targetY}, ${targetZ})`);
 
     let successCount = 0;
     const minedBlocks: string[] = [];
@@ -439,11 +439,11 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
     for (let i = 0; i < count; i++) {
       if (useMovementUtils) {
         // 使用 MovementUtils 进行移动和挖掘
-        this.logger.info(`使用 MovementUtils (${goalType}) 挖掘方块`);
+        this.logger.debug(`使用 MovementUtils (${goalType}) 挖掘方块`);
         await this.mineWithMovementUtils(bot, targetBlock, goalType, digOnly);
       } else if (bypassAllCheck || digOnly) {
         // 绕过安全检查或只挖掘不收集，直接使用bot.dig()
-        this.logger.info(`${bypassAllCheck ? '绕过安全检查' : '只挖掘不收集'}，直接挖掘方块`);
+        this.logger.debug(`${bypassAllCheck ? '绕过安全检查' : '只挖掘不收集'}，直接挖掘方块`);
         await this.digBlockDirectly(bot, targetBlock, digOnly);
       } else {
         // 使用collectBlock插件（包含安全检查），无消息模式
@@ -460,7 +460,7 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       successCount++;
       minedBlocks.push(targetBlock.name);
       const blockNameText = params.name || targetBlock.name;
-      this.logger.info(`成功挖掘第 ${i+1} 个 ${blockNameText} 方块在坐标 (${targetX}, ${targetY}, ${targetZ})`);
+      this.logger.debug(`成功挖掘第 ${i+1} 个 ${blockNameText} 方块在坐标 (${targetX}, ${targetY}, ${targetZ})`);
     }
 
     return { count: successCount, blocks: minedBlocks };
@@ -482,7 +482,7 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
     const minedBlocks: string[] = [];
     const botPos = bot.entity.position;
 
-    this.logger.info(`开始方向挖掘模式：方向 ${this.getDirectionText(params.direction!)}, 数量: ${count}`);
+    this.logger.debug(`开始方向挖掘模式：方向 ${this.getDirectionText(params.direction!)}, 数量: ${count}`);
     
     // 计算挖掘的起始位置（机器人前方一格）
     let currentX = Math.floor(botPos.x);
@@ -526,11 +526,11 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
         this.logger.warn(`位置 (${currentX}, ${currentY}, ${currentZ}) 的方块 ${block.name} 不可见，跳过挖掘。如需挖掘不可见方块，请设置enable_xray=true`);
         // 继续下一个位置
       } else {
-          this.logger.info(`挖掘第 ${i+1} 个方块: ${block.name} 在位置 (${currentX}, ${currentY}, ${currentZ})`);
+          this.logger.debug(`挖掘第 ${i+1} 个方块: ${block.name} 在位置 (${currentX}, ${currentY}, ${currentZ})`);
 
           if (bypassAllCheck || digOnly) {
           // 绕过安全检查或只挖掘不收集，直接使用bot.dig()
-          this.logger.info(`${bypassAllCheck ? '绕过安全检查' : '只挖掘不收集'}，直接挖掘方块`);
+          this.logger.debug(`${bypassAllCheck ? '绕过安全检查' : '只挖掘不收集'}，直接挖掘方块`);
           await this.digBlockDirectly(bot, block, digOnly);
         } else {
           // 使用collectBlock插件（包含安全检查），无消息模式
@@ -573,7 +573,7 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       }
     }
     
-    this.logger.info(`方向挖掘完成，成功挖掘了 ${successCount} 个方块`);
+    this.logger.debug(`方向挖掘完成，成功挖掘了 ${successCount} 个方块`);
     return { count: successCount, blocks: minedBlocks };
   }
 
@@ -636,11 +636,11 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       }
 
       const directionText = params.direction ? `在${this.getDirectionText(params.direction)}方向` : '';
-      this.logger.info(`找到第 ${i+1} 个 ${params.name} 方块${directionText}，位置: ${block.position.x}, ${block.position.y}, ${block.position.z}`);
+      this.logger.debug(`找到第 ${i+1} 个 ${params.name} 方块${directionText}，位置: ${block.position.x}, ${block.position.y}, ${block.position.z}`);
 
       if (bypassAllCheck || digOnly) {
         // 绕过安全检查或只挖掘不收集，直接使用bot.dig()
-        this.logger.info(`${bypassAllCheck ? '绕过安全检查' : '只挖掘不收集'}，直接挖掘方块`);
+        this.logger.debug(`${bypassAllCheck ? '绕过安全检查' : '只挖掘不收集'}，直接挖掘方块`);
         await this.digBlockDirectly(bot, block, digOnly);
       } else {
         // 使用collectBlock插件（包含安全检查），无消息模式
@@ -656,7 +656,7 @@ export class MineBlockAction extends BaseAction<MineBlockParams> {
       
       successCount++;
       minedBlocks.push(block.name);
-      this.logger.info(`成功挖掘第 ${i+1} 个 ${params.name} 方块`);
+      this.logger.debug(`成功挖掘第 ${i+1} 个 ${params.name} 方块`);
     }
 
     return { count: successCount, blocks: minedBlocks };

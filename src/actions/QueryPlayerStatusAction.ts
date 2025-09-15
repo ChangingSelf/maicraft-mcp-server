@@ -32,7 +32,7 @@ export class QueryPlayerStatusAction extends BaseAction<QueryPlayerStatusParams>
 
   async execute(bot: Bot, params: QueryPlayerStatusParams): Promise<ActionResult> {
     try {
-      this.logger.info('查询Bot自身状态信息');
+      this.logger.debug('查询Bot自身状态信息');
 
       const gameModeMap: Record<number, string> = {
         0: 'survival',
@@ -115,7 +115,7 @@ export class QueryPlayerStatusAction extends BaseAction<QueryPlayerStatusParams>
         };
       }
 
-      this.logger.info('成功查询Bot状态信息');
+      this.logger.debug('成功查询Bot状态信息');
       return this.createSuccessResult('成功查询Bot状态信息', result);
     } catch (error) {
       this.logger.error(`查询Bot状态失败: ${error instanceof Error ? error.message : String(error)}`);

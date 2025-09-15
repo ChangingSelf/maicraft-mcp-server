@@ -25,7 +25,7 @@ export class QueryBlockAction extends BaseAction<QueryBlockParams> {
 
   async execute(bot: Bot, params: QueryBlockParams): Promise<ActionResult> {
     try {
-      this.logger.info(`查询坐标 (${params.x}, ${params.y}, ${params.z}) 处的方块信息`);
+      this.logger.debug(`查询坐标 (${params.x}, ${params.y}, ${params.z}) 处的方块信息`);
 
       // 根据参数确定坐标类型
       let position: Vec3;
@@ -73,7 +73,7 @@ export class QueryBlockAction extends BaseAction<QueryBlockParams> {
 
         if (containerBlocks.includes(block.name)) {
           try {
-            this.logger.info(`正在查询容器内容: ${block.name}`);
+            this.logger.debug(`正在查询容器内容: ${block.name}`);
 
             // 移动到容器位置附近，以便能够打开容器
             const moveAction = new MoveAction();
@@ -86,7 +86,7 @@ export class QueryBlockAction extends BaseAction<QueryBlockParams> {
               distance: 5, // 距离容器3格以内
             };
 
-            this.logger.info(`移动到容器位置: (${position.x}, ${position.y}, ${position.z})`);
+            this.logger.debug(`移动到容器位置: (${position.x}, ${position.y}, ${position.z})`);
             const moveResult = await moveAction.execute(bot, moveParams);
 
             if (!moveResult.success) {
@@ -177,7 +177,7 @@ export class QueryBlockAction extends BaseAction<QueryBlockParams> {
 
                 // 关闭容器
                 container.close();
-                this.logger.info(`成功查询容器信息: ${block.name}, 占用率: ${containerInfo.stats.occupancyRate}`);
+                this.logger.debug(`成功查询容器信息: ${block.name}, 占用率: ${containerInfo.stats.occupancyRate}`);
               } else {
                 result.containerInfo = { error: '无法打开容器' };
               }
@@ -193,7 +193,7 @@ export class QueryBlockAction extends BaseAction<QueryBlockParams> {
         }
       }
 
-      this.logger.info(`成功查询方块信息: ${block.name} at (${position.x}, ${position.y}, ${position.z})`);
+      this.logger.debug(`成功查询方块信息: ${block.name} at (${position.x}, ${position.y}, ${position.z})`);
       return this.createSuccessResult(`成功查询方块信息`, result);
 
     } catch (error) {

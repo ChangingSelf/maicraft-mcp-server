@@ -475,7 +475,7 @@ export class MovementUtils {
 
       const { position: targetPosition, description: targetDescription } = targetResult;
 
-      this.logger.info(`开始移动到 ${targetDescription}，距离: ${distance}`);
+      this.logger.debug(`开始移动到 ${targetDescription}，距离: ${distance}`);
 
       // 检查是否已经在目标位置
       const currentDistance = bot.entity.position.distanceTo(targetPosition);
@@ -550,7 +550,7 @@ export class MovementUtils {
         const botPos = bot.entity.position;
 
         if (finalDistance <= distance) {
-          this.logger.info(`成功移动到 ${targetDescription} (距离: ${finalDistance.toFixed(2)})`);
+          this.logger.debug(`成功移动到 ${targetDescription} (距离: ${finalDistance.toFixed(2)})`);
           return {
             success: true,
             type: params.type,
@@ -576,7 +576,7 @@ export class MovementUtils {
             timestamp: Date.now()
           };
         } else {
-          this.logger.info(`移动完成，最终距离: ${finalDistance.toFixed(2)} (目标距离: ${distance})`);
+          this.logger.debug(`移动完成，最终距离: ${finalDistance.toFixed(2)} (目标距离: ${distance})`);
           return {
             success: true,
             type: params.type,

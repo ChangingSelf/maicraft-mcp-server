@@ -132,7 +132,7 @@ export class QueryRecipeAction extends BaseAction<QueryRecipeParams> {
 
   async execute(bot: Bot, params: QueryRecipeParams): Promise<ActionResult> {
     try {
-      this.logger.info(`开始查询物品配方: ${params.item}`);
+      this.logger.debug(`开始查询物品配方: ${params.item}`);
 
       // 加载 mcData
       const mcData: any = bot.registry;

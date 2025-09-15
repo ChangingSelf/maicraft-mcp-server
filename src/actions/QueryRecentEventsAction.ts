@@ -26,7 +26,7 @@ export class QueryRecentEventsAction extends BaseAction<QueryRecentEventsParams>
 
   async execute(bot: Bot, params: QueryRecentEventsParams): Promise<ActionResult> {
     try {
-      this.logger.info('查询最近事件信息');
+      this.logger.debug('查询最近事件信息');
       
       // 获取事件管理器
       // 注意：这里需要从bot对象中获取MinecraftClient实例
@@ -70,7 +70,7 @@ export class QueryRecentEventsAction extends BaseAction<QueryRecentEventsParams>
         supportedEventTypes: eventManager.getSupportedEventTypes()
       };
 
-      this.logger.info(`成功查询到 ${queryResult.total} 个事件，返回 ${queryResult.events.length} 个`);
+      this.logger.debug(`成功查询到 ${queryResult.total} 个事件，返回 ${queryResult.events.length} 个`);
       return this.createSuccessResult(`成功查询到 ${queryResult.total} 个事件`, result);
     } catch (error) {
       this.logger.error(`查询最近事件失败: ${error instanceof Error ? error.message : String(error)}`);

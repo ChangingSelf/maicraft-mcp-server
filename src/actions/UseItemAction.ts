@@ -55,7 +55,7 @@ export class UseItemAction extends BaseAction<UseItemParams> {
    */
   async execute(bot: Bot, params: UseItemParams): Promise<ActionResult> {
     try {
-      this.logger.info(`开始使用物品操作: ${JSON.stringify(params)}`);
+      this.logger.debug(`开始使用物品操作: ${JSON.stringify(params)}`);
 
       // 验证参数
       const validationResult = this.validateUseItemParams(bot, params);
@@ -119,7 +119,7 @@ export class UseItemAction extends BaseAction<UseItemParams> {
       // 如果当前手持的不是目标物品，切换到该物品
       if (!bot.heldItem || bot.heldItem.type !== itemMeta.id) {
         await bot.equip(itemMeta.id, 'hand');
-        this.logger.info(`切换到物品: ${params.itemName}`);
+        this.logger.debug(`切换到物品: ${params.itemName}`);
       }
 
       return itemInInventory;
@@ -179,14 +179,14 @@ export class UseItemAction extends BaseAction<UseItemParams> {
    * 食用物品
    */
   private async consumeItem(bot: Bot, item: any): Promise<ActionResult> {
-    this.logger.info(`开始食用物品: ${item.name}`);
+    this.logger.debug(`开始食用物品: ${item.name}`);
 
     // 获取使用前的总数量
     const totalCountBefore = this.getTotalItemCount(bot, item.name);
 
     try {
       await bot.consume();
-      this.logger.info(`成功食用物品: ${item.name}`);
+      this.logger.debug(`成功食用物品: ${item.name}`);
 
       // 等待500ms让物品数量更新
       await this.waitForItemUpdate(500);
@@ -221,14 +221,14 @@ export class UseItemAction extends BaseAction<UseItemParams> {
       return this.createErrorResult('没有找到要激活的物品', 'NO_ITEM_TO_ACTIVATE');
     }
 
-    this.logger.info(`开始激活物品: ${item.name}, 使用${offHand ? '副手' : '主手'}`);
+    this.logger.debug(`开始激活物品: ${item.name}, 使用${offHand ? '副手' : '主手'}`);
 
     // 获取使用前的总数量
     const totalCountBefore = this.getTotalItemCount(bot, item.name);
 
     try {
       await bot.activateItem(offHand);
-      this.logger.info(`成功激活物品: ${item.name}`);
+      this.logger.debug(`成功激活物品: ${item.name}`);
 
       // 等待500ms让物品数量更新
       await this.waitForItemUpdate(500);
@@ -299,14 +299,14 @@ export class UseItemAction extends BaseAction<UseItemParams> {
     }
 
     const targetDescription = targetPlayerName || targetEntityName || targetEntity.name || targetEntity.id;
-    this.logger.info(`开始对实体使用物品: ${bot.heldItem.name} -> ${targetDescription}`);
+    this.logger.debug(`开始对实体使用物品: ${bot.heldItem.name} -> ${targetDescription}`);
 
     try {
       // 获取使用前的总数量
       const totalCountBefore = this.getTotalItemCount(bot, bot.heldItem.name);
 
       await bot.useOn(targetEntity);
-      this.logger.info(`成功对实体使用物品: ${bot.heldItem.name}`);
+      this.logger.debug(`成功对实体使用物品: ${bot.heldItem.name}`);
 
       // 等待500ms让物品数量更新
       await this.waitForItemUpdate(500);

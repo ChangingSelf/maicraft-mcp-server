@@ -120,7 +120,7 @@ export class CraftItemAction extends BaseAction<CraftItemParams> {
 
   async execute(bot: Bot, params: CraftItemParams): Promise<ActionResult> {
     try {
-      this.logger.info(`开始合成物品: ${params.item}, 数量: ${params.count ?? 1}`);
+      this.logger.debug(`开始合成物品: ${params.item}, 数量: ${params.count ?? 1}`);
       const count = params.count ?? 1;
 
       // 加载 mcData，优先使用 mineflayer 官方推荐的 bot.registry（与服务器版本精确匹配）
@@ -217,7 +217,7 @@ export class CraftItemAction extends BaseAction<CraftItemParams> {
           }
         }
       } else {
-        this.logger.info('用户指定不使用工作台进行合成');
+        this.logger.debug('用户指定不使用工作台进行合成');
       }
 
       // 3) 如果已找到工作台，走过去（仅在未指定 without_crafting_table 时）
@@ -263,7 +263,7 @@ export class CraftItemAction extends BaseAction<CraftItemParams> {
       
       // 记录偏好材料信息
       if (params.preferredMaterials && params.preferredMaterials.length > 0) {
-        this.logger.info(`用户偏好材料: ${params.preferredMaterials.join(', ')}`);
+        this.logger.debug(`用户偏好材料: ${params.preferredMaterials.join(', ')}`);
       }
       
       let recipe = null;
@@ -299,7 +299,7 @@ export class CraftItemAction extends BaseAction<CraftItemParams> {
         return this.createErrorResult("背包里的合成材料不足", 'NO_ENOUGH_INGREDIENTS');
       }
 
-      this.logger.info(`成功合成 ${params.item} × ${count}`);
+      this.logger.debug(`成功合成 ${params.item} × ${count}`);
       return this.createSuccessResult(`成功合成 ${params.item} × ${count}`, { item: params.item, count });
     } catch (err) {
       this.logger.error(`合成失败: ${err instanceof Error ? err.message : String(err)}`);

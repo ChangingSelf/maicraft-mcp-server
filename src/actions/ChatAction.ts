@@ -15,9 +15,9 @@ export class ChatAction extends BaseAction<ChatParams> {
 
   async execute(bot: Bot, params: ChatParams): Promise<ActionResult> {
     try {
-      this.logger.info(`发送聊天消息: ${params.message}`);
+      this.logger.debug(`发送聊天消息: ${params.message}`);
       await bot.chat(params.message);
-      this.logger.info(`成功发送聊天消息: ${params.message}`);
+      this.logger.debug(`成功发送聊天消息: ${params.message}`);
       return this.createSuccessResult(`成功发送聊天消息: ${params.message}`, { message: params.message });
     } catch (error) {
       this.logger.error(`发送聊天消息失败: ${error instanceof Error ? error.message : String(error)}`);
