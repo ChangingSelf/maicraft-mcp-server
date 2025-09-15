@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { WebSocketLogServer } from './WebSocketLogServer.js';
 
 export enum LogLevel {
   DEBUG = 0,
@@ -43,6 +44,10 @@ export class Logger {
   private enableFileLog: boolean;
   private logFilePath: string;
   private logStream: fs.WriteStream | null = null;
+  private webSocketServer: WebSocketLogServer | null = null;
+
+  // 全局WebSocket服务器实例
+  private static globalWebSocketServer: WebSocketLogServer | null = null;
 
   constructor(prefix: string = '', options: LoggerOptions = {}) {
     this.level = options.level ?? LogLevel.INFO;
@@ -53,11 +58,14 @@ export class Logger {
     this.useStderr = options.useStderr ?? true;
     this.enableFileLog = options.enableFileLog ?? false;
     this.logFilePath = options.logFilePath ?? this.getDefaultLogPath();
-    
+
     // 初始化文件日志
     if (this.enableFileLog) {
       this.initFileLog();
     }
+
+    // 自动使用全局WebSocket服务器
+    this.webSocketServer = Logger.globalWebSocketServer;
   }
 
   /**
@@ -231,6 +239,11 @@ export class Logger {
       this.logStream.write(fileMessage);
     }
 
+    // 推送给WebSocket客户端
+    if (this.webSocketServer) {
+      this.webSocketServer.pushLog(level, this.prefix || 'Unknown', message);
+    }
+
     // 根据级别选择输出方法
     if (this.useStderr) {
       // MCP stdio-safe: all logs go to stderr
@@ -304,5 +317,33 @@ export class Logger {
    */
   getLogFilePath(): string {
     return this.logFilePath;
+  }
+
+  /**
+   * 设置WebSocket服务器，用于推送日志
+   */
+  setWebSocketServer(server: WebSocketLogServer): void {
+    this.webSocketServer = server;
+  }
+
+  /**
+   * 移除WebSocket服务器引用
+   */
+  removeWebSocketServer(): void {
+    this.webSocketServer = null;
+  }
+
+  /**
+   * 设置全局WebSocket服务器，所有Logger实例都会自动使用
+   */
+  static setGlobalWebSocketServer(server: WebSocketLogServer): void {
+    Logger.globalWebSocketServer = server;
+  }
+
+  /**
+   * 移除全局WebSocket服务器
+   */
+  static removeGlobalWebSocketServer(): void {
+    Logger.globalWebSocketServer = null;
   }
 } 

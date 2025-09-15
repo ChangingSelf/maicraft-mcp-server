@@ -17,6 +17,7 @@ import { fileURLToPath } from 'url';
 import { load as yamlLoad } from 'js-yaml';
 
 import { Logger, LoggingConfig } from './utils/Logger.js';
+import { WebSocketLogServer } from './utils/WebSocketLogServer.js';
 import { MaicraftMcpServer } from './mcp/MaicraftMcpServer.js';
 import { ClientConfig } from './config.js';
 import { MinecraftClient } from './minecraft/MinecraftClient.js';
@@ -235,6 +236,22 @@ async function main() {
   // 创建正式的日志器
   const logger = Logger.fromConfig('Maicraft', config.logging || {});
 
+  // 启动WebSocket日志服务器
+  let webSocketServer: WebSocketLogServer | null = null;
+  const wsConfig = config.websocket;
+  if (wsConfig?.enabled !== false) {
+    try {
+      const port = wsConfig?.port || 20915;
+      const host = wsConfig?.host || 'localhost';
+      webSocketServer = new WebSocketLogServer(port, logger);
+      await webSocketServer.start();
+      Logger.setGlobalWebSocketServer(webSocketServer);
+      logger.info(`WebSocket日志服务器已启动: ws://${host}:${port}/ws/mcp-logs`);
+    } catch (error) {
+      logger.warn('WebSocket日志服务器启动失败:', error);
+    }
+  }
+
   // 构建核心组件
   const minecraftClient = new MinecraftClient({
     ...config.minecraft,
@@ -298,12 +315,22 @@ async function main() {
     logger.error('创建 MCP 服务器失败:', e as Error);
   }
 
-  // 退出时停止客户端
+  // 退出时停止客户端和WebSocket服务器
   process.on('SIGINT', async () => {
     logger.info('收到 SIGINT，正在停止客户端...');
     try {
       await minecraftClient.disconnect();
     } catch {}
+
+    if (webSocketServer) {
+      try {
+        await webSocketServer.stop();
+        logger.info('WebSocket日志服务器已停止');
+      } catch (error) {
+        logger.warn('停止WebSocket服务器时出错:', error);
+      }
+    }
+
     process.exit(0);
   });
 

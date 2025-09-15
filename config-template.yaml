@@ -73,6 +73,12 @@ logging:
   colors: true            # 是否启用颜色输出
   timestamp: true         # 是否显示时间戳
 
+# WebSocket日志服务器配置
+websocket:
+  enabled: true           # 是否启用WebSocket日志服务器
+  port: 20915             # WebSocket服务器端口
+  host: "localhost"       # WebSocket服务器监听地址
+
 # MCP Server 配置
 mcp:
   name: "Maicraft MCP"
