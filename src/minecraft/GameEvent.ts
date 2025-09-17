@@ -161,6 +161,6 @@ export interface GameEventListener {
 
 // 事件配置
 export interface EventConfig {
-  enabledEvents: GameEventType[]; // 要启用的事件类型列表
+  disabledEvents: GameEventType[]; // 要禁用的事件类型列表（黑名单机制）
   maxEventHistory: number; // 本地缓存的事件历史最大条目数
 } 

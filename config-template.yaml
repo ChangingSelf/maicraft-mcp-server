@@ -9,17 +9,22 @@ minecraft:
   auth: offline          # offline | microsoft | mojang
   version: "1.19.0"      # 可选，留空自动检测
 
-enabledEvents:
-  - chat
-  - playerJoined
-  - playerLeft
-  - playerCollect
-  - mobSpawn
-  - blockBreak
-  - blockPlace
-  - health
-  - experienceUpdate
-  - rain
+# 禁用的事件类型列表（黑名单机制）
+# 列出要禁用的游戏事件类型，默认情况下所有事件都会被启用
+# 移除注释即可禁用相应事件，留空表示启用所有事件
+disabledEvents:
+  # - chat
+  # - playerJoined
+  # - playerLeft
+  # - death
+  # - spawn
+  # - rain
+  # - kicked
+  # - spawnReset
+  # - health
+  # - entityHurt
+  # - entityDead
+  # - playerCollect
 
 # 不能破坏的方块列表配置
 # 机器人路径查找时会避免破坏这些方块

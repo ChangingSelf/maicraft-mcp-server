@@ -295,10 +295,10 @@ export class MinecraftClient extends EventEmitter {
   }
 
   /**
-   * 设置启用的事件类型
+   * 设置禁用的事件类型（黑名单机制）
    */
-  setEnabledEvents(events: GameEventType[]): void {
-    this.eventManager.setEnabledEvents(events);
+  setDisabledEvents(events: GameEventType[]): void {
+    this.eventManager.setDisabledEvents(events);
   }
 
   /**

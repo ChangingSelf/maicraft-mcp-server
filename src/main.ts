@@ -119,6 +119,7 @@ interface CliArgs {
   mcpVersion?: string;
   toolsEnabled?: string[];
   toolsDisabled?: string[];
+  eventsDisabled?: string[];
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -140,6 +141,7 @@ function parseArgs(argv: string[]): CliArgs {
     if (t === '--mcp-version' && next) { args.mcpVersion = next; i++; continue; }
     if (t === '--tools-enabled' && next) { args.toolsEnabled = next.split(',').map(s=>s.trim()).filter(Boolean); i++; continue; }
     if (t === '--tools-disabled' && next) { args.toolsDisabled = next.split(',').map(s=>s.trim()).filter(Boolean); i++; continue; }
+    if (t === '--events-disabled' && next) { args.eventsDisabled = next.split(',').map(s=>s.trim()).filter(Boolean); i++; continue; }
   }
   // 兼容第一个位置参数作为 config 路径
   if (!args.configPath && tokens[0] && !tokens[0].startsWith('-')) {
@@ -274,17 +276,22 @@ async function main() {
     logger.warn('自动发现动作时出错，但不影响后续流程:', e as Error);
   }
 
-  // 事件过滤
-  if (Array.isArray(config.enabledEvents) && config.enabledEvents.length > 0) {
+  // 事件过滤（黑名单机制）
+  if (Array.isArray(config.disabledEvents) && config.disabledEvents.length > 0) {
     // @ts-ignore: allow string[] tolerant mapping inside MinecraftClient
-    minecraftClient.setEnabledEvents(config.enabledEvents as any);
+    minecraftClient.setDisabledEvents(config.disabledEvents as any);
+  }
+
+  // 如果命令行指定了禁用事件，则覆盖配置文件
+  if (args.eventsDisabled && args.eventsDisabled.length > 0) {
+    minecraftClient.setDisabledEvents(args.eventsDisabled as any);
   }
 
   // 监听游戏事件
   minecraftClient.on('gameEvent', (event: GameEvent) => {
     try {
-      const { enabledEvents } = config;
-      if (enabledEvents && !enabledEvents.includes(event.type)) return;
+      const { disabledEvents } = config;
+      if (disabledEvents && disabledEvents.includes(event.type)) return;
       logger.debug(`游戏事件: ${event.type}`);
     } catch (e) {
       logger.error('处理游戏事件时发生错误:', e);

@@ -14,7 +14,7 @@ export class EventManager {
   private maxEvents: number;
   private logger: Logger;
   private bot: Bot | null = null;
-  private enabledEvents: Set<GameEventType> = new Set(Object.values(GameEventType) as GameEventType[]);
+  private disabledEvents: Set<GameEventType> = new Set();
   private debugCommandHandler: DebugCommandHandler | null = null;
   private chatFilterManager: ChatFilterManager | null = null;
 
@@ -195,11 +195,18 @@ export class EventManager {
   }
 
   /**
-   * 设置启用的游戏事件类型
+   * 设置禁用的游戏事件类型（黑名单机制）
    */
-  setEnabledEvents(events: GameEventType[]): void {
-    this.enabledEvents = new Set(events);
-    this.logger.info(`已设置启用的事件类型: ${events.join(', ')}`);
+  setDisabledEvents(events: GameEventType[]): void {
+    this.disabledEvents = new Set(events);
+    this.logger.info(`已设置禁用的事件类型: ${events.join(', ')}`);
+  }
+
+  /**
+   * 检查事件类型是否被禁用
+   */
+  isEventDisabled(eventType: GameEventType): boolean {
+    return this.disabledEvents.has(eventType);
   }
 
   /**
@@ -261,7 +268,7 @@ export class EventManager {
         return;
       }
 
-      if (this.enabledEvents.has(GameEventType.CHAT)) {
+      if (!this.isEventDisabled(GameEventType.CHAT)) {
         this.addEvent({
           type: 'chat',
           gameTick: this.getCurrentGameTick(),
@@ -276,7 +283,7 @@ export class EventManager {
 
     // 玩家加入事件 - "playerJoined" (player)
     this.bot.on('playerJoined', (player) => {
-      if (this.enabledEvents.has(GameEventType.PLAYER_JOIN)) {
+      if (!this.isEventDisabled(GameEventType.PLAYER_JOIN)) {
         this.addEvent({
           type: 'playerJoined',
           gameTick: this.getCurrentGameTick(),
@@ -294,7 +301,7 @@ export class EventManager {
 
     // 玩家离开事件 - "playerLeft" (entity)
     this.bot.on('playerLeft', (entity) => {
-      if (this.enabledEvents.has(GameEventType.PLAYER_LEAVE)) {
+      if (!this.isEventDisabled(GameEventType.PLAYER_LEAVE)) {
         this.addEvent({
           type: 'playerLeft',
           gameTick: this.getCurrentGameTick(),
@@ -312,7 +319,7 @@ export class EventManager {
 
     // 玩家死亡事件 - "death" ()
     this.bot.on('death', () => {
-      if (this.enabledEvents.has(GameEventType.PLAYER_DEATH)) {
+      if (!this.isEventDisabled(GameEventType.PLAYER_DEATH)) {
         this.addEvent({
           type: 'death',
           gameTick: this.getCurrentGameTick(),
@@ -331,7 +338,7 @@ export class EventManager {
 
     // 玩家重生事件 - "spawn" ()
     this.bot.on('spawn', () => {
-      if (this.enabledEvents.has(GameEventType.PLAYER_RESPAWN)) {
+      if (!this.isEventDisabled(GameEventType.PLAYER_RESPAWN)) {
         this.addEvent({
           type: 'spawn',
           gameTick: this.getCurrentGameTick(),
@@ -354,7 +361,7 @@ export class EventManager {
 
     // 天气变化事件 - "rain" () - 当下雨开始或停止时触发
     this.bot.on('rain', () => {
-      if (this.enabledEvents.has(GameEventType.WEATHER_CHANGE)) {
+      if (!this.isEventDisabled(GameEventType.WEATHER_CHANGE)) {
         // 根据当前天气状态确定天气类型
         let weather: 'clear' | 'rain' | 'thunder';
         if (this.bot!.thunderState > 0) {
@@ -376,7 +383,7 @@ export class EventManager {
 
     // 玩家踢出事件 - "kicked" (reason, loggedIn)
     this.bot.on('kicked', (reason, loggedIn) => {
-      if (this.enabledEvents.has(GameEventType.PLAYER_KICK)) {
+      if (!this.isEventDisabled(GameEventType.PLAYER_KICK)) {
         this.addEvent({
           type: 'kicked',
           gameTick: this.getCurrentGameTick(),
@@ -395,7 +402,7 @@ export class EventManager {
 
     // 重生点重置事件 - "spawnReset" ()
     this.bot.on('spawnReset', () => {
-      if (this.enabledEvents.has(GameEventType.SPAWN_POINT_RESET)) {
+      if (!this.isEventDisabled(GameEventType.SPAWN_POINT_RESET)) {
         this.addEvent({
           type: 'spawnReset',
           gameTick: this.getCurrentGameTick(),
@@ -411,7 +418,7 @@ export class EventManager {
 
     // 生命值更新事件 - "health" ()
     this.bot.on('health', () => {
-      if (this.enabledEvents.has(GameEventType.HEALTH_UPDATE)) {
+      if (!this.isEventDisabled(GameEventType.HEALTH_UPDATE)) {
         this.addEvent({
           type: 'health',
           gameTick: this.getCurrentGameTick(),
@@ -425,7 +432,7 @@ export class EventManager {
 
     // 实体受伤事件 - "entityHurt" (entity)
     this.bot.on('entityHurt', (entity) => {
-      if (this.enabledEvents.has(GameEventType.ENTITY_HURT)) {
+      if (!this.isEventDisabled(GameEventType.ENTITY_HURT)) {
         this.addEvent({
           type: 'entityHurt',
           gameTick: this.getCurrentGameTick(),
@@ -449,7 +456,7 @@ export class EventManager {
 
     // 实体死亡事件 - "entityDead" (entity)
     this.bot.on('entityDead', (entity) => {
-      if (this.enabledEvents.has(GameEventType.ENTITY_DEATH)) {
+      if (!this.isEventDisabled(GameEventType.ENTITY_DEATH)) {
         this.addEvent({
           type: 'entityDead',
           gameTick: this.getCurrentGameTick(),
@@ -472,7 +479,7 @@ export class EventManager {
 
     // 玩家收集物品事件 - "playerCollect" (collector, collected)
     this.bot.on('playerCollect', (collector, collected) => {
-      if (this.enabledEvents.has(GameEventType.PLAYER_COLLECT)) {
+      if (!this.isEventDisabled(GameEventType.PLAYER_COLLECT)) {
         // 检查是否是机器人自己收集的物品
         const isSelfCollect = collector.id === this.bot!.entity.id;
 

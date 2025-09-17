@@ -37,7 +37,7 @@ export interface WebSocketConfig {
 
 export interface ClientConfig {
   minecraft: MinecraftConfig;
-  enabledEvents?: string[];
+  disabledEvents?: string[];
   maxMessageHistory?: number;
   logging?: LoggingConfig;
   // 不能破坏的方块列表配置

@@ -118,7 +118,7 @@ sequenceDiagram
   participant Main as main.ts
 
   Bot->>MC: 原始游戏事件
-  MC->>MC: 过滤 enabledEvents
+  MC->>MC: 过滤 disabledEvents（黑名单）
   MC-->>Main: gameEvent
 ```
 
@@ -186,7 +186,7 @@ npx -y maicraft
 npx -y maicraft /path/to/config.yaml
 
 # 或使用命令行参数覆盖部分配置（无需编辑文件）
-npx -y maicraft --host 127.0.0.1 --port 25565 --username MaiBot --auth offline --log-level INFO
+npx -y maicraft --host 127.0.0.1 --port 25565 --username MaiBot --auth offline --log-level INFO --events-disabled chat,playerJoined
 ```
 
 #### 方式二：源码安装用户
@@ -292,6 +292,49 @@ tail -f <日志文件路径>
 
 ## 配置说明
 
+### 命令行参数
+
+Maicraft 支持多种命令行参数，可以覆盖配置文件中的设置：
+
+```bash
+# 基础连接参数
+--host <地址>           # Minecraft 服务器地址（默认：127.0.0.1）
+--port <端口>           # 服务器端口（默认：25565）
+--username <用户名>     # 机器人用户名
+--password <密码>       # 服务器密码（在线模式需要）
+--auth <认证方式>       # offline | microsoft | mojang（默认：offline）
+--version <版本>        # Minecraft 版本（可选，自动检测）
+
+# 日志配置
+--log-level <级别>      # DEBUG | INFO | WARN | ERROR（默认：INFO）
+
+# 事件过滤（黑名单机制）
+--events-disabled <事件列表>  # 要禁用的事件类型，用逗号分隔
+                              # 示例：--events-disabled chat,playerJoined,health
+                              # 支持的事件：chat, playerJoined, playerLeft, death, spawn, rain, kicked, spawnReset, health, entityHurt, entityDead, playerCollect
+
+# MCP 配置
+--mcp-name <名称>       # MCP 服务器名称
+--mcp-version <版本>    # MCP 服务器版本
+
+# 工具过滤
+--tools-enabled <工具列表>    # 启用的 MCP 工具列表（白名单）
+--tools-disabled <工具列表>  # 禁用的 MCP 工具列表（黑名单）
+```
+
+#### 事件禁用参数示例
+
+```bash
+# 禁用聊天和玩家加入事件
+npx -y maicraft --events-disabled chat,playerJoined
+
+# 禁用所有生命值相关事件
+npx -y maicraft --events-disabled health,entityHurt,entityDead
+
+# 禁用天气和玩家收集事件
+npx -y maicraft --events-disabled rain,playerCollect
+```
+
 ### 基础配置
 
 在 `config.yaml` 中配置 Minecraft 服务器连接：
@@ -304,12 +347,21 @@ minecraft:
   auth: offline          # 认证方式：offline | microsoft | mojang
   version: "1.19.0"      # 游戏版本（可选）
 
-enabledEvents:
-  - chat                 # 聊天事件
-  - playerJoined         # 玩家加入
-  - playerLeft           # 玩家离开
-  - blockBreak           # 方块破坏
-  - blockPlace           # 方块放置
+# 禁用的事件类型列表（黑名单机制）
+# 列出要禁用的游戏事件类型，默认情况下所有事件都会被启用
+disabledEvents:
+  # - chat                 # 聊天事件
+  # - playerJoined         # 玩家加入
+  # - playerLeft           # 玩家离开
+  # - death                # 玩家死亡
+  # - spawn                # 玩家重生
+  # - rain                 # 天气变化
+  # - kicked               # 玩家被踢出
+  # - spawnReset           # 重生点重置
+  # - health               # 生命值更新
+  # - entityHurt           # 实体受伤
+  # - entityDead           # 实体死亡
+  # - playerCollect        # 玩家收集物品
 
 # 不能破坏的方块列表配置
 # 机器人路径查找时会避免破坏这些方块
