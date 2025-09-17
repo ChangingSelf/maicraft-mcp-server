@@ -72,18 +72,20 @@ export interface PlayerDeathEvent extends BaseGameEvent {
   type: 'death';
   player: PlayerInfo; // 死亡的玩家
   killer?: EntityInfo; // 凶手（可能为实体或玩家）
-  deathMessage: string; // 死亡提示文本
+  // 注意：根据 mineflayer API 文档，death 事件不提供死亡消息参数
 }
 
 export interface PlayerRespawnEvent extends BaseGameEvent {
   type: 'spawn';
-  player: PlayerInfo; // 重生的玩家
-  position: Position; // 重生位置
+  player: PlayerInfo; // 生成/重生的玩家
+  position: Position; // 生成/重生位置
+  // 注意：根据 mineflayer API 文档，此事件在玩家首次登录和重生时都会触发
 }
 
 export interface WeatherChangeEvent extends BaseGameEvent {
   type: 'rain';
   weather: 'clear' | 'rain' | 'thunder'; // 天气类型
+  // 注意：根据 mineflayer API 文档，'rain' 事件在天气开始或停止下雨时触发
 }
 
 export interface PlayerKickEvent extends BaseGameEvent {

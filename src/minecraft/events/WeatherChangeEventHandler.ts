@@ -7,6 +7,8 @@ import { GameEventType } from '../GameEvent.js';
  */
 export class WeatherChangeEventHandler extends BaseEventHandler {
   register(): void {
+    // 监听天气变化事件
+    // 注意：根据 mineflayer API 文档，'rain' 事件在天气开始或停止下雨时触发
     this.bot.on('rain', () => {
       if (!this.isEventDisabled(GameEventType.WEATHER_CHANGE)) {
         // 根据当前天气状态确定天气类型

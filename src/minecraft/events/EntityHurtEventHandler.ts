@@ -22,7 +22,7 @@ export class EntityHurtEventHandler extends BaseEventHandler {
             health: entity.health,
             maxHealth: entity.health
           },
-          damage: 0 // Mineflayer没有直接提供伤害值
+          damage: 0 // 注意：mineflayer 的 entityHurt 事件不直接提供伤害值参数
         }));
       }
     });

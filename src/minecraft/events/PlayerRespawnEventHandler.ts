@@ -2,8 +2,9 @@ import { BaseEventHandler } from './BaseEventHandler.js';
 import { GameEventType } from '../GameEvent.js';
 
 /**
- * 玩家重生事件处理器
- * 处理玩家重生的事件
+ * 玩家生成事件处理器
+ * 处理玩家首次登录和重生的事件
+ * 注意：根据 mineflayer API 文档，'spawn' 事件在玩家首次登录和重生时都会触发
  */
 export class PlayerRespawnEventHandler extends BaseEventHandler {
   register(): void {

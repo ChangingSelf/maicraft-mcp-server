@@ -16,8 +16,8 @@ export class PlayerDeathEventHandler extends BaseEventHandler {
             displayName: this.bot!.player.displayName?.toString(),
             ping: this.bot!.player.ping,
             gamemode: this.bot!.player.gamemode
-          },
-          deathMessage: '玩家死亡'
+          }
+          // 根据 mineflayer API 文档，death 事件不提供死亡消息参数
         }));
       }
     });

@@ -28,11 +28,16 @@ export class PlayerCollectEventHandler extends BaseEventHandler {
 
         const mcData = this.bot!.registry;
 
+        // 根据 mineflayer API 文档，collected 参数是掉落的物品实体
+        // 我们需要从 collected.metadata 中提取物品信息
         const collectedItems = collected.metadata.filter((item: any) => item !== null)
           .map((item: any) => {
             return {
+              id: item.itemId,
+              name: mcData.items[item.itemId]?.name || 'unknown',
+              displayName: mcData.items[item.itemId]?.displayName || 'unknown',
               count: item.itemCount,
-              ...mcData.items[item.itemId],
+              metadata: item.metadata
             };
           });
 
