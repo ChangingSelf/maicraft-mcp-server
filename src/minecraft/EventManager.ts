@@ -278,7 +278,7 @@ export class EventManager {
     this.bot.on('playerJoined', (player) => {
       if (this.enabledEvents.has(GameEventType.PLAYER_JOIN)) {
         this.addEvent({
-          type: 'playerJoin',
+          type: 'playerJoined',
           gameTick: this.getCurrentGameTick(),
           timestamp: this.getCurrentTimestamp(),
           playerInfo: {
@@ -296,7 +296,7 @@ export class EventManager {
     this.bot.on('playerLeft', (entity) => {
       if (this.enabledEvents.has(GameEventType.PLAYER_LEAVE)) {
         this.addEvent({
-          type: 'playerLeave',
+          type: 'playerLeft',
           gameTick: this.getCurrentGameTick(),
           timestamp: this.getCurrentTimestamp(),
           playerInfo: {
@@ -314,7 +314,7 @@ export class EventManager {
     this.bot.on('death', () => {
       if (this.enabledEvents.has(GameEventType.PLAYER_DEATH)) {
         this.addEvent({
-          type: 'playerDeath',
+          type: 'death',
           gameTick: this.getCurrentGameTick(),
           timestamp: this.getCurrentTimestamp(),
           player: {
@@ -333,7 +333,7 @@ export class EventManager {
     this.bot.on('spawn', () => {
       if (this.enabledEvents.has(GameEventType.PLAYER_RESPAWN)) {
         this.addEvent({
-          type: 'playerRespawn',
+          type: 'spawn',
           gameTick: this.getCurrentGameTick(),
           timestamp: this.getCurrentTimestamp(),
           player: {
@@ -364,9 +364,9 @@ export class EventManager {
         } else {
           weather = 'clear';
         }
-        
+
         this.addEvent({
-          type: 'weatherChange',
+          type: 'rain',
           gameTick: this.getCurrentGameTick(),
           timestamp: this.getCurrentTimestamp(),
           weather: weather
@@ -378,7 +378,7 @@ export class EventManager {
     this.bot.on('kicked', (reason, loggedIn) => {
       if (this.enabledEvents.has(GameEventType.PLAYER_KICK)) {
         this.addEvent({
-          type: 'playerKick',
+          type: 'kicked',
           gameTick: this.getCurrentGameTick(),
           timestamp: this.getCurrentTimestamp(),
           player: {
@@ -397,7 +397,7 @@ export class EventManager {
     this.bot.on('spawnReset', () => {
       if (this.enabledEvents.has(GameEventType.SPAWN_POINT_RESET)) {
         this.addEvent({
-          type: 'spawnPointReset',
+          type: 'spawnReset',
           gameTick: this.getCurrentGameTick(),
           timestamp: this.getCurrentTimestamp(),
           position: {
@@ -413,7 +413,7 @@ export class EventManager {
     this.bot.on('health', () => {
       if (this.enabledEvents.has(GameEventType.HEALTH_UPDATE)) {
         this.addEvent({
-          type: 'healthUpdate',
+          type: 'health',
           gameTick: this.getCurrentGameTick(),
           timestamp: this.getCurrentTimestamp(),
           health: this.bot!.health,
@@ -451,7 +451,7 @@ export class EventManager {
     this.bot.on('entityDead', (entity) => {
       if (this.enabledEvents.has(GameEventType.ENTITY_DEATH)) {
         this.addEvent({
-          type: 'entityDeath',
+          type: 'entityDead',
           gameTick: this.getCurrentGameTick(),
           timestamp: this.getCurrentTimestamp(),
           entity: {

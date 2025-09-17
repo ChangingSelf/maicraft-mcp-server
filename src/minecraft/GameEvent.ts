@@ -59,46 +59,46 @@ export interface ChatEvent extends BaseGameEvent {
 }
 
 export interface PlayerJoinEvent extends BaseGameEvent {
-  type: 'playerJoin';
+  type: 'playerJoined';
   playerInfo: PlayerInfo; // 加入的玩家信息
 }
 
 export interface PlayerLeaveEvent extends BaseGameEvent {
-  type: 'playerLeave';
+  type: 'playerLeft';
   playerInfo: PlayerInfo; // 离开的玩家信息
 }
 
 export interface PlayerDeathEvent extends BaseGameEvent {
-  type: 'playerDeath';
+  type: 'death';
   player: PlayerInfo; // 死亡的玩家
   killer?: EntityInfo; // 凶手（可能为实体或玩家）
   deathMessage: string; // 死亡提示文本
 }
 
 export interface PlayerRespawnEvent extends BaseGameEvent {
-  type: 'playerRespawn';
+  type: 'spawn';
   player: PlayerInfo; // 重生的玩家
   position: Position; // 重生位置
 }
 
 export interface WeatherChangeEvent extends BaseGameEvent {
-  type: 'weatherChange';
+  type: 'rain';
   weather: 'clear' | 'rain' | 'thunder'; // 天气类型
 }
 
 export interface PlayerKickEvent extends BaseGameEvent {
-  type: 'playerKick';
+  type: 'kicked';
   player: PlayerInfo; // 被踢出的玩家
   reason: string; // 踢出原因
 }
 
 export interface SpawnPointResetEvent extends BaseGameEvent {
-  type: 'spawnPointReset';
+  type: 'spawnReset';
   position: Position; // 新的重生点位置
 }
 
 export interface HealthUpdateEvent extends BaseGameEvent {
-  type: 'healthUpdate';
+  type: 'health';
   health: number; // 当前生命值
   food: number; // 饱食度
   saturation: number; // 饱和度
@@ -112,7 +112,7 @@ export interface EntityHurtEvent extends BaseGameEvent {
 }
 
 export interface EntityDeathEvent extends BaseGameEvent {
-  type: 'entityDeath';
+  type: 'entityDead';
   entity: EntityInfo; // 死亡的实体
   killer?: EntityInfo; // 凶手
 }
@@ -138,19 +138,19 @@ export type GameEvent =
   | EntityDeathEvent
   | PlayerCollectEvent;
 
-// 事件类型枚举
+// 事件类型枚举 - 与 mineflayer 事件名保持一致
 export enum GameEventType {
   CHAT = 'chat',
-  PLAYER_JOIN = 'playerJoin',
-  PLAYER_LEAVE = 'playerLeave',
-  PLAYER_DEATH = 'playerDeath',
-  PLAYER_RESPAWN = 'playerRespawn',
-  WEATHER_CHANGE = 'weatherChange',
-  PLAYER_KICK = 'playerKick',
-  SPAWN_POINT_RESET = 'spawnPointReset',
-  HEALTH_UPDATE = 'healthUpdate',
+  PLAYER_JOIN = 'playerJoined',
+  PLAYER_LEAVE = 'playerLeft',
+  PLAYER_DEATH = 'death',
+  PLAYER_RESPAWN = 'spawn',
+  WEATHER_CHANGE = 'rain',
+  PLAYER_KICK = 'kicked',
+  SPAWN_POINT_RESET = 'spawnReset',
+  HEALTH_UPDATE = 'health',
   ENTITY_HURT = 'entityHurt',
-  ENTITY_DEATH = 'entityDeath',
+  ENTITY_DEATH = 'entityDead',
   PLAYER_COLLECT = 'playerCollect'
 }
 

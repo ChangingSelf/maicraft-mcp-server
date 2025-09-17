@@ -11,15 +11,15 @@ minecraft:
 
 enabledEvents:
   - chat
-  - playerJoin
-  - playerLeave
+  - playerJoined
+  - playerLeft
   - playerCollect
   - mobSpawn
   - blockBreak
   - blockPlace
-  - healthUpdate
+  - health
   - experienceUpdate
-  - weatherChange
+  - rain
 
 # 不能破坏的方块列表配置
 # 机器人路径查找时会避免破坏这些方块

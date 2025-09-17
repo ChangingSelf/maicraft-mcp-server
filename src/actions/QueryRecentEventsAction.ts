@@ -16,7 +16,7 @@ export class QueryRecentEventsAction extends BaseAction<QueryRecentEventsParams>
   name = 'queryRecentEvents';
   description = '查询最近发生的游戏事件，包括聊天、玩家加入/离开、方块变化等';
   schema = z.object({
-    eventType: z.string().optional().describe('事件类型过滤（如：chat, playerJoin, blockBreak等）'),
+    eventType: z.string().optional().describe('事件类型过滤（如：chat, playerJoined, blockBreak等）'),
     sinceTick: z.number().optional().describe('查询指定游戏刻之后的事件'),
     timestampAfter: z.number().optional().describe('查询指定时间戳（毫秒）之后的事件'),
     timestampBefore: z.number().optional().describe('查询指定时间戳（毫秒）之前的事件'),

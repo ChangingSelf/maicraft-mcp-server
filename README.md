@@ -306,8 +306,8 @@ minecraft:
 
 enabledEvents:
   - chat                 # 聊天事件
-  - playerJoin           # 玩家加入
-  - playerLeave          # 玩家离开
+  - playerJoined         # 玩家加入
+  - playerLeft           # 玩家离开
   - blockBreak           # 方块破坏
   - blockPlace           # 方块放置
 
