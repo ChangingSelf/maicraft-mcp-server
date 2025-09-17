@@ -27,7 +27,7 @@
     "publish:windows": "powershell -ExecutionPolicy Bypass -File scripts/publish.ps1",
     "mcp:ui": "mcp-inspector --config mcp-inspector.json --server maicraft",
     "mcp:tools": "mcp-inspector --cli --config mcp-inspector.json --server maicraft --method tools/list",
-    "mcp:state": "mcp-inspector --cli --config mcp-inspector.json --server maicraft --method tools/call --tool-name query_state"
+    "mcp:state": "mcp-inspector --cli --config mcp-inspector.json --server maicraft --method tools/call --tool-name query_game_state"
   },
   "keywords": [
     "minecraft",

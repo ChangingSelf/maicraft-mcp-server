@@ -40,7 +40,7 @@ blocksCantBreak:
 
 # 截图功能配置
 screenshot:
-  enabled: true            # 是否启用截图功能（需要额外依赖）
+  enabled: false            # 是否启用截图功能（需要额外依赖）
   width: 1920             # 图像宽度，默认 1920
   height: 1080            # 图像高度，默认 1080
   viewDistance: 12        # 视距，默认 12

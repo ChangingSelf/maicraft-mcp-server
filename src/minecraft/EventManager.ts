@@ -4,6 +4,8 @@ import { Bot } from 'mineflayer';
 import { DebugCommandHandler } from '../utils/DebugCommandHandler.js';
 import { ChatFilterManager } from '../utils/ChatFilterManager.js';
 import type { DebugCommandsConfig, ChatFiltersConfig } from '../config.js';
+import { BaseEventHandler } from './events/BaseEventHandler.js';
+import { getAllEventHandlers, ChatEventHandler } from './events/index.js';
 
 /**
  * 事件管理器
@@ -17,6 +19,7 @@ export class EventManager {
   private disabledEvents: Set<GameEventType> = new Set();
   private debugCommandHandler: DebugCommandHandler | null = null;
   private chatFilterManager: ChatFilterManager | null = null;
+  private eventHandlers: BaseEventHandler[] = [];
 
   constructor(maxEvents: number = 1000, debugCommandsConfig?: DebugCommandsConfig, chatFiltersConfig?: ChatFiltersConfig) {
     this.maxEvents = maxEvents;
@@ -210,6 +213,57 @@ export class EventManager {
   }
 
   /**
+   * 初始化事件处理器
+   */
+  private initializeEventHandlers(): void {
+    if (!this.bot) return;
+
+    const handlerClasses = getAllEventHandlers();
+    this.eventHandlers = [];
+
+    for (const HandlerClass of handlerClasses) {
+      // 特殊处理 ChatEventHandler，需要注入额外的依赖
+      if (HandlerClass === ChatEventHandler) {
+        const handler = new HandlerClass(
+          this.bot,
+          this.isEventDisabled.bind(this),
+          this.addEvent.bind(this),
+          this.getCurrentGameTick.bind(this),
+          this.getCurrentTimestamp.bind(this),
+          this.debugCommandHandler,  // 额外依赖
+          this.chatFilterManager     // 额外依赖
+        );
+        this.eventHandlers.push(handler);
+      } else {
+        const handler = new HandlerClass(
+          this.bot,
+          this.isEventDisabled.bind(this),
+          this.addEvent.bind(this),
+          this.getCurrentGameTick.bind(this),
+          this.getCurrentTimestamp.bind(this)
+        );
+        this.eventHandlers.push(handler);
+      }
+    }
+
+    this.logger.info(`已初始化 ${this.eventHandlers.length} 个事件处理器`);
+  }
+
+  /**
+   * 设置事件监听器（新架构）
+   */
+  private setupEventListeners(): void {
+    if (!this.bot) return;
+
+    // 注册所有事件处理器
+    for (const handler of this.eventHandlers) {
+      handler.register();
+    }
+
+    this.logger.info(`已注册 ${this.eventHandlers.length} 个事件监听器`);
+  }
+
+  /**
    * 注册mineflayer bot并设置事件监听器
    */
   async registerBot(bot: Bot, debugCommandsConfig?: DebugCommandsConfig): Promise<void> {
@@ -228,6 +282,7 @@ export class EventManager {
       }
     }
 
+    this.initializeEventHandlers();
     this.setupEventListeners();
     this.logger.info('已注册mineflayer bot并设置事件监听器');
   }
@@ -245,281 +300,5 @@ export class EventManager {
    */
   private getCurrentTimestamp(): number {
     return Date.now();
-  }
-
-  /**
-   * 设置事件监听器
-   */
-  private setupEventListeners(): void {
-    if (!this.bot) return;
-
-    // 聊天事件 - "chat" (username, message, translate, jsonMsg, matches)
-    this.bot.on('chat', async (username, message, translate, jsonMsg, matches) => {
-      // 检查是否是调试命令，如果是则处理并返回，不添加到事件队列
-      if (this.debugCommandHandler) {
-        const isHandled = await this.debugCommandHandler.handleChatMessage(username, message);
-        if (isHandled) {
-          return;
-        }
-      }
-
-      // 检查聊天过滤，如果消息应该被过滤掉则返回，不添加到事件队列
-      if (this.chatFilterManager && this.chatFilterManager.shouldFilterMessage(username, message)) {
-        return;
-      }
-
-      if (!this.isEventDisabled(GameEventType.CHAT)) {
-        this.addEvent({
-          type: 'chat',
-          gameTick: this.getCurrentGameTick(),
-          timestamp: this.getCurrentTimestamp(),
-          chatInfo: {
-            text: message,
-            username: username,
-          }
-        });
-      }
-    });
-
-    // 玩家加入事件 - "playerJoined" (player)
-    this.bot.on('playerJoined', (player) => {
-      if (!this.isEventDisabled(GameEventType.PLAYER_JOIN)) {
-        this.addEvent({
-          type: 'playerJoined',
-          gameTick: this.getCurrentGameTick(),
-          timestamp: this.getCurrentTimestamp(),
-          playerInfo: {
-            uuid: player.uuid,
-            username: player.username,
-            displayName: player.displayName?.toString(),
-            ping: player.ping,
-            gamemode: player.gamemode
-          }
-        });
-      }
-    });
-
-    // 玩家离开事件 - "playerLeft" (entity)
-    this.bot.on('playerLeft', (entity) => {
-      if (!this.isEventDisabled(GameEventType.PLAYER_LEAVE)) {
-        this.addEvent({
-          type: 'playerLeft',
-          gameTick: this.getCurrentGameTick(),
-          timestamp: this.getCurrentTimestamp(),
-          playerInfo: {
-            uuid: entity.uuid,
-            username: entity.username,
-            displayName: entity.displayName?.toString(),
-            ping: entity.ping,
-            gamemode: entity.gamemode
-          }
-        });
-      }
-    });
-
-    // 玩家死亡事件 - "death" ()
-    this.bot.on('death', () => {
-      if (!this.isEventDisabled(GameEventType.PLAYER_DEATH)) {
-        this.addEvent({
-          type: 'death',
-          gameTick: this.getCurrentGameTick(),
-          timestamp: this.getCurrentTimestamp(),
-          player: {
-            uuid: this.bot!.player.uuid,
-            username: this.bot!.player.username,
-            displayName: this.bot!.player.displayName?.toString(),
-            ping: this.bot!.player.ping,
-            gamemode: this.bot!.player.gamemode
-          },
-          deathMessage: '玩家死亡'
-        });
-      }
-    });
-
-    // 玩家重生事件 - "spawn" ()
-    this.bot.on('spawn', () => {
-      if (!this.isEventDisabled(GameEventType.PLAYER_RESPAWN)) {
-        this.addEvent({
-          type: 'spawn',
-          gameTick: this.getCurrentGameTick(),
-          timestamp: this.getCurrentTimestamp(),
-          player: {
-            uuid: this.bot!.player.uuid,
-            username: this.bot!.player.username,
-            displayName: this.bot!.player.displayName?.toString(),
-            ping: this.bot!.player.ping,
-            gamemode: this.bot!.player.gamemode
-          },
-          position: {
-            x: this.bot!.entity.position.x,
-            y: this.bot!.entity.position.y,
-            z: this.bot!.entity.position.z
-          }
-        });
-      }
-    });
-
-    // 天气变化事件 - "rain" () - 当下雨开始或停止时触发
-    this.bot.on('rain', () => {
-      if (!this.isEventDisabled(GameEventType.WEATHER_CHANGE)) {
-        // 根据当前天气状态确定天气类型
-        let weather: 'clear' | 'rain' | 'thunder';
-        if (this.bot!.thunderState > 0) {
-          weather = 'thunder';
-        } else if (this.bot!.isRaining) {
-          weather = 'rain';
-        } else {
-          weather = 'clear';
-        }
-
-        this.addEvent({
-          type: 'rain',
-          gameTick: this.getCurrentGameTick(),
-          timestamp: this.getCurrentTimestamp(),
-          weather: weather
-        });
-      }
-    });
-
-    // 玩家踢出事件 - "kicked" (reason, loggedIn)
-    this.bot.on('kicked', (reason, loggedIn) => {
-      if (!this.isEventDisabled(GameEventType.PLAYER_KICK)) {
-        this.addEvent({
-          type: 'kicked',
-          gameTick: this.getCurrentGameTick(),
-          timestamp: this.getCurrentTimestamp(),
-          player: {
-            uuid: this.bot!.player.uuid,
-            username: this.bot!.player.username,
-            displayName: this.bot!.player.displayName?.toString(),
-            ping: this.bot!.player.ping,
-            gamemode: this.bot!.player.gamemode
-          },
-          reason: reason
-        });
-      }
-    });
-
-    // 重生点重置事件 - "spawnReset" ()
-    this.bot.on('spawnReset', () => {
-      if (!this.isEventDisabled(GameEventType.SPAWN_POINT_RESET)) {
-        this.addEvent({
-          type: 'spawnReset',
-          gameTick: this.getCurrentGameTick(),
-          timestamp: this.getCurrentTimestamp(),
-          position: {
-            x: this.bot!.entity.position.x,
-            y: this.bot!.entity.position.y,
-            z: this.bot!.entity.position.z
-          }
-        });
-      }
-    });
-
-    // 生命值更新事件 - "health" ()
-    this.bot.on('health', () => {
-      if (!this.isEventDisabled(GameEventType.HEALTH_UPDATE)) {
-        this.addEvent({
-          type: 'health',
-          gameTick: this.getCurrentGameTick(),
-          timestamp: this.getCurrentTimestamp(),
-          health: this.bot!.health,
-          food: this.bot!.food,
-          saturation: this.bot!.foodSaturation
-        });
-      }
-    });
-
-    // 实体受伤事件 - "entityHurt" (entity)
-    this.bot.on('entityHurt', (entity) => {
-      if (!this.isEventDisabled(GameEventType.ENTITY_HURT)) {
-        this.addEvent({
-          type: 'entityHurt',
-          gameTick: this.getCurrentGameTick(),
-          timestamp: this.getCurrentTimestamp(),
-          entity: {
-            id: entity.id,
-            type: entity.name || 'unknown',
-            name: entity.displayName?.toString(),
-            position: {
-              x: entity.position.x,
-              y: entity.position.y,
-              z: entity.position.z
-            },
-            health: entity.health,
-            maxHealth: entity.health
-          },
-          damage: 0 // Mineflayer没有直接提供伤害值
-        });
-      }
-    });
-
-    // 实体死亡事件 - "entityDead" (entity)
-    this.bot.on('entityDead', (entity) => {
-      if (!this.isEventDisabled(GameEventType.ENTITY_DEATH)) {
-        this.addEvent({
-          type: 'entityDead',
-          gameTick: this.getCurrentGameTick(),
-          timestamp: this.getCurrentTimestamp(),
-          entity: {
-            id: entity.id,
-            type: entity.name || 'unknown',
-            name: entity.displayName?.toString(),
-            position: {
-              x: entity.position.x,
-              y: entity.position.y,
-              z: entity.position.z
-            },
-            health: 0,
-            maxHealth: entity.health
-          }
-        });
-      }
-    });
-
-    // 玩家收集物品事件 - "playerCollect" (collector, collected)
-    this.bot.on('playerCollect', (collector, collected) => {
-      if (!this.isEventDisabled(GameEventType.PLAYER_COLLECT)) {
-        // 检查是否是机器人自己收集的物品
-        const isSelfCollect = collector.id === this.bot!.entity.id;
-
-        const mcData = this.bot!.registry;
-
-        const collectedItems = collected.metadata.filter((item: any) => item !== null)
-        .map((item: any) => {
-          return {
-            count: item.itemCount,
-            ...mcData.items[item.itemId],
-          }
-        });
-
-        this.addEvent({
-          type: 'playerCollect',
-          gameTick: this.getCurrentGameTick(),
-          timestamp: this.getCurrentTimestamp(),
-          collector: {
-            id: collector.id,
-            type: collector.type,
-            name:collector.name,
-            username: collector.username,
-            position: {
-              x: Number(collector.position.x?.toFixed(2) ?? 0),
-              y: Number(collector.position.y?.toFixed(2) ?? 0),
-              z: Number(collector.position.z?.toFixed(2) ?? 0)
-            },
-          },
-          collected: collectedItems
-        });
-
-        // 如果是机器人自己收集的物品，记录到日志
-        if (isSelfCollect) {
-          const itemNames = collectedItems.map((item) => item.name).join(', ');
-          const itemCounts = collectedItems.map((item) => item.count).join(', ');
-          this.logger.info(`机器人收集了物品: ${itemNames} x${itemCounts}`);
-        }
-      }
-    });
-
-    this.logger.info('事件监听器设置完成');
   }
 }
