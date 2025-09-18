@@ -10,7 +10,7 @@ export class PlayerLeaveEventHandler extends BaseEventHandler {
     this.bot.on('playerLeft', (entity: any) => {
       if (!this.isEventDisabled(GameEventType.PLAYER_LEAVE)) {
         this.addEvent(this.createEvent('playerLeft', {
-          playerInfo: {
+          data: {
             uuid: entity.uuid,
             username: entity.username,
             displayName: entity.displayName?.toString(),

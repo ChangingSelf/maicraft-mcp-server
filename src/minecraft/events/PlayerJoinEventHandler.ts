@@ -10,7 +10,7 @@ export class PlayerJoinEventHandler extends BaseEventHandler {
     this.bot.on('playerJoined', (player: any) => {
       if (!this.isEventDisabled(GameEventType.PLAYER_JOIN)) {
         this.addEvent(this.createEvent('playerJoined', {
-          playerInfo: {
+          data: {
             uuid: player.uuid,
             username: player.username,
             displayName: player.displayName?.toString(),

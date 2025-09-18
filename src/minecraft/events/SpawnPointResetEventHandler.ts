@@ -10,7 +10,7 @@ export class SpawnPointResetEventHandler extends BaseEventHandler {
     this.bot.on('spawnReset', () => {
       if (!this.isEventDisabled(GameEventType.SPAWN_POINT_RESET)) {
         this.addEvent(this.createEvent('spawnReset', {
-          position: {
+          data: {
             x: this.bot!.entity.position.x,
             y: this.bot!.entity.position.y,
             z: this.bot!.entity.position.z

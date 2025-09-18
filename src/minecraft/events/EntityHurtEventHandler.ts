@@ -10,19 +10,21 @@ export class EntityHurtEventHandler extends BaseEventHandler {
     this.bot.on('entityHurt', (entity: any) => {
       if (!this.isEventDisabled(GameEventType.ENTITY_HURT)) {
         this.addEvent(this.createEvent('entityHurt', {
-          entity: {
-            id: entity.id,
-            type: entity.name || 'unknown',
-            name: entity.displayName?.toString(),
-            position: {
-              x: entity.position.x,
-              y: entity.position.y,
-              z: entity.position.z
+          data: {
+            entity: {
+              id: entity.id,
+              type: entity.name || 'unknown',
+              name: entity.displayName?.toString(),
+              position: {
+                x: entity.position.x,
+                y: entity.position.y,
+                z: entity.position.z
+              },
+              health: entity.health,
+              maxHealth: entity.health
             },
-            health: entity.health,
-            maxHealth: entity.health
-          },
-          damage: 0 // 注意：mineflayer 的 entityHurt 事件不直接提供伤害值参数
+            damage: 0 // 注意：mineflayer 的 entityHurt 事件不直接提供伤害值参数
+          }
         }));
       }
     });

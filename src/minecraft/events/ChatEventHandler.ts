@@ -26,7 +26,18 @@ export class ChatEventHandler extends BaseEventHandler {
   }
 
   register(): void {
-    this.bot.on('chat', async (username: string, message: string, translate: string | null, jsonMsg: any, matches: any) => {
+    this.bot.on('chat', async (
+      /** 发送消息的玩家用户名 */
+      username: string,
+      /** 去除颜色和控制字符的消息内容 */
+      message: string,
+      /** 聊天消息类型，对于大多数bukkit聊天消息为null */
+      translate: string | null,
+      /** 服务器发送的未修改的JSON消息 */
+      jsonMsg: any,
+      /** 正则表达式匹配结果数组，可能为null */
+      matches: any
+    ) => {
       // 处理调试命令
       if (this.debugCommandHandler) {
         const isHandled = await this.debugCommandHandler.handleChatMessage(username, message);
@@ -41,9 +52,12 @@ export class ChatEventHandler extends BaseEventHandler {
       // 创建事件
       if (!this.isEventDisabled(GameEventType.CHAT)) {
         this.addEvent(this.createEvent('chat', {
-          chatInfo: {
-            text: message,
-            username
+          data: {
+            username,
+            message,
+            translate,
+            jsonMsg,
+            matches
           }
         }));
       }

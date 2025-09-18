@@ -10,9 +10,11 @@ export class HealthUpdateEventHandler extends BaseEventHandler {
     this.bot.on('health', () => {
       if (!this.isEventDisabled(GameEventType.HEALTH_UPDATE)) {
         this.addEvent(this.createEvent('health', {
-          health: this.bot!.health,
-          food: this.bot!.food,
-          saturation: this.bot!.foodSaturation
+          data: {
+            health: this.bot!.health,
+            food: this.bot!.food,
+            saturation: this.bot!.foodSaturation
+          }
         }));
       }
     });

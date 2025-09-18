@@ -10,14 +10,16 @@ export class PlayerKickEventHandler extends BaseEventHandler {
     this.bot.on('kicked', (reason: string, loggedIn: boolean) => {
       if (!this.isEventDisabled(GameEventType.PLAYER_KICK)) {
         this.addEvent(this.createEvent('kicked', {
-          player: {
-            uuid: this.bot!.player.uuid,
-            username: this.bot!.player.username,
-            displayName: this.bot!.player.displayName?.toString(),
-            ping: this.bot!.player.ping,
-            gamemode: this.bot!.player.gamemode
-          },
-          reason: reason
+          data: {
+            player: {
+              uuid: this.bot!.player.uuid,
+              username: this.bot!.player.username,
+              displayName: this.bot!.player.displayName?.toString(),
+              ping: this.bot!.player.ping,
+              gamemode: this.bot!.player.gamemode
+            },
+            reason: reason
+          }
         }));
       }
     });

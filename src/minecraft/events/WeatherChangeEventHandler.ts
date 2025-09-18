@@ -22,7 +22,9 @@ export class WeatherChangeEventHandler extends BaseEventHandler {
         }
 
         this.addEvent(this.createEvent('rain', {
-          weather: weather
+          data: {
+            weather: weather
+          }
         }));
       }
     });

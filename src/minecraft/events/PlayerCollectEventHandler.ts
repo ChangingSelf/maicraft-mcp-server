@@ -42,18 +42,20 @@ export class PlayerCollectEventHandler extends BaseEventHandler {
           });
 
         this.addEvent(this.createEvent('playerCollect', {
-          collector: {
-            id: collector.id,
-            type: collector.type,
-            name: collector.name,
-            username: collector.username,
-            position: {
-              x: Number(collector.position.x?.toFixed(2) ?? 0),
-              y: Number(collector.position.y?.toFixed(2) ?? 0),
-              z: Number(collector.position.z?.toFixed(2) ?? 0)
+          data: {
+            collector: {
+              id: collector.id,
+              type: collector.type,
+              name: collector.name,
+              username: collector.username,
+              position: {
+                x: Number(collector.position.x?.toFixed(2) ?? 0),
+                y: Number(collector.position.y?.toFixed(2) ?? 0),
+                z: Number(collector.position.z?.toFixed(2) ?? 0)
+              },
             },
-          },
-          collected: collectedItems
+            collected: collectedItems
+          }
         }));
 
         // 如果是机器人自己收集的物品，记录到日志
