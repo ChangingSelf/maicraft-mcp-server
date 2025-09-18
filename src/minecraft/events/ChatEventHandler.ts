@@ -2,6 +2,7 @@ import { BaseEventHandler } from './BaseEventHandler.js';
 import { GameEventType } from '../GameEvent.js';
 import { DebugCommandHandler } from '../../utils/DebugCommandHandler.js';
 import { ChatFilterManager } from '../../utils/ChatFilterManager.js';
+import { Bot } from 'mineflayer';
 
 /**
  * 聊天事件处理器
@@ -12,7 +13,7 @@ export class ChatEventHandler extends BaseEventHandler {
   private chatFilterManager?: ChatFilterManager;
 
   constructor(
-    bot: any,
+    bot: Bot,
     isEventDisabled: (eventType: GameEventType) => boolean,
     addEvent: (event: any) => void,
     getCurrentGameTick: () => number,

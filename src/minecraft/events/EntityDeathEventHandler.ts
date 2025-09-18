@@ -1,5 +1,6 @@
 import { BaseEventHandler } from './BaseEventHandler.js';
 import { GameEventType } from '../GameEvent.js';
+import { Entity } from 'prismarine-entity';
 
 /**
  * 实体死亡事件处理器
@@ -7,21 +8,24 @@ import { GameEventType } from '../GameEvent.js';
  */
 export class EntityDeathEventHandler extends BaseEventHandler {
   register(): void {
-    this.bot.on('entityDead', (entity: any) => {
+    this.bot.on('entityDead', (entity: Entity) => {
       if (!this.isEventDisabled(GameEventType.ENTITY_DEATH)) {
         this.addEvent(this.createEvent('entityDead', {
           data: {
             entity: {
               id: entity.id,
-              type: entity.name || 'unknown',
-              name: entity.displayName?.toString(),
+              uuid: entity.uuid,
+              type: entity.type,
+              name: entity.name,
+              username: entity.username,
+              count: entity.count,
               position: {
-                x: entity.position.x,
-                y: entity.position.y,
-                z: entity.position.z
+                x: Number(entity.position.x.toFixed(2)),
+                y: Number(entity.position.y.toFixed(2)),
+                z: Number(entity.position.z.toFixed(2))
               },
-              health: 0,
-              maxHealth: entity.health
+              health: entity.health,
+              food: entity.food,
             }
           }
         }));

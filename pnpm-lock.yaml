@@ -50,6 +50,9 @@ importers:
       prismarine-chunk:
         specifier: ^1.39.0
         version: 1.39.0(minecraft-data@3.97.0)
+      prismarine-entity:
+        specifier: ^2.5.0
+        version: 2.5.0
       prismarine-item:
         specifier: ^1.17.0
         version: 1.17.0
