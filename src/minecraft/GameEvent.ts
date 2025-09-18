@@ -90,7 +90,7 @@ export interface PlayerRespawnEvent extends BaseGameEvent {
 }
 
 export interface WeatherChangeEvent extends BaseGameEvent {
-  type: 'rain';
+  type: 'weatherUpdate';
   data: {
     weather: 'clear' | 'rain' | 'thunder'; // 天气类型
   };
@@ -165,10 +165,10 @@ export enum GameEventType {
   PLAYER_JOIN = 'playerJoined',
   PLAYER_LEFT = 'playerLeft',
   DEATH = 'death',
-  PLAYER_RESPAWN = 'spawn',
-  WEATHER_CHANGE = 'rain',
+  SPAWN = 'spawn',
+  RAIN = 'rain',
   PLAYER_KICK = 'kicked',
-  SPAWN_POINT_RESET = 'spawnReset',
+  SPAWN_RESET = 'spawnReset',
   HEALTH = 'health',
   ENTITY_HURT = 'entityHurt',
   ENTITY_DEATH = 'entityDead',

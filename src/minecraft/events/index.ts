@@ -3,10 +3,10 @@ import { ChatEventHandler } from './ChatEventHandler.js';
 import { PlayerJoinEventHandler } from './PlayerJoinEventHandler.js';
 import { PlayerLeftEventHandler } from './PlayerLeftEventHandler.js';
 import { DeathEventHandler } from './DeathEventHandler.js';
-import { PlayerRespawnEventHandler } from './PlayerRespawnEventHandler.js';
-import { WeatherChangeEventHandler } from './WeatherChangeEventHandler.js';
+import { SpawnEventHandler } from './SpawnEventHandler.js';
+import { RainEventHandler } from './RainEventHandler.js';
 import { PlayerKickEventHandler } from './PlayerKickEventHandler.js';
-import { SpawnPointResetEventHandler } from './SpawnPointResetEventHandler.js';
+import { SpawnResetEventHandler } from './SpawnResetEventHandler.js';
 import { HealthEventHandler } from './HealthEventHandler.js';
 import { EntityHurtEventHandler } from './EntityHurtEventHandler.js';
 import { EntityDeathEventHandler } from './EntityDeathEventHandler.js';
@@ -29,10 +29,10 @@ export function getAllEventHandlers(): (new (
     PlayerJoinEventHandler,
     PlayerLeftEventHandler,
     DeathEventHandler,
-    PlayerRespawnEventHandler,
-    WeatherChangeEventHandler,
+    SpawnEventHandler,
+    RainEventHandler,
     PlayerKickEventHandler,
-    SpawnPointResetEventHandler,
+    SpawnResetEventHandler,
     HealthEventHandler,
     EntityHurtEventHandler,
     EntityDeathEventHandler,
@@ -46,10 +46,10 @@ export {
   PlayerJoinEventHandler,
   PlayerLeftEventHandler as PlayerLeaveEventHandler,
   DeathEventHandler,
-  PlayerRespawnEventHandler,
-  WeatherChangeEventHandler,
+  SpawnEventHandler,
+  RainEventHandler as WeatherChangeEventHandler,
   PlayerKickEventHandler,
-  SpawnPointResetEventHandler,
+  SpawnResetEventHandler,
   HealthEventHandler as HealthUpdateEventHandler,
   EntityHurtEventHandler,
   EntityDeathEventHandler,
