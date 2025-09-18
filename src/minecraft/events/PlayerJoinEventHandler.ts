@@ -1,5 +1,7 @@
 import { BaseEventHandler } from './BaseEventHandler.js';
 import { GameEventType } from '../GameEvent.js';
+import { Player } from 'mineflayer';
+import { MinecraftUtils } from '../../utils/MinecraftUtils.js';
 
 /**
  * 玩家加入事件处理器
@@ -7,15 +9,11 @@ import { GameEventType } from '../GameEvent.js';
  */
 export class PlayerJoinEventHandler extends BaseEventHandler {
   register(): void {
-    this.bot.on('playerJoined', (player: any) => {
+    this.bot.on('playerJoined', (player: Player) => {
       if (!this.isEventDisabled(GameEventType.PLAYER_JOIN)) {
         this.addEvent(this.createEvent('playerJoined', {
           data: {
-            uuid: player.uuid,
-            username: player.username,
-            displayName: player.displayName?.toString(),
-            ping: player.ping,
-            gamemode: player.gamemode
+            player: MinecraftUtils.mapPlayer(player)
           }
         }));
       }

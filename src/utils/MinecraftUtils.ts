@@ -1,4 +1,4 @@
-import { Bot } from 'mineflayer';
+import { Bot, Player } from 'mineflayer';
 import { Vec3 } from 'vec3';
 import { Entity } from 'prismarine-entity';
 
@@ -164,6 +164,22 @@ export class MinecraftUtils {
       },
       health: entity.health,
       food: entity.food
+    };
+  }
+
+  /**
+   * 将 mineflayer.Player 对象映射为标准化的玩家数据结构
+   * 用于事件处理器中复用玩家信息映射逻辑
+   * @param player 要映射的玩家对象
+   * @returns 映射后的玩家数据
+   */
+  static mapPlayer(player: Player): any {
+    return {
+      uuid: player.uuid,
+      username: player.username,
+      displayName: player.displayName?.toString(),
+      ping: player.ping,
+      gamemode: player.gamemode
     };
   }
 }

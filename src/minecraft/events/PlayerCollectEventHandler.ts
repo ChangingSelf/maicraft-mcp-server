@@ -29,8 +29,7 @@ export class PlayerCollectEventHandler extends BaseEventHandler {
 
         const mcData = this.bot!.registry;
 
-        // 根据 mineflayer API 文档，collected 参数是掉落的物品实体
-        // 我们需要从 collected.metadata 中提取物品信息
+        // 从 collected.metadata 中提取物品信息
         const collectedItems = collected.metadata.filter((item: any) => item !== null)
           .map((item: any) => {
             return {
@@ -43,11 +42,6 @@ export class PlayerCollectEventHandler extends BaseEventHandler {
           });
 
         const collectorData = MinecraftUtils.mapEntity(collector as any);
-        // 移除不需要的字段
-        delete collectorData.uuid;
-        delete collectorData.count;
-        delete collectorData.health;
-        delete collectorData.food;
 
         this.addEvent(this.createEvent('playerCollect', {
           data: {

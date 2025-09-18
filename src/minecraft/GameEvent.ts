@@ -163,8 +163,8 @@ export type GameEvent =
 export enum GameEventType {
   CHAT = 'chat',
   PLAYER_JOIN = 'playerJoined',
-  PLAYER_LEAVE = 'playerLeft',
-  PLAYER_DEATH = 'death',
+  PLAYER_LEFT = 'playerLeft',
+  DEATH = 'death',
   PLAYER_RESPAWN = 'spawn',
   WEATHER_CHANGE = 'rain',
   PLAYER_KICK = 'kicked',

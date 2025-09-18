@@ -1,5 +1,6 @@
 import { BaseEventHandler } from './BaseEventHandler.js';
 import { GameEventType } from '../GameEvent.js';
+import { MinecraftUtils } from '../../utils/MinecraftUtils.js';
 
 /**
  * 玩家生成事件处理器
@@ -12,13 +13,7 @@ export class PlayerRespawnEventHandler extends BaseEventHandler {
       if (!this.isEventDisabled(GameEventType.PLAYER_RESPAWN)) {
         this.addEvent(this.createEvent('spawn', {
           data: {
-            player: {
-              uuid: this.bot!.player.uuid,
-              username: this.bot!.player.username,
-              displayName: this.bot!.player.displayName?.toString(),
-              ping: this.bot!.player.ping,
-              gamemode: this.bot!.player.gamemode
-            },
+            player: MinecraftUtils.mapPlayer(this.bot!.player),
             position: {
               x: this.bot!.entity.position.x,
               y: this.bot!.entity.position.y,

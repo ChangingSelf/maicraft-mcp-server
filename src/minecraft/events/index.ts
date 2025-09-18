@@ -1,8 +1,8 @@
 import { BaseEventHandler } from './BaseEventHandler.js';
 import { ChatEventHandler } from './ChatEventHandler.js';
 import { PlayerJoinEventHandler } from './PlayerJoinEventHandler.js';
-import { PlayerLeaveEventHandler } from './PlayerLeaveEventHandler.js';
-import { PlayerDeathEventHandler } from './PlayerDeathEventHandler.js';
+import { PlayerLeftEventHandler } from './PlayerLeftEventHandler.js';
+import { DeathEventHandler } from './DeathEventHandler.js';
 import { PlayerRespawnEventHandler } from './PlayerRespawnEventHandler.js';
 import { WeatherChangeEventHandler } from './WeatherChangeEventHandler.js';
 import { PlayerKickEventHandler } from './PlayerKickEventHandler.js';
@@ -27,8 +27,8 @@ export function getAllEventHandlers(): (new (
   return [
     ChatEventHandler,
     PlayerJoinEventHandler,
-    PlayerLeaveEventHandler,
-    PlayerDeathEventHandler,
+    PlayerLeftEventHandler,
+    DeathEventHandler,
     PlayerRespawnEventHandler,
     WeatherChangeEventHandler,
     PlayerKickEventHandler,
@@ -44,8 +44,8 @@ export function getAllEventHandlers(): (new (
 export {
   ChatEventHandler,
   PlayerJoinEventHandler,
-  PlayerLeaveEventHandler,
-  PlayerDeathEventHandler,
+  PlayerLeftEventHandler as PlayerLeaveEventHandler,
+  DeathEventHandler,
   PlayerRespawnEventHandler,
   WeatherChangeEventHandler,
   PlayerKickEventHandler,
