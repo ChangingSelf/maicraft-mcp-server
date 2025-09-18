@@ -169,7 +169,7 @@ export enum GameEventType {
   WEATHER_CHANGE = 'rain',
   PLAYER_KICK = 'kicked',
   SPAWN_POINT_RESET = 'spawnReset',
-  HEALTH_UPDATE = 'health',
+  HEALTH = 'health',
   ENTITY_HURT = 'entityHurt',
   ENTITY_DEATH = 'entityDead',
   PLAYER_COLLECT = 'playerCollect'
