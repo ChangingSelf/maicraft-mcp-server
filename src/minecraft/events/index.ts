@@ -5,12 +5,14 @@ import { PlayerLeftEventHandler } from './PlayerLeftEventHandler.js';
 import { DeathEventHandler } from './DeathEventHandler.js';
 import { SpawnEventHandler } from './SpawnEventHandler.js';
 import { RainEventHandler } from './RainEventHandler.js';
-import { PlayerKickEventHandler } from './PlayerKickEventHandler.js';
+import { KickedEventHandler } from './KickedEventHandler.js';
 import { SpawnResetEventHandler } from './SpawnResetEventHandler.js';
 import { HealthEventHandler } from './HealthEventHandler.js';
+import { BreathEventHandler } from './BreathEventHandler.js';
 import { EntityHurtEventHandler } from './EntityHurtEventHandler.js';
 import { EntityDeathEventHandler } from './EntityDeathEventHandler.js';
 import { PlayerCollectEventHandler } from './PlayerCollectEventHandler.js';
+import { ItemDropEventHandler } from './ItemDropEventHandler.js';
 
 /**
  * 获取所有事件处理器类的构造函数
@@ -31,12 +33,14 @@ export function getAllEventHandlers(): (new (
     DeathEventHandler,
     SpawnEventHandler,
     RainEventHandler,
-    PlayerKickEventHandler,
+    KickedEventHandler,
     SpawnResetEventHandler,
     HealthEventHandler,
+    BreathEventHandler,
     EntityHurtEventHandler,
     EntityDeathEventHandler,
-    PlayerCollectEventHandler
+    PlayerCollectEventHandler,
+    ItemDropEventHandler
   ];
 }
 
@@ -48,10 +52,12 @@ export {
   DeathEventHandler,
   SpawnEventHandler,
   RainEventHandler as WeatherChangeEventHandler,
-  PlayerKickEventHandler,
+  KickedEventHandler as PlayerKickEventHandler,
   SpawnResetEventHandler,
   HealthEventHandler as HealthUpdateEventHandler,
+  BreathEventHandler as BreathUpdateEventHandler,
   EntityHurtEventHandler,
   EntityDeathEventHandler,
-  PlayerCollectEventHandler
+  PlayerCollectEventHandler,
+  ItemDropEventHandler
 };

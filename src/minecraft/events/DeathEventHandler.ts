@@ -11,10 +11,7 @@ export class DeathEventHandler extends BaseEventHandler {
     this.bot.on('death', () => {
       if (!this.isEventDisabled(GameEventType.DEATH)) {
         this.addEvent(this.createEvent('death', {
-          data: {
-            entity: MinecraftUtils.mapEntity(this.bot!.entity),
-          }
-          // 根据 mineflayer API 文档，death 事件不提供死亡消息参数
+          data: {}
         }));
       }
     });

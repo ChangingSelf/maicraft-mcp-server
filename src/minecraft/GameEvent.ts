@@ -119,6 +119,15 @@ export interface HealthUpdateEvent extends BaseGameEvent {
   };
 }
 
+export interface BreathUpdateEvent extends BaseGameEvent {
+  type: 'breath';
+  data: {
+    oxygenLevel: number; // 当前氧气水平
+    health: number; // 当前生命值
+    food: number; // 饱食度
+  };
+}
+
 export interface EntityHurtEvent extends BaseGameEvent {
   type: 'entityHurt';
   data: {
@@ -144,6 +153,13 @@ export interface PlayerCollectEvent extends BaseGameEvent {
   };
 }
 
+export interface ItemDropEvent extends BaseGameEvent {
+  type: 'itemDrop';
+  data: {
+    dropped: ItemInfo[]; // 被扔掉的物品
+  };
+}
+
 // 联合类型，包含所有事件
 export type GameEvent =
   | ChatEvent
@@ -155,9 +171,11 @@ export type GameEvent =
   | PlayerKickEvent
   | SpawnPointResetEvent
   | HealthUpdateEvent
+  | BreathUpdateEvent
   | EntityHurtEvent
   | EntityDeathEvent
-  | PlayerCollectEvent;
+  | PlayerCollectEvent
+  | ItemDropEvent;
 
 // 事件类型枚举 - 与 mineflayer 事件名保持一致
 export enum GameEventType {
@@ -167,12 +185,14 @@ export enum GameEventType {
   DEATH = 'death',
   SPAWN = 'spawn',
   RAIN = 'rain',
-  PLAYER_KICK = 'kicked',
+  KICKED = 'kicked',
   SPAWN_RESET = 'spawnReset',
   HEALTH = 'health',
+  BREATH = 'breath',
   ENTITY_HURT = 'entityHurt',
   ENTITY_DEATH = 'entityDead',
-  PLAYER_COLLECT = 'playerCollect'
+  PLAYER_COLLECT = 'playerCollect',
+  ITEM_DROP = 'itemDrop'
 }
 
 // 事件监听器接口
