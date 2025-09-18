@@ -1,5 +1,7 @@
 import { Bot } from 'mineflayer';
 import { Vec3 } from 'vec3';
+import { Entity } from 'prismarine-entity';
+
 
 /**
  * Minecraft 游戏工具类
@@ -139,5 +141,29 @@ export class MinecraftUtils {
       cleanup();
       throw error;
     }
+  }
+
+  /**
+   * 将 prismarine-entity.Entity 对象映射为标准化的实体数据结构
+   * 用于事件处理器中复用实体信息映射逻辑
+   * @param entity 要映射的实体对象
+   * @returns 映射后的实体数据
+   */
+  static mapEntity(entity: Entity): any {
+    return {
+      id: entity.id,
+      uuid: entity.uuid,
+      type: entity.type,
+      name: entity.name,
+      username: entity.username,
+      count: entity.count,
+      position: {
+        x: Number(entity.position.x.toFixed(2)),
+        y: Number(entity.position.y.toFixed(2)),
+        z: Number(entity.position.z.toFixed(2))
+      },
+      health: entity.health,
+      food: entity.food
+    };
   }
 }

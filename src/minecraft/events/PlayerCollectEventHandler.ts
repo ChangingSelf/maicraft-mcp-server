@@ -1,6 +1,7 @@
 import { BaseEventHandler } from './BaseEventHandler.js';
 import { GameEventType } from '../GameEvent.js';
 import { Logger } from '../../utils/Logger.js';
+import { MinecraftUtils } from '../../utils/MinecraftUtils.js';
 
 /**
  * 玩家收集物品事件处理器
@@ -41,19 +42,16 @@ export class PlayerCollectEventHandler extends BaseEventHandler {
             };
           });
 
+        const collectorData = MinecraftUtils.mapEntity(collector as any);
+        // 移除不需要的字段
+        delete collectorData.uuid;
+        delete collectorData.count;
+        delete collectorData.health;
+        delete collectorData.food;
+
         this.addEvent(this.createEvent('playerCollect', {
           data: {
-            collector: {
-              id: collector.id,
-              type: collector.type,
-              name: collector.name,
-              username: collector.username,
-              position: {
-                x: Number(collector.position.x?.toFixed(2) ?? 0),
-                y: Number(collector.position.y?.toFixed(2) ?? 0),
-                z: Number(collector.position.z?.toFixed(2) ?? 0)
-              },
-            },
+            collector: collectorData,
             collected: collectedItems
           }
         }));
