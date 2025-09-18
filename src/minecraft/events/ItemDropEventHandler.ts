@@ -1,6 +1,7 @@
 import { BaseEventHandler } from './BaseEventHandler.js';
 import { GameEventType } from '../GameEvent.js';
 import { Logger } from '../../utils/Logger.js';
+import { Entity } from 'prismarine-entity';
 
 /**
  * 物品丢弃事件处理器
@@ -21,7 +22,7 @@ export class ItemDropEventHandler extends BaseEventHandler {
   }
 
   register(): void {
-    this.bot.on('itemDrop', (entity: any) => {
+    this.bot.on('itemDrop', (entity: Entity) => {
       if (!this.isEventDisabled(GameEventType.ITEM_DROP)) {
         const mcData = this.bot!.registry;
 
@@ -39,7 +40,12 @@ export class ItemDropEventHandler extends BaseEventHandler {
 
         this.addEvent(this.createEvent('itemDrop', {
           data: {
-            dropped: droppedItems
+            dropped: droppedItems,
+            position: {
+              x: Number(entity.position.x.toFixed(2)),
+              y: Number(entity.position.y.toFixed(2)),
+              z: Number(entity.position.z.toFixed(2))
+            }
           }
         }));
 
