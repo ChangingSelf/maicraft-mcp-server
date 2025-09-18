@@ -12,7 +12,6 @@ export class SpawnResetEventHandler extends BaseEventHandler {
       if (!this.isEventDisabled(GameEventType.SPAWN_RESET)) {
         this.addEvent(this.createEvent('spawnReset', {
           data: {
-            entity: MinecraftUtils.mapEntity(this.bot!.entity),
             newSpawnPoint: {
               x: Number(this.bot!.spawnPoint.x.toFixed(0)),
               y: Number(this.bot!.spawnPoint.y.toFixed(0)),

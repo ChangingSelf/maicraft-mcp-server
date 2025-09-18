@@ -14,7 +14,6 @@ export class SpawnEventHandler extends BaseEventHandler {
         this.addEvent(this.createEvent('spawn', {
           data: {
             player: MinecraftUtils.mapPlayer(this.bot!.player),
-            entity: MinecraftUtils.mapEntity(this.bot!.entity)
           }
         }));
       }

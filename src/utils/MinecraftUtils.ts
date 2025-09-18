@@ -179,7 +179,8 @@ export class MinecraftUtils {
       username: player.username,
       displayName: player.displayName?.toString(),
       ping: player.ping,
-      gamemode: player.gamemode
+      gamemode: player.gamemode,
+      entity: this.mapEntity(player.entity)
     };
   }
 }
