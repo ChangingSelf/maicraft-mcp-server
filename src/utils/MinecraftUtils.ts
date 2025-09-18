@@ -180,7 +180,7 @@ export class MinecraftUtils {
       displayName: player.displayName?.toString(),
       ping: player.ping,
       gamemode: player.gamemode,
-      entity: this.mapEntity(player.entity)
+      entity: player.entity ? this.mapEntity(player.entity) : null
     };
   }
 }
