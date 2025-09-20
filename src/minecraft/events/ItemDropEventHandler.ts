@@ -27,7 +27,7 @@ export class ItemDropEventHandler extends BaseEventHandler {
         const mcData = this.bot!.registry;
 
         // 从 entity.metadata 中提取物品信息
-        const droppedItems = entity.metadata.filter((item: any) => item !== null)
+        const droppedItems = entity.metadata.filter((item: any) => item !== null && item.itemId !== undefined)
           .map((item: any) => {
             return {
               id: item.itemId,

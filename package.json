@@ -1,6 +1,6 @@
 {
   "name": "maicraft",
-  "version": "1.9.2",
+  "version": "1.9.3",
   "description": "基于mineflayer构建的 Minecraft MCP Server，主要用于MaiBot直播Minecraft",
   "type": "module",
   "main": "dist/main.js",

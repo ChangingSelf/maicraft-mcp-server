@@ -73,6 +73,7 @@ export class MinecraftClient extends EventEmitter {
   private reconnectAttempts = 0;
   private isReconnecting = false;
   private shouldReconnect = true;
+  private reconnectPending = false; // 是否有重连计划待执行
 
   constructor(options: MinecraftClientOptions) {
     super();
@@ -139,6 +140,9 @@ export class MinecraftClient extends EventEmitter {
       // 注册bot到事件管理器
       await this.eventManager.registerBot(this.bot, this.options.debugCommands);
 
+      // 设置事件监听器（处理重连逻辑）
+      this.setupEventListeners();
+
       // 等待连接成功
       return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
@@ -149,7 +153,6 @@ export class MinecraftClient extends EventEmitter {
         this.bot!.once('spawn', () => {
           clearTimeout(timeout);
           this.isConnected = true;
-          this.reconnectAttempts = 0;
           this.isReconnecting = false;
           this.stopReconnect(); // 连接成功后终止所有重连
           
@@ -241,11 +244,18 @@ export class MinecraftClient extends EventEmitter {
    * 开始重连
    */
   private startReconnect(): void {
-    // 如果已经连接，或者正在连接，则不再重连
-    if (this.isConnected || this.isReconnecting) {
-      this.logger.info('已连接或正在重连中，跳过本次重连');
+    // 如果已经连接，则不再重连
+    if (this.isConnected) {
+      this.logger.info('已连接，跳过本次重连');
       return;
     }
+
+    // 如果正在重连中，等待当前重连完成
+    if (this.isReconnecting) {
+      this.logger.debug('正在重连中，等待当前重连完成');
+      return;
+    }
+
     if (
       !this.options.enableReconnect ||
       this.reconnectAttempts >= this.options.maxReconnectAttempts ||
@@ -257,8 +267,8 @@ export class MinecraftClient extends EventEmitter {
       return;
     }
 
-    this.isReconnecting = true;
-    this.reconnectAttempts++;
+    // 清除重连计划标志
+    this.reconnectPending = false;
 
     // 固定间隔重连：每次间隔固定时间（符合 MVP 要求）
     const totalDelay = this.options.reconnectInterval;
@@ -266,19 +276,32 @@ export class MinecraftClient extends EventEmitter {
     this.logger.info(`开始第 ${this.reconnectAttempts} 次重连，${totalDelay}ms 后尝试...`);
 
     this.reconnectTimer = setTimeout(async () => {
-      // 再次检查是否已连接
-      if (this.isConnected) {
-        this.logger.info('重连定时器触发时已连接，跳过本次重连');
-        this.isReconnecting = false;
-        return;
-      }
       try {
+        // 在定时器触发时再次检查连接状态
+        if (this.isConnected) {
+          this.logger.info('重连定时器触发时已连接，取消重连');
+          return;
+        }
+
         await this.connect();
-        this.logger.info("重连成功");
+
+        // 只有在真正进入游戏世界后才算重连成功
+        this.bot!.once('spawn', () => {
+          this.logger.info("重连成功，已进入游戏世界");
+        });
+
       } catch (error) {
-        this.isReconnecting = false;
         this.logger.error("重连失败:", error);
-        this.startReconnect(); // 继续尝试重连
+
+        // 增加重连计数器
+        this.reconnectAttempts++;
+
+        // 如果还有重试次数，继续重连
+        if (this.reconnectAttempts < this.options.maxReconnectAttempts) {
+          this.startReconnect();
+        } else {
+          this.logger.error(`达到最大重连次数 ${this.options.maxReconnectAttempts}，停止重连`);
+        }
       }
     }, totalDelay);
   }
@@ -292,6 +315,7 @@ export class MinecraftClient extends EventEmitter {
       this.reconnectTimer = null;
     }
     this.isReconnecting = false;
+    this.reconnectPending = false;
   }
 
   /**
@@ -381,6 +405,11 @@ export class MinecraftClient extends EventEmitter {
   private setupEventListeners(): void {
     if (!this.bot) return;
 
+    // 清理之前的事件监听器
+    this.bot.removeAllListeners('error');
+    this.bot.removeAllListeners('end');
+    this.bot.removeAllListeners('kicked');
+
     // 连接和断开事件
     this.bot.on('error', (error) => {
       this.logger.error('Minecraft 机器人错误:', error);
@@ -391,10 +420,17 @@ export class MinecraftClient extends EventEmitter {
       this.isConnected = false;
       this.logger.info('Minecraft 连接已结束');
       this.emit('end');
-      
-      // 如果启用了重连，开始重连
-      if (this.options.enableReconnect && this.shouldReconnect) {
-        this.startReconnect();
+
+      // 重置重连计数器，为新的重连周期做准备
+      this.reconnectAttempts = 0;
+
+      // 如果启用了重连，开始重连（避免并发）
+      if (this.options.enableReconnect && this.shouldReconnect && !this.reconnectPending && !this.isReconnecting) {
+        this.reconnectPending = true;
+        setTimeout(() => {
+          this.reconnectPending = false;
+          this.startReconnect();
+        }, 1000); // 延迟1秒避免并发
       }
     });
 
@@ -403,11 +439,17 @@ export class MinecraftClient extends EventEmitter {
       const reasonStr = typeof reason === 'string' ? reason : JSON.stringify(reason);
       this.logger.warn(`被服务器踢出: ${reasonStr}`);
       this.emit('kicked', reasonStr);
-      
-      // 如果是重复登录，等待更长时间再重连
-      // 无特殊延迟策略，统一采用固定间隔重连
-      if (this.options.enableReconnect && this.shouldReconnect) {
-        this.startReconnect();
+
+      // 重置重连计数器，为新的重连周期做准备
+      this.reconnectAttempts = 0;
+
+      // 如果启用了重连，开始重连（避免并发）
+      if (this.options.enableReconnect && this.shouldReconnect && !this.reconnectPending && !this.isReconnecting) {
+        this.reconnectPending = true;
+        setTimeout(() => {
+          this.reconnectPending = false;
+          this.startReconnect();
+        }, 1000); // 延迟1秒避免并发
       }
     });
   }

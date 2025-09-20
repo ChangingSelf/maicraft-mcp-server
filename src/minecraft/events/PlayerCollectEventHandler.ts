@@ -25,7 +25,7 @@ export class PlayerCollectEventHandler extends BaseEventHandler {
     this.bot.on('playerCollect', (collector: any, collected: any) => {
       if (!this.isEventDisabled(GameEventType.PLAYER_COLLECT)) {
         // 检查是否是机器人自己收集的物品
-        const isSelfCollect = collector.id === this.bot!.entity.id;
+        const isSelfCollect = this.bot!.entity ? collector.id === this.bot!.entity.id : false;
 
         const mcData = this.bot!.registry;
 

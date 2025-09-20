@@ -54,13 +54,13 @@ export class MinecraftUtils {
     const mcData = bot.registry;
     try {
       const block = bot.blockAt(bot.entity.position);
-      if (block && block.biome) {
+      if (block && block.biome && block.biome.id !== undefined) {
         return mcData.biomes[block.biome.id];
       }
-      return 0;
+      return null;
     } catch (error) {
       console.warn('Error getting biome id:', error);
-      return 0;
+      return null;
     }
   }
 

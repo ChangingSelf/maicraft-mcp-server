@@ -71,7 +71,7 @@ export class QuerySurroundingsAction extends BaseAction<QuerySurroundingsParams>
           // 查询附近实体
           let nearbyEntities = Object.values(bot.entities)
             .filter(entity => {
-              if (!entity.position || entity.id === bot.entity.id) {
+              if (!entity.position || !bot.entity || entity.id === bot.entity.id) {
                 return false;
               }
               const distance = bot.entity.position.distanceTo(entity.position);
