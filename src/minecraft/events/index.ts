@@ -14,6 +14,8 @@ import { EntityDeathEventHandler } from './EntityDeathEventHandler.js';
 import { PlayerCollectEventHandler } from './PlayerCollectEventHandler.js';
 import { ItemDropEventHandler } from './ItemDropEventHandler.js';
 import { ForcedMoveEventHandler } from './ForcedMoveEventHandler.js';
+import { EndEventHandler } from './EndEventHandler.js';
+import { ErrorEventHandler } from './ErrorEventHandler.js';
 
 /**
  * 获取所有事件处理器类的构造函数
@@ -42,7 +44,9 @@ export function getAllEventHandlers(): (new (
     EntityDeathEventHandler,
     PlayerCollectEventHandler,
     ItemDropEventHandler,
-    ForcedMoveEventHandler
+    ForcedMoveEventHandler,
+    EndEventHandler,
+    ErrorEventHandler
   ];
 }
 
@@ -62,5 +66,7 @@ export {
   EntityDeathEventHandler,
   PlayerCollectEventHandler,
   ItemDropEventHandler,
-  ForcedMoveEventHandler
+  ForcedMoveEventHandler,
+  EndEventHandler,
+  ErrorEventHandler
 };
