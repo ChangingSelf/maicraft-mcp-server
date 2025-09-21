@@ -160,6 +160,13 @@ export interface ItemDropEvent extends BaseGameEvent {
   };
 }
 
+export interface ForcedMoveEvent extends BaseGameEvent {
+  type: 'forcedMove';
+  data: {
+    position: Position; // 机器人被强制移动后的新位置
+  };
+}
+
 // 联合类型，包含所有事件
 export type GameEvent =
   | ChatEvent
@@ -175,7 +182,8 @@ export type GameEvent =
   | EntityHurtEvent
   | EntityDeathEvent
   | PlayerCollectEvent
-  | ItemDropEvent;
+  | ItemDropEvent
+  | ForcedMoveEvent;
 
 // 事件类型枚举 - 与 mineflayer 事件名保持一致
 export enum GameEventType {
@@ -192,7 +200,8 @@ export enum GameEventType {
   ENTITY_HURT = 'entityHurt',
   ENTITY_DEATH = 'entityDead',
   PLAYER_COLLECT = 'playerCollect',
-  ITEM_DROP = 'itemDrop'
+  ITEM_DROP = 'itemDrop',
+  FORCED_MOVE = 'forcedMove'
 }
 
 // 事件监听器接口
