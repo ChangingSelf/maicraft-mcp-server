@@ -1,5 +1,9 @@
 # 更新日志
 
+## [1.9.6] - 2025-09-23
+
+- 调大mineflayer的断开连接判定间隔checkTimeoutInterval 
+
 ## [1.9.5] - 2025-09-21
 
 - 添加`end`,`error`事件

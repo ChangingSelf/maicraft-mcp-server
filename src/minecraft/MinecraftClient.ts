@@ -79,7 +79,7 @@ export class MinecraftClient extends EventEmitter {
     super();
     this.options = {
       auth: 'offline',
-      checkTimeoutInterval: 30000,
+      checkTimeoutInterval: 300000,
       logErrors: false,
       hideErrors: false,
       reconnectInterval: 3000,
