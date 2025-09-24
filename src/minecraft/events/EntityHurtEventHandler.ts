@@ -9,12 +9,11 @@ import { Entity } from 'prismarine-entity';
  */
 export class EntityHurtEventHandler extends BaseEventHandler {
   register(): void {
-    this.bot.on('entityHurt', (entity: Entity, source: Entity) => {
+    this.bot.on('entityHurt', (entity: Entity) => {
       if (!this.isEventDisabled(GameEventType.ENTITY_HURT)) {
         this.addEvent(this.createEvent('entityHurt', {
           data: {
             entity: MinecraftUtils.mapEntity(entity),
-            source: MinecraftUtils.mapEntity(source)
           }
         }));
       }
