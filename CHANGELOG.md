@@ -1,5 +1,10 @@
 # 更新日志
 
+## [1.9.7] - 2025-09-24
+
+- 修复因 mineflayer 不完善的 `entityHurt` 事件的source伤害来源参数导致的频繁掉线的bug
+
+
 ## [1.9.6] - 2025-09-23
 
 - 调大mineflayer的断开连接判定间隔checkTimeoutInterval 
