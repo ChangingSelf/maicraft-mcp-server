@@ -67,7 +67,6 @@ export class MinecraftClient extends EventEmitter {
   private logger: Logger;
   private isConnected = false;
   private eventManager: EventManager; // 事件管理器
-  private viewerManager: any = null; // ViewerManager 实例
   // 重连相关属性
   private reconnectTimer: NodeJS.Timeout | null = null;
   private reconnectAttempts = 0;
@@ -383,19 +382,6 @@ export class MinecraftClient extends EventEmitter {
     return this.eventManager.getChatFilterManager();
   }
 
-  /**
-   * 设置 ViewerManager 实例
-   */
-  setViewerManager(viewerManager: any): void {
-    this.viewerManager = viewerManager;
-  }
-
-  /**
-   * 获取 ViewerManager 实例
-   */
-  getViewerManager(): any {
-    return this.viewerManager;
-  }
 
 
 

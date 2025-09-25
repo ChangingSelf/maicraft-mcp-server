@@ -491,13 +491,6 @@ blocksCantBreak:
 
 maxMessageHistory: 100   # 事件历史缓存数量
 
-# 视图管理器配置（用于截图功能）
-viewer:
-  width: 1920              # 截图宽度
-  height: 1080             # 截图高度
-  fov: 70                  # 视野角度
-  renderDistance: 8        # 渲染距离
-```
 
 ### 路径查找配置
 
@@ -540,30 +533,6 @@ blocksCantBreak:
 - `enchanting_table` - 附魔台
 - `brewing_stand` - 酿造台
 
-### 视图管理器配置
-
-Maicraft 支持生成第一人称视角的游戏截图，需要配置视图管理器：
-
-```yaml
-# 视图管理器配置（用于截图功能）
-viewer:
-  width: 1920              # 截图宽度，默认 1920
-  height: 1080             # 截图高度，默认 1080
-  fov: 70                  # 视野角度，默认 70
-  renderDistance: 8        # 渲染距离，默认 8
-```
-
-#### 配置说明
-
-- **width/height**：截图分辨率，影响截图质量和文件大小
-- **fov**：视野角度，影响视角范围（30-120度）
-- **renderDistance**：渲染距离，影响截图中可见的方块范围
-
-#### 使用说明
-
-- 截图功能需要 Canvas 支持，可能需要安装系统依赖
-- 生成的截图为 base64 格式的 PNG 图片
-- 截图会自动同步相机位置，确保第一人称视角
 
 ### MCP 工具配置
 
@@ -904,11 +873,6 @@ export const MyAction = defineAction({
 
 #### 其他动作
 
-- **`screenshot`** **screenshot** **screenshot** - 生成当前时刻的第一人称截图
-
-  - 参数：无参数，通过配置文件控制截图设置
-  - 返回：base64格式的截图数据
-
 
 ### 动作使用示例
 
@@ -1222,11 +1186,6 @@ export const MyAction = defineAction({
   }
 }
 
-// 生成第一人称截图
-{
-  "tool": "screenshot",
-  "arguments": {}
-}
 ```
 
 ## MCP 工具

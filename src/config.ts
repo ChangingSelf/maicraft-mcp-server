@@ -1,5 +1,4 @@
 import type { LoggingConfig } from "./utils/Logger.js";
-import { ViewerOptions } from "./minecraft/ViewerManager.js";
 
 export interface MinecraftConfig {
   host: string;
@@ -10,9 +9,6 @@ export interface MinecraftConfig {
   version?: string;
 }
 
-export interface ScreenshotConfig extends Partial<ViewerOptions> {
-  enabled: boolean;
-}
 
 export interface DebugCommandsConfig {
   enabled: boolean;
@@ -42,8 +38,6 @@ export interface ClientConfig {
   logging?: LoggingConfig;
   // 不能破坏的方块列表配置
   blocksCantBreak?: string[];
-  // 截图功能配置
-  screenshot?: ScreenshotConfig;
   // 调试命令系统配置
   debugCommands?: DebugCommandsConfig;
   // 玩家黑名单和消息黑名单配置
