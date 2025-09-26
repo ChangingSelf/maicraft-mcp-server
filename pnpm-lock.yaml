@@ -29,12 +29,15 @@ importers:
       mineflayer:
         specifier: ^4.32.0
         version: 4.32.0(encoding@0.1.13)
+      mineflayer-armor-manager:
+        specifier: ^2.0.1
+        version: 2.0.1(mineflayer@4.32.0(encoding@0.1.13))
       mineflayer-collectblock-colalab:
         specifier: ^1.0.0
         version: 1.0.1(encoding@0.1.13)
       mineflayer-pathfinder-mai:
         specifier: ^2.4.7
-        version: 2.4.7(prismarine-registry@1.11.0)
+        version: 2.4.7
       mineflayer-pvp:
         specifier: ^1.3.2
         version: 1.3.2(encoding@0.1.13)(prismarine-registry@1.11.0)
@@ -43,7 +46,7 @@ importers:
         version: 1.2.0(encoding@0.1.13)
       prismarine-block:
         specifier: ^1.22.0
-        version: 1.22.0(prismarine-registry@1.11.0)
+        version: 1.22.0
       prismarine-chunk:
         specifier: ^1.39.0
         version: 1.39.0(minecraft-data@3.97.0)
@@ -58,7 +61,7 @@ importers:
         version: 1.3.1(prismarine-registry@1.11.0)
       prismarine-schematic:
         specifier: ^1.2.3
-        version: 1.2.3(prismarine-registry@1.11.0)
+        version: 1.2.3
       tailwindcss:
         specifier: ^4.1.12
         version: 4.1.12
@@ -2329,6 +2332,12 @@ packages:
 
   minecrafthawkeye@1.3.9:
     resolution: {integrity: sha512-YIDHTvljQjsJH4cEcbF02/ehNRUrbzEiL/quQmdEU8ruv69R4bwHqmBB8O9FyhpQgNppmNTs3pK8h4J0/MYGpQ==}
+
+  mineflayer-armor-manager@2.0.1:
+    resolution: {integrity: sha512-csxRcFOrif1pu9TyUVR8xfmzRxwsxLSfcFVQDnCfhhV5U0Cuy5b9GjFWM4036a75XaQ94qkZklXgBDAsgJMGaQ==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      mineflayer: ^4.10.0
 
   mineflayer-collectblock-colalab@1.0.1:
     resolution: {integrity: sha512-9Ds/nSLNxkkN5KrDgExAcp2l/i/aW/d92U5O0WMS7V5iPeJ7Evgc7QWVw5Me71RYSXtc0md5LlqCJmh2m1gCUg==}
@@ -5824,6 +5833,11 @@ snapshots:
       uuid: 9.0.1
       vec3: 0.1.10
 
+  mineflayer-armor-manager@2.0.1(mineflayer@4.32.0(encoding@0.1.13)):
+    dependencies:
+      minecraft-data: 3.97.0
+      mineflayer: 4.32.0(encoding@0.1.13)
+
   mineflayer-collectblock-colalab@1.0.1(encoding@0.1.13):
     dependencies:
       mineflayer: 4.32.0(encoding@0.1.13)
@@ -5833,22 +5847,20 @@ snapshots:
       - encoding
       - supports-color
 
-  mineflayer-pathfinder-mai@2.4.7(prismarine-registry@1.11.0):
+  mineflayer-pathfinder-mai@2.4.7:
     dependencies:
       minecraft-data: 3.97.0
-      prismarine-block: 1.22.0(prismarine-registry@1.11.0)
+      prismarine-block: 1.22.0
       prismarine-entity: 2.5.0
       prismarine-item: 1.17.0
       prismarine-nbt: 2.7.0
       prismarine-physics: 1.10.0
       vec3: 0.1.10
-    transitivePeerDependencies:
-      - prismarine-registry
 
   mineflayer-pathfinder@2.4.5:
     dependencies:
       minecraft-data: 3.97.0
-      prismarine-block: 1.22.0(prismarine-registry@1.11.0)
+      prismarine-block: 1.22.0
       prismarine-entity: 2.5.0
       prismarine-item: 1.17.0
       prismarine-nbt: 2.7.0
@@ -5891,7 +5903,7 @@ snapshots:
       minecraft-data: 2.221.0
       minecraft-protocol: 1.61.0(encoding@0.1.13)
       prismarine-biome: 1.3.0(minecraft-data@2.221.0)(prismarine-registry@1.11.0)
-      prismarine-block: 1.22.0(prismarine-registry@1.11.0)
+      prismarine-block: 1.22.0
       prismarine-chat: 1.11.0
       prismarine-chunk: 1.39.0(minecraft-data@2.221.0)
       prismarine-entity: 1.2.0
@@ -5913,7 +5925,7 @@ snapshots:
       minecraft-data: 3.97.0
       minecraft-protocol: 1.61.0(encoding@0.1.13)
       prismarine-biome: 1.3.0(minecraft-data@3.97.0)(prismarine-registry@1.11.0)
-      prismarine-block: 1.22.0(prismarine-registry@1.11.0)
+      prismarine-block: 1.22.0
       prismarine-chat: 1.11.0
       prismarine-chunk: 1.39.0(minecraft-data@3.97.0)
       prismarine-entity: 2.5.0
@@ -6126,7 +6138,7 @@ snapshots:
       minecraft-data: 3.97.0
       prismarine-registry: 1.11.0
 
-  prismarine-block@1.22.0(prismarine-registry@1.11.0):
+  prismarine-block@1.22.0:
     dependencies:
       minecraft-data: 3.97.0
       prismarine-biome: 1.3.0(minecraft-data@3.97.0)(prismarine-registry@1.11.0)
@@ -6134,8 +6146,6 @@ snapshots:
       prismarine-item: 1.17.0
       prismarine-nbt: 2.7.0
       prismarine-registry: 1.11.0
-    transitivePeerDependencies:
-      - prismarine-registry
 
   prismarine-chat@1.11.0:
     dependencies:
@@ -6146,7 +6156,7 @@ snapshots:
   prismarine-chunk@1.39.0(minecraft-data@2.221.0):
     dependencies:
       prismarine-biome: 1.3.0(minecraft-data@2.221.0)(prismarine-registry@1.11.0)
-      prismarine-block: 1.22.0(prismarine-registry@1.11.0)
+      prismarine-block: 1.22.0
       prismarine-nbt: 2.7.0
       prismarine-registry: 1.11.0
       smart-buffer: 4.2.0
@@ -6159,7 +6169,7 @@ snapshots:
   prismarine-chunk@1.39.0(minecraft-data@3.97.0):
     dependencies:
       prismarine-biome: 1.3.0(minecraft-data@3.97.0)(prismarine-registry@1.11.0)
-      prismarine-block: 1.22.0(prismarine-registry@1.11.0)
+      prismarine-block: 1.22.0
       prismarine-nbt: 2.7.0
       prismarine-registry: 1.11.0
       smart-buffer: 4.2.0
@@ -6210,18 +6220,16 @@ snapshots:
   prismarine-registry@1.11.0:
     dependencies:
       minecraft-data: 3.97.0
-      prismarine-block: 1.22.0(prismarine-registry@1.11.0)
+      prismarine-block: 1.22.0
       prismarine-nbt: 2.7.0
 
-  prismarine-schematic@1.2.3(prismarine-registry@1.11.0):
+  prismarine-schematic@1.2.3:
     dependencies:
       minecraft-data: 3.97.0
-      prismarine-block: 1.22.0(prismarine-registry@1.11.0)
+      prismarine-block: 1.22.0
       prismarine-nbt: 2.7.0
       prismarine-world: 3.6.3
       vec3: 0.1.10
-    transitivePeerDependencies:
-      - prismarine-registry
 
   prismarine-windows@1.6.0:
     dependencies:

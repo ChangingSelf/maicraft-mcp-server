@@ -7,6 +7,8 @@ import { plugin as pvpPlugin } from 'mineflayer-pvp';
 import { pathfinder as pathfinderPlugin, Movements } from 'mineflayer-pathfinder-mai';
 import { plugin as toolPlugin } from 'mineflayer-tool';
 import { plugin as collectblockPlugin } from 'mineflayer-collectblock-colalab';
+import armorManager from "mineflayer-armor-manager";
+import minecraftHawkEye from 'minecrafthawkeye';
 import type { DebugCommandsConfig, ChatFiltersConfig } from '../config.js';
 
 export interface MinecraftClientOptions {
@@ -135,7 +137,8 @@ export class MinecraftClient extends EventEmitter {
       this.bot.loadPlugin(pathfinderPlugin);
       this.bot.loadPlugin(toolPlugin);
       this.bot.loadPlugin(collectblockPlugin);
-
+      this.bot.loadPlugin(armorManager);
+      this.bot.loadPlugin(minecraftHawkEye);
       // 注册bot到事件管理器
       await this.eventManager.registerBot(this.bot, this.options.debugCommands);
 
@@ -187,6 +190,7 @@ export class MinecraftClient extends EventEmitter {
           this.bot!.pathfinder.setMovements(defaultMove);
           this.bot!.collectBlock.movements = defaultMove;
 
+          this.bot!.armorManager.equipAll(); // 装备所有护甲
 
           resolve();
         });
