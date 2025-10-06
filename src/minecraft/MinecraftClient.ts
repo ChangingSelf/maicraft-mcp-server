@@ -8,7 +8,6 @@ import { pathfinder as pathfinderPlugin, Movements } from 'mineflayer-pathfinder
 import { plugin as toolPlugin } from 'mineflayer-tool';
 import { plugin as collectblockPlugin } from 'mineflayer-collectblock-colalab';
 import armorManager from "mineflayer-armor-manager";
-import minecraftHawkEye from 'minecrafthawkeye';
 import type { DebugCommandsConfig, ChatFiltersConfig } from '../config.js';
 
 export interface MinecraftClientOptions {
@@ -133,12 +132,21 @@ export class MinecraftClient extends EventEmitter {
       (this.bot as any).client = this;
 
       // 加载插件
+
+      // 加载hawkEye插件（不知道为什么非得动态导入才没问题）
+      const hawkEyeModule = await import('minecrafthawkeye');
+      this.logger.debug(`hawkEye模块导入成功: ${Object.keys(hawkEyeModule)}`);
+      const minecraftHawkEye = hawkEyeModule.default;
+
+
       this.bot.loadPlugin(pvpPlugin);
       this.bot.loadPlugin(pathfinderPlugin);
       this.bot.loadPlugin(toolPlugin);
       this.bot.loadPlugin(collectblockPlugin);
       this.bot.loadPlugin(armorManager);
+      
       this.bot.loadPlugin(minecraftHawkEye);
+
       // 注册bot到事件管理器
       await this.eventManager.registerBot(this.bot, this.options.debugCommands);
 
