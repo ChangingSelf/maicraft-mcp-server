@@ -1,5 +1,6 @@
 import { createBot, Bot } from 'mineflayer';
 import { EventEmitter } from 'events';
+import { createRequire } from 'module';
 import { Logger, LoggingConfig } from '../utils/Logger.js';
 import { GameEvent, GameEventType, PlayerInfo, Position } from './GameEvent.js';
 import { EventManager } from './EventManager.js';
@@ -133,24 +134,49 @@ export class MinecraftClient extends EventEmitter {
 
       // 加载插件
 
-      // 加载hawkEye插件（不知道为什么非得动态导入才没问题）
-      const hawkEyeModule = await import('minecrafthawkeye');
-      this.logger.debug(`hawkEye模块导入成功: ${Object.keys(hawkEyeModule)}`);
-      const minecraftHawkEye = hawkEyeModule.default;
+      // 加载hawkEye插件（使用createRequire解决npm包中的模块导入问题）
+      let minecraftHawkEye;
+      try {
+        const require = createRequire(import.meta.url);
+        this.logger.debug('使用createRequire加载hawkEye插件');
+        const hawkEyeModule = require('minecrafthawkeye');
+        minecraftHawkEye = hawkEyeModule.default;
+        this.logger.info('hawkEye插件加载成功');
+      } catch (error) {
+        this.logger.warn(`hawkEye插件加载失败: ${error instanceof Error ? error.message : String(error)}`);
+        try {
+          this.logger.debug('尝试使用动态导入作为fallback');
+          const hawkEyeModule = await import('minecrafthawkeye');
+          minecraftHawkEye = hawkEyeModule.default;
+          this.logger.info('hawkEye插件动态导入成功');
+        } catch (dynamicError) {
+          this.logger.error(`hawkEye插件动态导入也失败: ${dynamicError instanceof Error ? dynamicError.message : String(dynamicError)}`);
+          this.logger.warn('跳过hawkEye插件加载，继续初始化');
+          minecraftHawkEye = null;
+        }
+      }
 
 
+      this.logger.debug('开始加载mineflayer插件');
       this.bot.loadPlugin(pvpPlugin);
       this.bot.loadPlugin(pathfinderPlugin);
       this.bot.loadPlugin(toolPlugin);
       this.bot.loadPlugin(collectblockPlugin);
       this.bot.loadPlugin(armorManager);
       
-      this.bot.loadPlugin(minecraftHawkEye);
+      if (minecraftHawkEye && typeof minecraftHawkEye === 'function') {
+        this.bot.loadPlugin(minecraftHawkEye);
+        this.logger.info('所有插件加载完成（包括hawkEye）');
+      } else {
+        this.logger.info('基础插件加载完成（hawkEye跳过）');
+      }
 
-      // 注册bot到事件管理器
+      // 提前注册bot到事件管理器（在spawn事件之前）
+      this.logger.debug('注册事件管理器');
       await this.eventManager.registerBot(this.bot, this.options.debugCommands);
+      this.logger.info('事件系统初始化完成');
 
-      // 设置事件监听器（处理重连逻辑）
+      // 提前设置事件监听器（处理重连逻辑）
       this.setupEventListeners();
 
       // 等待连接成功

@@ -29,9 +29,6 @@ export class QueryRecentEventsAction extends BaseAction<QueryRecentEventsParams>
       this.logger.debug('查询最近事件信息');
       
       // 获取事件管理器
-      // 注意：这里需要从bot对象中获取MinecraftClient实例
-      // 由于mineflayer的Bot对象没有直接暴露MinecraftClient，我们需要通过其他方式获取
-      // 这里我们假设bot对象有一个client属性指向MinecraftClient实例
       const client = (bot as any).client as MinecraftClient;
       
       if (!client || !client.getEventManager) {

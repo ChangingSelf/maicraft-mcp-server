@@ -267,12 +267,13 @@ export class EventManager {
    * 注册mineflayer bot并设置事件监听器
    */
   async registerBot(bot: Bot, debugCommandsConfig?: DebugCommandsConfig): Promise<void> {
+    this.logger.debug('注册bot到事件管理器');
     this.bot = bot;
 
     // 如果配置了调试命令，创建调试命令处理器
     if (debugCommandsConfig && debugCommandsConfig.enabled) {
       this.debugCommandHandler = new DebugCommandHandler(bot, debugCommandsConfig);
-      this.logger.info('调试命令系统已启用');
+      this.logger.debug('调试命令系统已启用');
 
       // 自动发现并注册命令
       try {
@@ -284,7 +285,8 @@ export class EventManager {
 
     this.initializeEventHandlers();
     this.setupEventListeners();
-    this.logger.info('已注册mineflayer bot并设置事件监听器');
+    
+    this.logger.debug(`已注册${this.eventHandlers.length}个事件处理器`);
   }
 
   /**

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { MovementUtils, GoalType } from '../utils/MovementUtils.js';
 import { WeaponUtils } from '../utils/WeaponUtils.js';
 import pathfinder from 'mineflayer-pathfinder-mai';
+import 'minecrafthawkeye'; // 导入类型定义
 
 interface KillMobParams extends BaseActionParams {
   /** 生物名称，例如 "cow" */
